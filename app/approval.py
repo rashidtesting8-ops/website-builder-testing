@@ -377,8 +377,13 @@ def approve_release(
 
     used_assets = extract_used_assets(candidate_html.read_text(encoding="utf-8"))
     audit_file = project_root / "research" / "rights-audit.jsonl"
+    if used_assets and not audit_file.is_file():
+        raise ReleaseApprovalGateError(
+            f"Release blocked: missing rights audit log (research/rights-audit.jsonl). "
+            f"Audit check is mandatory for every used asset ({used_assets})."
+        )
     audit_violations = check_used_assets_audit_signatures(project_root, used_assets)
-    if audit_file.is_file() and audit_violations:
+    if audit_violations:
         raise ReleaseApprovalGateError(
             f"Release blocked: used asset has no matching audit entry for its CURRENT sha256: "
             f"{audit_violations}"

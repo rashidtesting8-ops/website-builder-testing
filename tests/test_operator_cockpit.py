@@ -27,6 +27,7 @@ from app.approval import stage_release_candidate
 from app.cockpit import create_cockpit_app
 from app.db import ProjectRecord, connect_db, init_db, upsert_project
 from app.qa_engine import BREAKPOINTS, QADefectReport, ViewportQAResult
+from app.rights import confirm_asset_rights
 from PIL import Image
 
 
@@ -100,6 +101,16 @@ def _scaffold_cockpit_project(
     (project_root / "research/asset-manifest.json").write_text(
         json.dumps(asset_manifest, indent=2), encoding="utf-8"
     )
+    if rights_confirmed:
+        confirm_asset_rights(
+            project_root,
+            all_assets=True,
+            basis="client_provided",
+            operator="Test Rights Reviewer",
+            evidence="Synthetic asset used by the Cockpit test fixture.",
+            projects_dir=projects_dir,
+            db_path=db_path,
+        )
 
     # 3. Facts
     facts_payload = {
@@ -313,6 +324,11 @@ def test_cockpit_confirm_asset_rights_and_approve_release_gate(tmp_path: Path) -
     project_root = _scaffold_cockpit_project(projects_dir, "gate-demo", rights_confirmed=False)
 
     with _ephemeral_cockpit_server(projects_dir) as base_url:
+        review_page = requests.get(f"{base_url}/review/gate-demo", timeout=3.0)
+        assert review_page.status_code == 200
+        assert "Select rights basis" in review_page.text
+        assert "Evidence for rights confirmation" in review_page.text
+
         # 1. Approval fails when rights are unconfirmed
         fail_appr = requests.post(
             f"{base_url}/api/projects/gate-demo/approve",
@@ -325,7 +341,12 @@ def test_cockpit_confirm_asset_rights_and_approve_release_gate(tmp_path: Path) -
         # 2. Confirm asset rights via Cockpit API
         confirm_resp = requests.post(
             f"{base_url}/api/projects/gate-demo/confirm-rights",
-            json={"asset_file": "assets/optimized/dog.png", "confirmed": True},
+            json={
+                "asset_file": "assets/optimized/dog.png",
+                "basis": "client_provided",
+                "operator": "Test Rights Reviewer",
+                "evidence": "Synthetic asset used by the Cockpit confirmation test.",
+            },
             timeout=3.0,
         )
         assert confirm_resp.status_code == 200
@@ -432,4 +453,3 @@ def test_cockpit_ghl_export_and_live_funnel_simulator(tmp_path: Path) -> None:
         assert "ghl-ev-engine-root-ghl-demo" in sim_resp.text
         assert "GoHighLevel Funnel Host Simulator" in sim_resp.text
         assert f"{base_url}/assets/ghl-demo/assets/optimized/dog.png" in sim_resp.text
-

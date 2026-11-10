@@ -11,6 +11,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
+import pytest
 from app.db import connect_db, get_project
 from app.generator import generate_website
 from app.pipeline import main as pipeline_cli_main
@@ -292,6 +293,49 @@ def test_pipeline_e2e_creates_website_ghl_delivery_and_completes_all_db_jobs(
             assert str(row["status"]) == "completed", (
                 f"Module {row['module_name']} had status {row['status']}: {row['error_message']}"
             )
+    finally:
+        conn.close()
+
+
+def test_pipeline_blocks_approval_and_records_failed_qa_when_browser_qa_raises(
+    tmp_path: Path,
+) -> None:
+    """A browser QA failure must block approval and leave a failed QA stage, not a stale run."""
+    projects_dir = tmp_path / "projects"
+    db_path = tmp_path / "editvista.sqlite3"
+    test_id = "bark-and-bliss-qa-failure"
+
+    def _failed_qa(_project_folder: str | Path, **_kwargs: Any) -> QADefectReport:
+        raise RuntimeError("Playwright browser launch failed")
+
+    with _ephemeral_grooming_salon_server() as target_url:
+        with pytest.raises(RuntimeError, match="Playwright browser launch failed"):
+            run_pipeline(
+                url=target_url,
+                business_name="Bark & Bliss Pet Grooming Salon",
+                business_id=test_id,
+                projects_dir=projects_dir,
+                db_path=db_path,
+                allow_private=True,
+                pause_for_approval=True,
+                qa_runner=_failed_qa,
+            )
+
+    project_root = projects_dir / test_id
+    assert not (project_root / "delivery").exists()
+    conn = connect_db(db_path)
+    try:
+        project = get_project(conn, test_id)
+        assert project is not None
+        assert project.status == "failed"
+        qa_run = conn.execute(
+            "SELECT status, error_message FROM job_runs "
+            "WHERE project_id = ? AND module_name = 'qa'",
+            (test_id,),
+        ).fetchone()
+        assert qa_run is not None
+        assert qa_run["status"] == "failed"
+        assert "Playwright browser launch failed" in qa_run["error_message"]
     finally:
         conn.close()
 

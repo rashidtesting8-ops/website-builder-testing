@@ -7,7 +7,7 @@ Frozen GHL Export & Release Archive -> Safe Cleanup.
 
 CLI Interface:
 1. Build / Resume:
-   `python -m app.pipeline --url <URL> --name <NAME> [--resume] [--auto-approve-test]`
+   `python -m app.pipeline --url <URL> --name <NAME> [--resume]`
 2. Approve & Freeze Release:
    `python -m app.pipeline approve --project-id <ID> --operator "Dev" --notes "Verified"`
 3. Approval-Gated Cleanup:
@@ -42,6 +42,7 @@ from app.approval import (
     verify_release,
 )
 from app.art_director import generate_art_direction
+from app.claims_lint import run_claims_lint
 from app.cleanup import safe_prune_project
 from app.collector import collect, slugify
 from app.curator import curate_project_images
@@ -249,7 +250,6 @@ def run_pipeline(
     allow_private: bool = False,
     resume: bool = False,
     pause_for_approval: bool = False,
-    auto_approve_test: bool = False,
     qa_runner: QARunnerFn | None = None,
     llm_adapter: Any = None,
     new_draft: bool = False,
@@ -308,13 +308,16 @@ def run_pipeline(
         # Step 2: Collect website pages & media candidates (stage: collect)
         url_hash = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
         collect_idemp = build_stage_idempotency_key(project_id, "collect", url_hash)
-        if resume and _is_stage_completed_and_valid(
-            conn,
-            project_id=project_id,
-            stage_name="collect",
-            idempotency_key=collect_idemp,
-            project_root=project_root,
-            required_output_rel_paths=["research/pages.json"],
+        if resume and (
+            _is_stage_completed_and_valid(
+                conn,
+                project_id=project_id,
+                stage_name="collect",
+                idempotency_key=collect_idemp,
+                project_root=project_root,
+                required_output_rel_paths=["research/pages.json"],
+            )
+            or (project_root / "research" / "pages.json").is_file()
         ):
             skipped_stages.append("collect")
             provenance_records = list_assets_for_project(conn, project_id)
@@ -330,15 +333,12 @@ def run_pipeline(
                 staging_collect_dir = projects_root / f".collect_staging_{project_id}"
                 if staging_collect_dir.exists():
                     shutil.rmtree(staging_collect_dir)
-                effective_allow_private = allow_private or bool(
-                    qa_runner is not None and ("127.0.0.1" in url or "localhost" in url)
-                )
                 collect_summary = collect(
                     url,
                     staging_collect_dir,
                     max_pages=10,
                     max_media=40,
-                    allow_private=effective_allow_private,
+                    allow_private=allow_private,
                 )
                 crawled_folder = Path(str(collect_summary["project_folder"]))
                 project_root.mkdir(parents=True, exist_ok=True)
@@ -433,6 +433,76 @@ def run_pipeline(
                 module_name="extract",
                 idempotency_key=extract_idemp,
                 status="completed",
+            )
+
+        # Zero-pages check: if 0 pages were crawled, stage failed immediately before model spend
+        pages_file = project_root / "research" / "pages.json"
+        pages_count = 0
+        if pages_file.is_file():
+            try:
+                pages_data = json.loads(pages_file.read_text(encoding="utf-8"))
+                if isinstance(pages_data, list):
+                    pages_count = len(pages_data)
+            except Exception:
+                pass
+        if pages_count == 0:
+            run_sum_file = project_root / "research" / "run-summary.json"
+            if run_sum_file.is_file():
+                try:
+                    sum_data = json.loads(run_sum_file.read_text(encoding="utf-8"))
+                    pages_count = int(sum_data.get("pages_crawled", 0))
+                except Exception:
+                    pass
+
+        if pages_count == 0:
+            _record_job_transition(
+                conn,
+                project_id=project_id,
+                module_name="collect",
+                idempotency_key=collect_idemp,
+                status="failed",
+                error_message="Collection crawled 0 pages",
+            )
+            upsert_project(
+                conn,
+                ProjectRecord(
+                    project_id=project_id,
+                    business_name=business_name,
+                    primary_url=url,
+                    status="failed",
+                ),
+            )
+            raise RuntimeError(
+                f"Collection crawled 0 pages for '{url}'. "
+                "Cannot build website without source pages."
+            )
+
+        # Enforce Minimum Viable Facts (MVF) gate BEFORE curate/art_director/generate
+        # to prevent model spend on projects with insufficient verified facts.
+        mvf_report = enforce_mvf_gate(project_root, acknowledge_gaps=acknowledge_gaps)
+        if not mvf_report.passed and not acknowledge_gaps:
+            upsert_project(
+                conn,
+                ProjectRecord(
+                    project_id=project_id,
+                    business_name=business_name,
+                    primary_url=url,
+                    status="needs_review",
+                ),
+            )
+            return PipelineRunResult(
+                project_id=project_id,
+                business_name=business_name,
+                primary_url=url,
+                project_folder=project_root,
+                status="needs_review",
+                qa_passed=False,
+                skipped_stages=skipped_stages,
+                warnings=warnings,
+                errors=[
+                    f"MVF gate not met: missing {', '.join(mvf_report.missing_items)}. "
+                    f"{mvf_report.exact_human_action_needed}"
+                ],
             )
 
         # Step 4: Curate images (stage: curate)
@@ -542,6 +612,66 @@ def run_pipeline(
                 status="completed",
             )
 
+        # Stage: claims_lint (lint HTML claims against verified facts and UI allowlist)
+        lint_hash = compute_input_manifest_hash(
+            project_root,
+            [
+                "website/index.html",
+                "research/business-facts.json",
+            ],
+        )
+        lint_idemp = build_stage_idempotency_key(project_id, "claims_lint", lint_hash)
+        _record_job_transition(
+            conn,
+            project_id=project_id,
+            module_name="claims_lint",
+            idempotency_key=lint_idemp,
+            status="running",
+        )
+        stage_release_candidate(project_root)
+        claims_lint_report = run_claims_lint(project_root)
+        if not claims_lint_report.passed:
+            _record_job_transition(
+                conn,
+                project_id=project_id,
+                module_name="claims_lint",
+                idempotency_key=lint_idemp,
+                status="failed",
+                error_message=(
+                    f"Claims lint failed: {len(claims_lint_report.violations)} violation(s)"
+                ),
+            )
+            upsert_project(
+                conn,
+                ProjectRecord(
+                    project_id=project_id,
+                    business_name=business_name,
+                    primary_url=url,
+                    status="needs_review",
+                ),
+            )
+            return PipelineRunResult(
+                project_id=project_id,
+                business_name=business_name,
+                primary_url=url,
+                project_folder=project_root,
+                status="needs_review",
+                qa_passed=False,
+                skipped_stages=skipped_stages,
+                warnings=warnings,
+                errors=[
+                    f"Claims lint failed: {len(claims_lint_report.violations)} violation(s) found. "
+                    "Unbacked claims detected in generated website."
+                ],
+            )
+        _record_job_transition(
+            conn,
+            project_id=project_id,
+            module_name="claims_lint",
+            idempotency_key=lint_idemp,
+            status="completed",
+        )
+
         # Step 7: Execute 5-viewport Playwright QA + Visual Critic + Targeted Revision Loop
         qa_hash = compute_input_manifest_hash(
             project_root,
@@ -551,6 +681,20 @@ def run_pipeline(
         critique_idemp = build_stage_idempotency_key(project_id, "critique", qa_hash)
         revise_idemp = build_stage_idempotency_key(project_id, "revise", qa_hash)
 
+        def run_qa() -> QADefectReport:
+            try:
+                return active_qa_runner(project_root)
+            except Exception as exc:
+                _record_job_transition(
+                    conn,
+                    project_id=project_id,
+                    module_name="qa",
+                    idempotency_key=qa_idemp,
+                    status="failed",
+                    error_message=f"QA execution failed: {exc}",
+                )
+                raise
+
         _record_job_transition(
             conn,
             project_id=project_id,
@@ -559,7 +703,7 @@ def run_pipeline(
             status="running",
         )
         stage_release_candidate(project_root)
-        qa_report = active_qa_runner(project_root)
+        qa_report = run_qa()
 
         # Bounded Critique -> Revise -> QA loop (max 3 cycles)
         for _cycle in range(MAX_REVISION_ITERATIONS):
@@ -605,7 +749,7 @@ def run_pipeline(
                 status="completed",
             )
             stage_release_candidate(project_root)
-            qa_report = active_qa_runner(project_root)
+            qa_report = run_qa()
 
         if not qa_report.passed:
             _record_job_transition(
@@ -701,23 +845,6 @@ def run_pipeline(
             idempotency_key=export_idemp,
             status="completed",
         )
-
-        if auto_approve_test:
-            from app.rights import confirm_asset_rights
-
-            manifest_path = project_root / "research" / "asset-manifest.json"
-            if manifest_path.is_file():
-                try:
-                    confirm_asset_rights(
-                        project_root,
-                        all_assets=True,
-                        basis="licensed",
-                        operator="AutoApproveTestRunner",
-                        evidence="Automated test suite execution (auto_approve_test=True)",
-                        db_path=resolved_db_path,
-                    )
-                except Exception as exc:
-                    warnings.append(f"auto_approve_test_rights_warning: {exc}")
 
         upsert_project(
             conn,
@@ -937,11 +1064,6 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Do not pause for approval",
     )
     parser.add_argument(
-        "--auto-approve-test",
-        action="store_true",
-        help="Automatically approve and export deliverables for non-interactive E2E test runs",
-    )
-    parser.add_argument(
         "--new-draft",
         action="store_true",
         help="Allow building a new draft on an approved project without modifying releases",
@@ -981,14 +1103,6 @@ def main(
     parser = build_arg_parser()
     args = parser.parse_args(args_list)
 
-    # If the caller invoked legacy E2E CLI flags without explicitly passing
-    # --pause-for-approval, allow auto-approval when qa_runner or --auto-approve-test is set
-    auto_approve = bool(args.auto_approve_test) or (
-        qa_runner is not None
-        and args_list is not None
-        and "--pause-for-approval" not in args_list
-    )
-
     result = run_pipeline(
         url=args.url,
         business_name=args.name,
@@ -998,7 +1112,6 @@ def main(
         allow_private=bool(args.allow_private),
         resume=bool(args.resume),
         pause_for_approval=bool(args.pause_for_approval),
-        auto_approve_test=auto_approve,
         qa_runner=qa_runner,
         new_draft=bool(args.new_draft),
         acknowledge_gaps=bool(args.acknowledge_gaps),

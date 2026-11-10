@@ -96,53 +96,9 @@ def _infer_business_name(url: str, explicit_name: str | None) -> str:
 
 
 def _container_safe_qa_runner(project_folder: str | Path, **kwargs: Any) -> Any:
-    """Run Playwright 5-viewport QA when available, or static verification in slim containers."""
+    """Run Playwright QA and propagate failures so unavailable browsers cannot pass release."""
     import app.pipeline as pipe_mod
-    from app.approval import stage_release_candidate
-    from app.qa_engine import BREAKPOINTS, QADefectReport, ViewportQAResult
-
-    try:
-        return pipe_mod.run_qa_engine(project_folder, **kwargs)
-    except Exception:
-        import hashlib
-
-        from PIL import Image
-
-        root = Path(project_folder).resolve()
-        standalone_path, _ = stage_release_candidate(root)
-        sha = hashlib.sha256(standalone_path.read_bytes()).hexdigest()
-        shots_dir = root / "qa" / "screenshots"
-        shots_dir.mkdir(parents=True, exist_ok=True)
-        viewports: list[ViewportQAResult] = []
-        for label, width in BREAKPOINTS:
-            shot_file = shots_dir / f"{width}px.png"
-            if not shot_file.is_file():
-                Image.new("RGB", (width, 900), color=(250, 248, 245)).save(shot_file)
-            viewports.append(
-                ViewportQAResult(
-                    label=label,
-                    width=width,
-                    screenshot_path=f"qa/screenshots/{width}px.png",
-                    horizontal_overflow=False,
-                    scroll_width=width,
-                    inner_width=width,
-                    broken_assets=[],
-                    console_errors=[],
-                    contrast_failures=[],
-                    passed=True,
-                )
-            )
-        report = QADefectReport(
-            project_id=root.name,
-            target_url="http://127.0.0.1/release-candidate/standalone.html",
-            passed=True,
-            candidate_sha256=sha,
-            viewports=viewports,
-        )
-        (root / "qa" / "qa-report.json").write_text(
-            report.model_dump_json(indent=2), encoding="utf-8"
-        )
-        return report
+    return pipe_mod.run_qa_engine(project_folder, **kwargs)
 
 
 def _run_full_pipeline_sync(
@@ -163,7 +119,6 @@ def _run_full_pipeline_sync(
         projects_dir=DATA_DIR,
         resume=resume,
         pause_for_approval=True,
-        auto_approve_test=False,
         qa_runner=_container_safe_qa_runner,
     )
     return {

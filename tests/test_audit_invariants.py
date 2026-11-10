@@ -45,6 +45,7 @@ from app.generator import generate_website, revise_section
 from app.pipeline import run_pipeline
 from app.qa_engine import QADefectReport, ViewportQAResult
 from app.reviser import apply_targeted_revisions
+from app.rights import confirm_asset_rights
 from PIL import Image
 
 from engine.llm.adapter import BudgetConfig, LLMAdapter, LLMResponse
@@ -147,6 +148,14 @@ def test_p1_1_pipeline_rerun_preserves_approved_delivery_and_versions(
         resume=False,
         qa_runner=_mock_qa_runner,
     )
+    confirm_asset_rights(
+        res1.project_folder,
+        all_assets=True,
+        basis="client_provided",
+        operator="Test Rights Reviewer",
+        evidence="Synthetic asset used by the pipeline invariant test.",
+        projects_dir=tmp_path,
+    )
     approve_release(res1.project_folder, version="v1", projects_dir=tmp_path)
     v1_html_path = res1.project_folder / "versions" / "v1" / "approved-homepage.html"
     assert v1_html_path.is_file()
@@ -159,7 +168,6 @@ def test_p1_1_pipeline_rerun_preserves_approved_delivery_and_versions(
         business_id="paw-spa",
         projects_dir=tmp_path,
         resume=False,
-        auto_approve_test=False,
         pause_for_approval=True,
         qa_runner=_mock_qa_runner,
         new_draft=True,
@@ -221,6 +229,28 @@ def test_p1_2_verify_release_detects_tampered_asset_bytes(tmp_path: Path) -> Non
             }
         ),
         encoding="utf-8",
+    )
+    conn = connect_db(tmp_path / "editvista.sqlite3")
+    try:
+        init_db(conn)
+        upsert_project(
+            conn,
+            ProjectRecord(
+                project_id="salon-verify",
+                business_name="Salon Verify",
+                primary_url="https://salon.example.com",
+                status="awaiting_approval",
+            ),
+        )
+    finally:
+        conn.close()
+    confirm_asset_rights(
+        proj,
+        all_assets=True,
+        basis="client_provided",
+        operator="Test Rights Reviewer",
+        evidence="Synthetic asset used by the release verification test.",
+        projects_dir=tmp_path,
     )
 
     generate_art_direction(proj)
@@ -503,6 +533,7 @@ def test_p2_ci_ghl_root_scope_and_browser_security_guards(tmp_path: Path) -> Non
 
     # P2-8: CI workflow installs browser extra
     ci_text = (repo_root / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    assert "runs-on: ubuntu-24.04" in ci_text
     assert "--extra browser" in ci_text
     assert "playwright install" in ci_text
 

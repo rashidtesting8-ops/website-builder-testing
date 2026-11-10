@@ -11,7 +11,6 @@ Ensures that re-running `run_pipeline` without `--resume` on an approved project
 from __future__ import annotations
 
 import hashlib
-import json
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +19,7 @@ from app.approval import approve_release, verify_release
 from app.db import connect_db, get_project
 from app.pipeline import ProjectLockedError, main, run_pipeline
 from app.qa_engine import BREAKPOINTS, QADefectReport, ViewportQAResult
+from app.rights import confirm_asset_rights
 from PIL import Image
 from tests.test_pipeline_e2e import _ephemeral_grooming_salon_server
 
@@ -101,7 +101,6 @@ def test_approved_project_rerun_refuses_with_project_locked_error(tmp_path: Path
             db_path=db_path,
             allow_private=True,
             pause_for_approval=True,
-            auto_approve_test=False,
             qa_runner=_mock_qa_runner,
         )
         assert res1.status == "awaiting_approval"
@@ -109,11 +108,15 @@ def test_approved_project_rerun_refuses_with_project_locked_error(tmp_path: Path
         project_root = projects_dir / biz_id
 
         # 2. Confirm asset rights
-        manifest_file = project_root / "research" / "asset-manifest.json"
-        rows = json.loads(manifest_file.read_text(encoding="utf-8"))
-        for r in rows:
-            r["rights_confirmed_for_preview"] = True
-        manifest_file.write_text(json.dumps(rows, indent=2), encoding="utf-8")
+        confirm_asset_rights(
+            project_root,
+            all_assets=True,
+            basis="client_provided",
+            operator="Test Rights Reviewer",
+            evidence="Synthetic asset used by the rerun safety test.",
+            projects_dir=projects_dir,
+            db_path=db_path,
+        )
 
         # 3. Approve and freeze release
         release_tree_sha = approve_release(
@@ -161,7 +164,6 @@ def test_approved_project_rerun_refuses_with_project_locked_error(tmp_path: Path
                 db_path=db_path,
                 allow_private=True,
                 pause_for_approval=True,
-                auto_approve_test=False,
                 qa_runner=_mock_qa_runner,
                 new_draft=False,
             )
@@ -195,7 +197,6 @@ def test_approved_project_rerun_refuses_with_project_locked_error(tmp_path: Path
             db_path=db_path,
             allow_private=True,
             pause_for_approval=True,
-            auto_approve_test=False,
             qa_runner=_mock_qa_runner,
             new_draft=True,
         )
@@ -232,7 +233,6 @@ def test_cli_new_draft_flag_and_locked_error(tmp_path: Path) -> None:
                 "--db-path",
                 str(db_path),
                 "--allow-private",
-                "--auto-approve-test",
             ],
             qa_runner=_mock_qa_runner,
         )
@@ -241,11 +241,15 @@ def test_cli_new_draft_flag_and_locked_error(tmp_path: Path) -> None:
         project_root = projects_dir / biz_id
 
         # Confirm rights & approve
-        manifest_file = project_root / "research" / "asset-manifest.json"
-        rows = json.loads(manifest_file.read_text(encoding="utf-8"))
-        for r in rows:
-            r["rights_confirmed_for_preview"] = True
-        manifest_file.write_text(json.dumps(rows, indent=2), encoding="utf-8")
+        confirm_asset_rights(
+            project_root,
+            all_assets=True,
+            basis="client_provided",
+            operator="Test Rights Reviewer",
+            evidence="Synthetic asset used by the CLI rerun test.",
+            projects_dir=projects_dir,
+            db_path=db_path,
+        )
 
         approve_release(
             project_root,

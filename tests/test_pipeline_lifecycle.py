@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import io
-import json
 import stat
 import sys
 from pathlib import Path
@@ -127,7 +126,6 @@ def test_pipeline_resumption_skips_completed_stages_after_curation(
                 db_path=db_path,
                 allow_private=True,
                 pause_for_approval=False,
-                auto_approve_test=True,
                 qa_runner=_fast_qa_runner,
             )
         except RuntimeError:
@@ -137,7 +135,7 @@ def test_pipeline_resumption_skips_completed_stages_after_curation(
         assert extract_calls == 1
         assert curate_calls == 1
 
-        # Restore working art_director and run via CLI with --resume and --auto-approve-test
+        # Restore working art_director and run via CLI with --resume.
         monkeypatch.setattr(pipeline_mod, "generate_art_direction", orig_art)
 
         exit_code = main(
@@ -154,7 +152,6 @@ def test_pipeline_resumption_skips_completed_stages_after_curation(
                 str(db_path),
                 "--allow-private",
                 "--resume",
-                "--auto-approve-test",
             ],
             qa_runner=_fast_qa_runner,
         )
@@ -168,7 +165,7 @@ def test_pipeline_resumption_skips_completed_stages_after_curation(
     # Verify idempotency key format: f"{project_id}_{stage_name}_{input_manifest_hash}"
     sample_key = build_stage_idempotency_key(biz_id, "curate", "abc123manifest")
     assert sample_key == f"{biz_id}_curate_abc123manifest"
-    # Even with --auto-approve-test, pipeline NEVER writes delivery/
+    # Pipeline NEVER writes delivery/ before human approval.
     assert not (projects_dir / biz_id / "delivery").exists()
     assert (projects_dir / biz_id / "release-candidate" / "standalone.html").is_file()
     assert (projects_dir / biz_id / "release-candidate" / "ghl-ready.html").is_file()
@@ -192,7 +189,6 @@ def test_pipeline_pauses_at_approval_gate_and_unlocks_on_cli_approve_and_prune(
             db_path=db_path,
             allow_private=True,
             pause_for_approval=True,
-            auto_approve_test=False,
             qa_runner=_fast_qa_runner,
         )
 
@@ -236,12 +232,18 @@ def test_pipeline_pauses_at_approval_gate_and_unlocks_on_cli_approve_and_prune(
         main()
     assert not (project_root / "delivery").exists()
 
-    # 3. Human reviewer confirms rights_confirmed_for_preview=True in research/asset-manifest.json
-    manifest_file = project_root / "research" / "asset-manifest.json"
-    manifest_rows = json.loads(manifest_file.read_text(encoding="utf-8"))
-    for row in manifest_rows:
-        row["rights_confirmed_for_preview"] = True
-    manifest_file.write_text(json.dumps(manifest_rows, indent=2), encoding="utf-8")
+    # 3. Human reviewer confirms rights with evidence and creates an audit entry.
+    from app.rights import confirm_asset_rights
+
+    confirm_asset_rights(
+        project_root,
+        all_assets=True,
+        basis="client_provided",
+        operator="Test Rights Reviewer",
+        evidence="Synthetic asset used by the pipeline lifecycle test.",
+        projects_dir=projects_dir,
+        db_path=db_path,
+    )
 
     # 4. Now `approve --project X --version v1` succeeds
     #    and copies candidate into delivery/ & versions/v1/

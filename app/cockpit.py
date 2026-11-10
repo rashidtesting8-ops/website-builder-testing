@@ -72,13 +72,17 @@ def _resolve_safe_file(base_dir: Path, rel_path: str) -> Path:
 
 
 class ConfirmRightsRequest(BaseModel):
-    asset_file: str
-    confirmed: bool = True
+    asset_file: str | None = None
+    asset: str | None = None
+    sha256: str | None = None
+    basis: str
+    operator: str
+    evidence: str
 
 
 class ApproveReleaseRequest(BaseModel):
-    operator_name: str = Field(default="Dev Operator")
-    notes: str = Field(default="Approved via Operator Cockpit")
+    operator_name: str
+    notes: str
     version: str = Field(default="v1")
 
 
@@ -186,11 +190,13 @@ def _render_review_cockpit_html(
             if rights
             else '<span class="badge badge-amber">Unconfirmed</span>'
         )
-        toggle_state = str(not rights).lower()
         btn = (
-            f'<button class="btn-sm" '
-            f'onclick="confirmRights(\'{esc_f}\', {toggle_state})">'
-            f"Toggle Rights</button>"
+            '<span class="badge badge-green">Audited</span>'
+            if rights
+            else (
+                f'<button class="btn-sm" onclick="confirmRights(\'{esc_f}\')">'
+                "Record Rights Evidence</button>"
+            )
         )
 
         row = (
@@ -316,35 +322,56 @@ def create_cockpit_app(projects_dir: str | Path = "./projects") -> FastAPI:
         return generate_review_summary(project_id, projects_dir=resolved_projects_dir)
 
     @app.post("/api/projects/{project_id}/confirm-rights")
-    def confirm_asset_rights(project_id: str, req: ConfirmRightsRequest) -> dict[str, Any]:
+    def confirm_asset_rights_endpoint(
+        project_id: str, req: ConfirmRightsRequest
+    ) -> dict[str, Any]:
         root = _resolve_project_root(project_id, resolved_projects_dir)
+        target_asset = (req.asset or req.asset_file or req.sha256 or "").strip()
+        if not target_asset:
+            raise HTTPException(status_code=400, detail="asset identifier is required")
+
         manifest_path = root / "research" / "asset-manifest.json"
         if not manifest_path.is_file():
             raise HTTPException(status_code=404, detail="asset-manifest.json not found")
 
+        # Verify asset matches by exact file or sha256 (no endswith suffix match)
         manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
-        updated = False
-        target_norm = req.asset_file.replace("\\", "/").strip().lstrip("/")
-
+        target_norm = target_asset.replace("\\", "/").strip().lstrip("/")
+        matched = False
         for item in manifest_data:
             item_file = str(item.get("file", "")).replace("\\", "/").strip().lstrip("/")
-            if item_file == target_norm or item_file.endswith(target_norm):
-                item["rights_confirmed_for_preview"] = req.confirmed
-                updated = True
+            item_sha = str(item.get("sha256", "")).strip()
+            item_name = Path(item_file).name
+            if target_norm in (item_file, item_name, item_sha):
+                matched = True
                 break
 
-        if not updated:
+        if not matched:
             raise HTTPException(
                 status_code=404,
-                detail=f"Asset '{req.asset_file}' not found in manifest",
+                detail=f"Asset '{target_asset}' not found in manifest by exact file or sha256",
             )
 
-        _atomic_write_text(manifest_path, json.dumps(manifest_data, indent=2))
-        return {
-            "status": "updated",
-            "asset_file": req.asset_file,
-            "rights_confirmed_for_preview": req.confirmed,
-        }
+        try:
+            from app.rights import confirm_asset_rights as do_confirm_asset_rights
+
+            confirmed = do_confirm_asset_rights(
+                root,
+                asset=target_norm,
+                basis=req.basis,
+                operator=req.operator,
+                evidence=req.evidence,
+                projects_dir=resolved_projects_dir,
+                db_path=db_path,
+            )
+            return {
+                "status": "updated",
+                "asset": target_asset,
+                "rights_confirmed_for_preview": True,
+                "confirmed_entries": confirmed,
+            }
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.post("/api/projects/{project_id}/approve")
     def approve_release_endpoint(project_id: str, req: ApproveReleaseRequest) -> dict[str, Any]:

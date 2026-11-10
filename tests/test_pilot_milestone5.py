@@ -17,11 +17,14 @@ Tests:
 
 from __future__ import annotations
 
+import hashlib
 import json
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import pytest
-from app.approval import verify_release
+from app.approval import approve_release, verify_release
 from app.pilot import (
     PILOT_BUSINESS_SPECS,
     PilotAcceptanceReport,
@@ -30,6 +33,40 @@ from app.pilot import (
 )
 from app.qa_engine import BREAKPOINTS, QADefectReport, ViewportQAResult
 from PIL import Image
+
+
+@pytest.fixture(autouse=True)
+def _record_synthetic_pilot_rights(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Model an explicit human review of locally generated pilot-test images."""
+    import app.pilot as pilot_mod
+
+    def approve_with_fixture_audit(
+        project_id_or_path: str | Path, *args: Any, **kwargs: Any
+    ) -> str:
+        project_root = Path(project_id_or_path)
+        manifest_path = project_root / "research" / "asset-manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        audit_path = project_root / "research" / "rights-audit.jsonl"
+        entries = []
+        for item in manifest:
+            asset_path = project_root / str(item["file"])
+            entries.append(
+                {
+                    "who": "Synthetic Pilot Test Reviewer",
+                    "when": datetime.now(UTC).isoformat(),
+                    "basis": "synthetic_test_fixture",
+                    "evidence": "Locally generated image fixture; no third-party asset.",
+                    "asset_sha256": hashlib.sha256(asset_path.read_bytes()).hexdigest(),
+                    "file": str(item["file"]),
+                }
+            )
+        audit_path.write_text(
+            "".join(json.dumps(entry) + "\n" for entry in entries),
+            encoding="utf-8",
+        )
+        return approve_release(project_id_or_path, *args, **kwargs)
+
+    monkeypatch.setattr(pilot_mod, "approve_release", approve_with_fixture_audit)
 
 
 def _mock_qa_runner(project_folder: str | Path, **_kwargs) -> QADefectReport:
@@ -208,4 +245,3 @@ def test_pilot_cli_accepts_live_flag_and_wires_live_qa_runner(
     )
     assert exit_code == 0
     assert called_live["count"] >= 2
-

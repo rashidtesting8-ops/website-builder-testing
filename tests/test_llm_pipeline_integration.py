@@ -295,7 +295,7 @@ def test_pipeline_e2e_with_llm_adapter_executes_orchestration(tmp_path: Path) ->
             business_name="Furry Tail Spa",
             projects_dir=tmp_path / "projects",
             db_path=tmp_path / "editvista.sqlite3",
-            auto_approve_test=True,
+            allow_private=True,
             qa_runner=_fast_qa_runner,
             llm_adapter=adapter,
         )
@@ -304,7 +304,19 @@ def test_pipeline_e2e_with_llm_adapter_executes_orchestration(tmp_path: Path) ->
     assert result.qa_passed is True
 
     # Approve release through human approval gate
+    from app.rights import confirm_asset_rights
+
+    confirm_asset_rights(
+        result.project_folder,
+        all_assets=True,
+        basis="client_provided",
+        operator="Test Rights Reviewer",
+        evidence="Synthetic asset used by the LLM pipeline integration test.",
+        projects_dir=tmp_path / "projects",
+        db_path=tmp_path / "editvista.sqlite3",
+    )
     from app.approval import approve_release
+
     manifest_sha = approve_release(result.project_folder, operator_name="Test QA Dev")
     assert len(manifest_sha) == 64
     assert (result.project_folder / "delivery" / "release-manifest.json").is_file()
@@ -318,4 +330,3 @@ def test_pipeline_e2e_with_llm_adapter_executes_orchestration(tmp_path: Path) ->
 
     # Verify provider recorded calls
     assert provider.call_count >= 1
-

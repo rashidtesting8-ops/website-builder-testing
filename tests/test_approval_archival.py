@@ -22,6 +22,7 @@ from app.cleanup import cleanup, safe_prune_project
 from app.db import ProjectRecord, connect_db, init_db, upsert_project
 from app.pipeline import main as pipeline_cli_main
 from app.reviser import compute_section_hashes
+from app.rights import confirm_asset_rights
 
 from engine.exporter import export_release
 
@@ -135,6 +136,16 @@ def _scaffold_reviewable_project(
     (project_root / "research/asset-manifest.json").write_text(
         json.dumps(asset_manifest), encoding="utf-8"
     )
+    if asset_rights_confirmed:
+        confirm_asset_rights(
+            project_root,
+            all_assets=True,
+            basis="client_provided",
+            operator="Test Rights Reviewer",
+            evidence="Synthetic asset used by the approval test fixture.",
+            projects_dir=projects_dir,
+            db_path=db_path,
+        )
 
     # 5-viewport screenshots & QA report
     for width in (1440, 1024, 768, 390, 360):
@@ -588,4 +599,3 @@ def test_verify_release_and_cli_fails_on_tampered_delivery_file_and_blocks_expor
     # Cleanup must refuse
     with pytest.raises((ReleaseVerificationError, ValueError)):
         safe_prune_project(project_root, dry_run=False)
-

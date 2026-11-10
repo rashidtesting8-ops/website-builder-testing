@@ -8,8 +8,34 @@ import time
 from pathlib import Path
 from typing import Any
 
+import pytest
 from app.qa_engine import QADefectReport
 from PIL import Image
+
+
+def test_container_qa_runner_propagates_browser_errors(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    """Browser QA errors must not be converted into a synthetic passing report."""
+    import app.pipeline as pipe_mod
+
+    import engine.service as srv
+
+    project_root = tmp_path / "project"
+    (project_root / "website").mkdir(parents=True)
+    (project_root / "website" / "index.html").write_text(
+        "<!doctype html><html><body>Draft</body></html>", encoding="utf-8"
+    )
+
+    def _fail_qa(*_args: Any, **_kwargs: Any) -> QADefectReport:
+        raise RuntimeError("Playwright browser launch failed")
+
+    monkeypatch.setattr(pipe_mod, "run_qa_engine", _fail_qa)
+
+    with pytest.raises(RuntimeError, match="Playwright browser launch failed"):
+        srv._container_safe_qa_runner(project_root)
+
+    assert not (project_root / "qa" / "screenshots").exists()
 
 
 def _fake_qa_pass(project_folder: str | Path, **kwargs: Any) -> QADefectReport:
@@ -135,6 +161,18 @@ def test_service_pipeline_run_and_approval_endpoints(
     assert res["qa_passed"] is True
     assert "/review/royal-paws-spa" in res["cockpit_review_url"]
 
+    from app.rights import confirm_asset_rights
+
+    confirm_asset_rights(
+        tmp_path / "royal-paws-spa",
+        all_assets=True,
+        basis="client_provided",
+        operator="Test Rights Reviewer",
+        evidence="Synthetic asset used by the service approval test.",
+        projects_dir=tmp_path,
+        db_path=tmp_path / "editvista.sqlite3",
+    )
+
     # 3. Approve release via srv.approve_pipeline_project
     app_data = srv.approve_pipeline_project(
         "royal-paws-spa",
@@ -218,4 +256,3 @@ def test_service_sqlite_connection_enforces_wal_and_busy_timeout(
         busy_timeout = int(con.execute("PRAGMA busy_timeout;").fetchone()[0])
     assert journal_mode == "wal"
     assert busy_timeout >= 5000
-

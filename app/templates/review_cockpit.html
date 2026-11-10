@@ -149,12 +149,26 @@
       document.getElementById(tabId).classList.add('active');
     }
 
-    async function confirmRights(assetFile, confirmed) {
+    async function confirmRights(assetFile) {
+      const basis = prompt(
+        'Select rights basis: client_provided, owner_permission, or licensed'
+      );
+      if (!basis) return;
+      const operator = prompt('Human reviewer name:');
+      if (!operator) return;
+      const evidence = prompt('Evidence for rights confirmation:');
+      if (!evidence) return;
+
       try {
         const res = await fetch('/api/projects/{{PID}}/confirm-rights', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ asset_file: assetFile, confirmed: confirmed })
+          body: JSON.stringify({
+            asset_file: assetFile,
+            basis: basis,
+            operator: operator,
+            evidence: evidence
+          })
         });
         if (!res.ok) {
           const err = await res.json();
@@ -249,4 +263,3 @@
   </script>
 </body>
 </html>
-
