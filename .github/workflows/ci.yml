@@ -9,7 +9,7 @@ on:
 jobs:
   check:
     name: Lint, Typecheck & Test (Python 3.12)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -36,4 +36,3 @@ jobs:
 
       - name: Run Pytest suite
         run: uv run pytest -v
-
