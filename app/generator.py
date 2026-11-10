@@ -858,8 +858,14 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
 
         if category == "pricing":
             if is_verified and status == "verified":
-                label = claim_key.removeprefix("price_").replace("_", " ").title()
-                verified_prices.append((label, claim_val))
+                if " - " in claim_val:
+                    svc_name, price_str = claim_val.split(" - ", 1)
+                elif ": " in claim_val:
+                    svc_name, price_str = claim_val.split(": ", 1)
+                else:
+                    svc_name = claim_key.removeprefix("price_").replace("_", " ").title()
+                    price_str = claim_val
+                verified_prices.append((svc_name.strip(), price_str.strip()))
             else:
                 has_unverified_pricing = True
             continue
@@ -933,40 +939,70 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
 
     if is_mobile:
         archetype = "mobile"
-        eyebrow_text = "Private Driveway Mobile Grooming Studio"
-        trust_pills = (
-            '<span class="ev-trust-pill">100% Self-Contained Heated Hydro-Bath Van</span>'
-            '<span class="ev-trust-pill">1-on-1 Cage-Free Driveway Care</span>'
-            '<span class="ev-trust-pill">Zero Kennel Wait Times</span>'
-        )
+        eyebrow_text = "Mobile Grooming"
+        trust_pills = ""
     elif serves_dogs and serves_cats:
         archetype = "multi-species"
-        eyebrow_text = "Bespoke Canine &amp; Feline Luxury Spa"
-        trust_pills = (
-            '<span class="ev-trust-pill">Segregated Canine &amp; Feline Suites</span>'
-            '<span class="ev-trust-pill">Botanical Coat Conditioning</span>'
-            '<span class="ev-trust-pill">Tranquil Low-Stress Handling</span>'
-        )
+        eyebrow_text = "Dog &amp; Cat Grooming"
+        trust_pills = ""
     else:
         archetype = "salon"
-        eyebrow_text = "Artisanal Pet Grooming &amp; Botanical Spa"
-        trust_pills = (
-            '<span class="ev-trust-pill">Breed-Standard Hand Scissoring</span>'
-            '<span class="ev-trust-pill">Skin-Safe Botanical Hydro-Baths</span>'
-            '<span class="ev-trust-pill">Unhurried 1-on-1 Appointments</span>'
-        )
+        eyebrow_text = "Pet Grooming"
+        trust_pills = ""
+
+    if is_mobile:
+        default_headline = f"{business_name} — Mobile Grooming"
+        default_tagline = "Mobile grooming services for pets."
+    elif serves_dogs and serves_cats:
+        default_headline = f"{business_name} — Dog and Cat Grooming"
+        default_tagline = "Grooming services for dogs and cats."
+    elif serves_cats:
+        default_headline = f"{business_name} — Cat Grooming"
+        default_tagline = "Grooming services for cats."
+    elif serves_dogs:
+        default_headline = f"{business_name} — Dog Grooming"
+        default_tagline = "Grooming services for dogs."
+    else:
+        default_headline = f"{business_name} — Pet Grooming"
+        default_tagline = "Pet grooming services."
 
     raw_headline = str(brief_data.get("editorial_headline") or "").strip()
     if not raw_headline:
-        raw_headline = business_name
+        raw_headline = default_headline
     elif business_name.lower() not in raw_headline.lower():
         raw_headline = f"{business_name} — {raw_headline}"
 
     raw_tagline = str(brief_data.get("editorial_tagline") or "").strip()
-    if not raw_tagline:
-        raw_tagline = "Authentic, compassionate pet grooming tailored to your companion."
+    if (
+        not raw_tagline
+        or not any(k in raw_tagline.lower() for k in ("pet grooming", "grooming services"))
+    ):
+        raw_tagline = default_tagline
 
     raw_value_prop = str(brief_data.get("editorial_value_prop") or "").strip()
+    if (
+        not raw_value_prop
+        or any(
+            bw in raw_value_prop.lower()
+            for bw in (
+                "certified",
+                "master",
+                "loving",
+                "patient",
+                "luxury",
+                "bespoke",
+                "organic",
+                "botanical",
+                "cage-free",
+                "award-winning",
+                "spa suites",
+                "quiet hours",
+                "hydro-massage",
+                "zero kennel",
+            )
+        )
+    ):
+        raw_value_prop = ""
 
     esc_headline = html.escape(raw_headline)
     esc_tagline = html.escape(raw_tagline)
@@ -989,7 +1025,7 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
         hero_media_html = (
             '<div class="ev-hero-media">'
             f'<img class="ev-hero-img" src="{html.escape(hero_src)}" '
-            f'alt="{esc_name} Featured Pet" '
+            f'alt="{esc_name} photo 1" '
             f'style="object-position: {html.escape(hero_obj_pos)};">'
             "</div>"
         )
@@ -999,30 +1035,22 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
     if archetype == "mobile":
         archetype_showcase_html = (
             '<div class="ev-van-showcase">\n'
-            '  <h3>Self-Contained Mobile Grooming Van — Driveway Convenience</h3>\n'
-            '  <p>Our climate-controlled luxury grooming van arrives directly at your home '
-            'with independent warm freshwater tanks, quiet power, and sanitised tools.</p>\n'
-            '  <ul class="ev-van-features">\n'
-            '    <li>Heated Hydro-Bath &amp; Filtered Water</li>\n'
-            '    <li>1-on-1 Cage-Free Appointment</li>\n'
-            '    <li>Full Local Service Radius Coverage</li>\n'
-            '  </ul>\n'
+            '  <h3 class="ev-card-title">Mobile Grooming — Driveway Service</h3>\n'
+            '  <p>Mobile pet grooming services.</p>\n'
             '</div>\n'
         )
     elif archetype == "multi-species":
         archetype_showcase_html = (
             '<div class="ev-species-showcase">\n'
             '  <div class="ev-species-card" data-species-tab="dogs">\n'
-            '    <span class="ev-species-badge">Canine Atelier</span>\n'
-            '    <h3 class="ev-card-title">Signature Canine Spa &amp; Styling</h3>\n'
-            '    <p>Breed-standard hand scissoring, warm hydro-massage baths, and gentle '
-            'undercoat de-shedding tailored to dogs of every coat type.</p>\n'
+            '    <span class="ev-species-badge">Canine</span>\n'
+            '    <h3 class="ev-card-title">Dog Grooming</h3>\n'
+            '    <p>Grooming services for dogs.</p>\n'
             '  </div>\n'
             '  <div class="ev-species-card" data-species-tab="cats">\n'
-            '    <span class="ev-species-badge">Feline Sanctuary</span>\n'
-            '    <h3 class="ev-card-title">Quiet Feline Grooming Suite</h3>\n'
-            '    <p>Dedicated dog-free acoustic suites for plush feline comb-outs, '
-            'sanitary trims, lion cuts, and stress-free claw care.</p>\n'
+            '    <span class="ev-species-badge">Feline</span>\n'
+            '    <h3 class="ev-card-title">Cat Grooming</h3>\n'
+            '    <p>Grooming services for cats.</p>\n'
             '  </div>\n'
             '</div>\n'
         )
@@ -1051,7 +1079,7 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
             f'<div class="ev-menu-item ev-card">'
             f'<h3 class="ev-card-title">{html.escape(svc)}</h3>'
             f'<span class="ev-menu-leader" aria-hidden="true"></span>'
-            f'<span class="ev-price-badge">Bespoke Care</span>'
+            f'<span class="ev-price-badge">Custom Quote</span>'
             f"</div>"
             for svc in verified_services
         )
@@ -1060,7 +1088,7 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
             f"{f'<div class=\"ev-menu-list\">{svc_cards}</div>' if svc_cards else ''}"
             '<div class="ev-card" style="margin-top: 1rem;">'
             '<h3 class="ev-card-title">Custom Breed &amp; Coat Pricing</h3>'
-            "<p>Contact our grooming team directly to receive a verified quote for your pet.</p>"
+            "<p>Contact our grooming team directly to receive a quote for your pet.</p>"
             f'<p style="margin-top: 0.85rem;"><a class="cta btn" href="{html.escape(cta_href)}">'
             "Inquire for Pricing / Request Custom Quote</a></p>"
             "</div>"
@@ -1073,19 +1101,17 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
             f'<figure class="ev-bento-item'
             f'{" ev-bento-item--featured" if idx == 1 else ""} ev-card">'
             f'<img class="ev-gallery-img" src="{html.escape(src)}" '
-            f'alt="{esc_name} Grooming Portfolio {idx}" loading="lazy" '
+            f'alt="{esc_name} photo {idx}" loading="lazy" '
             f'style="object-position: {html.escape(pos)};">'
-            f'<figcaption class="ev-bento-caption">Verified Client Portrait #{idx}</figcaption>'
+            f'<figcaption class="ev-bento-caption">{esc_name}</figcaption>'
             f"</figure>"
             for idx, (src, pos) in enumerate(gallery_items, start=1)
         )
         gallery_html = (
             '<section id="gallery" class="ev-section" data-section="gallery">\n'
             '  <div class="ev-section-header">\n'
-            '    <span class="ev-eyebrow">Editorial Lookbook</span>\n'
-            '    <h2 class="ev-section-title">Verified Grooming Portfolio</h2>\n'
-            '    <p class="ev-section-lead">'
-            'Authentic portraits of pets cared for by our stylists.</p>\n'
+            '    <span class="ev-eyebrow">Gallery</span>\n'
+            '    <h2 class="ev-section-title">Grooming Gallery</h2>\n'
             '  </div>\n'
             f'  <div class="ev-bento-grid">{imgs_markup}</div>\n'
             "</section>"
@@ -1123,12 +1149,12 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
     contact_cards: list[str] = []
     if phone:
         contact_cards.append(
-            f'<div class="ev-card"><h3 class="ev-card-title">Direct Concierge Line</h3>'
+            f'<div class="ev-card"><h3 class="ev-card-title">Phone</h3>'
             f"<p>{html.escape(phone)}</p></div>"
         )
     if address:
         contact_cards.append(
-            f'<div class="ev-card"><h3 class="ev-card-title">Studio Location</h3>'
+            f'<div class="ev-card"><h3 class="ev-card-title">Address</h3>'
             f"<p>{html.escape(address)}</p></div>"
         )
     if hours:
@@ -1150,7 +1176,7 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
     contact_html = (
         '<section id="contact" class="ev-section" data-section="contact">\n'
         '  <div class="ev-section-header">\n'
-        '    <span class="ev-eyebrow">Reservations &amp; Concierge</span>\n'
+        '    <span class="ev-eyebrow">Contact</span>\n'
         '    <h2 class="ev-section-title">Location, Hours &amp; Policies</h2>\n'
         '  </div>\n'
         '  <div class="ev-grid">\n'
@@ -1170,9 +1196,9 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
         '      aria-controls="ev-nav-drawer" data-ev-nav-toggle="true">Menu</button>\n'
         '    <ul id="ev-nav-drawer" class="ev-nav-drawer"\n'
         '      data-ev-nav-drawer="true" data-collapsed="false">\n'
-        '      <li><a class="ev-nav-link" href="#services">Spa Menu</a></li>\n'
-        '      <li><a class="ev-nav-link" href="#gallery">Lookbook</a></li>\n'
-        '      <li><a class="ev-nav-link" href="#contact">Hours &amp; Concierge</a></li>\n'
+        '      <li><a class="ev-nav-link" href="#services">Services</a></li>\n'
+        '      <li><a class="ev-nav-link" href="#gallery">Gallery</a></li>\n'
+        '      <li><a class="ev-nav-link" href="#contact">Contact</a></li>\n'
         '    </ul>\n'
         '  </nav>\n'
         "</header>"
@@ -1180,6 +1206,9 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
 
     value_prop_html = (
         f'    <p class="ev-hero-value">{esc_value_prop}</p>\n' if esc_value_prop else ""
+    )
+    trust_strip_html = (
+        f'    <div class="ev-trust-strip">{trust_pills}</div>\n' if trust_pills else ""
     )
 
     hero_html = (
@@ -1191,9 +1220,9 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
         f'{value_prop_html}'
         '    <div class="ev-hero-actions">\n'
         f'      <a class="cta btn" href="{html.escape(cta_href)}">{cta_text}</a>\n'
-        '      <a class="ev-btn-secondary" href="#services">Explore Spa Menu</a>\n'
+        '      <a class="ev-btn-secondary" href="#services">Explore Services</a>\n'
         '    </div>\n'
-        f'    <div class="ev-trust-strip">{trust_pills}</div>\n'
+        f'{trust_strip_html}'
         '  </div>\n'
         f'  {hero_media_html}\n'
         "</section>"
@@ -1203,10 +1232,8 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
         '<section id="services" class="ev-section" '
         f'data-section="services" data-archetype="{archetype}">\n'
         '  <div class="ev-section-header">\n'
-        '    <span class="ev-eyebrow">Curated Grooming Menu</span>\n'
+        '    <span class="ev-eyebrow">Services</span>\n'
         '    <h2 class="ev-section-title">Grooming Services &amp; Pricing</h2>\n'
-        '    <p class="ev-section-lead">'
-        'Every session uses verified coat-safe botanicals and calm, individual attention.</p>\n'
         '  </div>\n'
         f'  {pricing_section_html}\n'
         "</section>"
@@ -1215,8 +1242,7 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
     footer_html = (
         '<footer class="ev-footer" data-section="footer">\n'
         '  <div class="ev-footer-inner">\n'
-        f'    <p class="ev-footer-brand">{esc_name}</p>\n'
-        f'    <p>&copy; {esc_name}. Verified by EditVista Luxury Pet Grooming Engine.</p>\n'
+        f'    <p>&copy; {esc_name}</p>\n'
         '  </div>\n'
         "</footer>"
     )
