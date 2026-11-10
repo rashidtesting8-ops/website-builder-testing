@@ -1,6 +1,6 @@
 services:
   n8n:
-    image: ${N8N_IMAGE:-n8nio/n8n:latest}
+    image: ${N8N_IMAGE:-n8nio/n8n:2.47.3}
     restart: unless-stopped
     ports:
       - "127.0.0.1:5678:5678"
@@ -8,11 +8,26 @@ services:
       - GENERIC_TIMEZONE=Asia/Karachi
       - TZ=Asia/Karachi
       - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      - N8N_SECURE_COOKIE=false
+      - N8N_RUNNERS_ENABLED=false
     volumes:
       - n8n_data:/home/node/.n8n
     depends_on:
-      - collector
+      collector:
+        condition: service_healthy
+      cockpit:
+        condition: service_healthy
     mem_limit: 1g
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('http').get('http://127.0.0.1:5678/healthz', response => process.exit(response.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
+      interval: 15s
+      timeout: 20s
+      retries: 5
+      start_period: 120s
   collector:
     build: .
     restart: unless-stopped
@@ -20,11 +35,51 @@ services:
       - "127.0.0.1:8787:8787"
     environment:
       - PROJECTS_DIR=/data/projects
+      - COCKPIT_BASE_URL=http://127.0.0.1:8888
     volumes:
       - ./projects:/data/projects
     shm_size: 1g
     mem_limit: 2g
     mem_reservation: 1g
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/health', timeout=3)"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+  cockpit:
+    build: .
+    restart: unless-stopped
+    command:
+      - python
+      - -m
+      - app.cockpit
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8888"
+      - --projects-dir
+      - /data/projects
+    ports:
+      - "127.0.0.1:8888:8888"
+    environment:
+      - PROJECTS_DIR=/data/projects
+    volumes:
+      - ./projects:/data/projects
+    mem_limit: 512m
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8888/api/health', timeout=3)"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 volumes:
   n8n_data:
-

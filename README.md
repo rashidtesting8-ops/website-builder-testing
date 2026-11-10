@@ -758,18 +758,21 @@ make test        # uv run pytest
 
 ## 15. Deployment & Container Orchestration
 
-### Containerized Orchestration (`docker-compose.yml`)
-The repository includes a production-tested Compose configuration running two resource-isolated services bound strictly to loopback:
+### Local Docker Demo (`docker-compose.yml`)
+The Compose stack defines three loopback-bound services:
 - **`n8n`** (`127.0.0.1:5678`, `mem_limit: 1g`): Self-hosted workflow automation engine with SQLite state persisted in the `n8n_data` named volume.
-- **`collector`** (`127.0.0.1:8787`, `mem_limit: 2g`, `shm_size: 1g`): Containerized FastAPI collector service mounting local `./projects` to `/data/projects` with a container-safe QA fallback engine.
+- **`collector`** (`127.0.0.1:8787`, `mem_limit: 2g`, `shm_size: 1g`): FastAPI worker with pinned Playwright Chromium dependencies, mounting local `./projects` to `/data/projects`.
+- **`cockpit`** (`127.0.0.1:8888`, `mem_limit: 512m`): Human review and rights-evidence UI sharing the project volume with the worker.
 
 ```bash
-# Build and run containerized services in background
+# Start the local demo stack
 docker compose up --build -d
 
-# View real-time service logs
-docker compose logs -f collector
+# Check all services and health
+docker compose ps
 ```
+
+Import `n8n/04-interactive-one-click-luxury-demo.json` in the n8n UI and execute its manual trigger. The workflow submits a build to the collector and returns a Cockpit review link. Browser QA failures block the run; they are not replaced with synthetic passing reports. See [docs/LOCAL_DEMO.md](docs/LOCAL_DEMO.md) for setup and demo boundaries. This Compose configuration is a local prototype setup, not a production deployment.
 
 ### Filesystem & Operational Limits
 - **Storage Ceilings**: Web collection is capped at `140 MB` (`MAX_SITE_BYTES`); social staging is capped at `150 MB` (`MAX_STAGING_BYTES`), `25 MB` per file (`MAX_ITEM_BYTES`), and `300 MB` total project size (`MAX_PROJECT_BYTES`).
