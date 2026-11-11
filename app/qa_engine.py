@@ -25,6 +25,23 @@ BREAKPOINTS: tuple[tuple[str, int], ...] = (
     ("Mobile Small", 360),
 )
 
+_LOAD_IMAGES_JS = """async () => {
+    const images = [...document.images];
+    for (const img of images) img.loading = 'eager';
+    await Promise.all(images.map(img => {
+        if (img.complete) return Promise.resolve();
+        return new Promise(resolve => {
+            const finish = () => {
+                clearTimeout(timeout);
+                resolve();
+            };
+            const timeout = setTimeout(finish, 5000);
+            img.addEventListener('load', finish, { once: true });
+            img.addEventListener('error', finish, { once: true });
+        });
+    }));
+}"""
+
 _BROWSER_INSPECTION_JS = """() => {
     const overflow = document.documentElement.scrollWidth > window.innerWidth;
     const scrollWidth = document.documentElement.scrollWidth;
@@ -293,6 +310,7 @@ def run_qa_engine(
 
                         page.goto(target_url, wait_until="load", timeout=20000)
                         page.wait_for_timeout(200)
+                        page.evaluate(_LOAD_IMAGES_JS)
 
                         eval_res = page.evaluate(_BROWSER_INSPECTION_JS) or {}
                         overflow = bool(eval_res.get("overflow", False))

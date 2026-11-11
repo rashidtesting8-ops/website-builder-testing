@@ -27,7 +27,12 @@ slots = BoundedSemaphore(4)
 lock = Lock()
 DATA_DIR = Path(os.environ.get("PROJECTS_DIR", "./projects"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
-DB = DATA_DIR / "_system" / "jobs.sqlite"
+DB = Path(
+    os.environ.get(
+        "WORKER_DB_PATH",
+        str(DATA_DIR / "_system" / "jobs.sqlite"),
+    )
+)
 DB.parent.mkdir(parents=True, exist_ok=True)
 COCKPIT_BASE_URL = os.environ.get("COCKPIT_BASE_URL", "http://127.0.0.1:8888").rstrip("/")
 

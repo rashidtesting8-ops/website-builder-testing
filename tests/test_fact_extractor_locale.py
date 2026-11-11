@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from app.fact_extractor import (
+    BusinessFactsReport,
     ExtractedFact,
     extract_business_facts,
 )
@@ -29,6 +30,51 @@ def test_extracted_fact_schema_has_required_fields() -> None:
     assert fact.source_kind == "regex"
     assert fact.conflicts_with == []
     assert fact.last_checked_at is not None
+
+
+def test_business_facts_artifact_exposes_required_claim_metadata(tmp_path: Path) -> None:
+    project = tmp_path / "metadata-project"
+    research = project / "research"
+    snapshots = research / "snapshots"
+    snapshots.mkdir(parents=True)
+
+    html = (
+        "<html><head><title>Metadata Salon</title></head>"
+        "<body><h1>Metadata Salon</h1></body></html>"
+    )
+    snapshot_sha = "metadata-sha"
+    (snapshots / f"{snapshot_sha}.html").write_text(html, encoding="utf-8")
+    (research / "pages.json").write_text(
+        json.dumps(
+            [
+                {
+                    "url": "https://metadata.example.com",
+                    "sha256": snapshot_sha,
+                    "title": "Metadata Salon",
+                    "text": "Metadata Salon",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    report = extract_business_facts(project)
+    persisted = json.loads(
+        (research / "business-facts.json").read_text(encoding="utf-8")
+    )["facts"]
+    persisted_by_id = {fact["fact_id"]: fact for fact in persisted}
+
+    assert report.facts
+    round_tripped = BusinessFactsReport.model_validate_json(
+        (research / "business-facts.json").read_text(encoding="utf-8")
+    )
+    assert len(round_tripped.facts) == len(report.facts)
+    for fact in report.facts:
+        record = persisted_by_id[fact.fact_id]
+        assert record["source_url"] == fact.source_url
+        assert record["source_text"] == fact.source_text_snippet
+        assert record["verified"] is fact.is_verified
+        assert record["last_checked_at"]
 
 
 def test_source_priority_jsonld_over_href_over_regex(tmp_path: Path) -> None:

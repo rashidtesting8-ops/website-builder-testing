@@ -36,8 +36,10 @@ services:
     environment:
       - PROJECTS_DIR=/data/projects
       - COCKPIT_BASE_URL=http://127.0.0.1:8888
+      - WORKER_DB_PATH=/var/lib/editvista/jobs.sqlite
     volumes:
       - ./projects:/data/projects
+      - worker_state:/var/lib/editvista
     shm_size: 1g
     mem_limit: 2g
     mem_reservation: 1g
@@ -83,3 +85,4 @@ services:
       start_period: 10s
 volumes:
   n8n_data:
+  worker_state:

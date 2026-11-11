@@ -74,6 +74,9 @@ class _FakePage:
         _ = ms
 
     def evaluate(self, script: str) -> Any:
+        if "document.images" in script and "loading" in script:
+            self._events.append(f"images_prepared:{self.width}")
+            return None
         if "document.documentElement.scrollWidth > window.innerWidth" in script:
             if self._simulate_defects:
                 return {
@@ -227,6 +230,7 @@ def test_qa_engine_passing_across_all_five_breakpoints(tmp_path: Path) -> None:
     for width in (1440, 1024, 768, 390, 360):
         shot = project / "qa" / "screenshots" / f"{width}px.png"
         assert shot.is_file()
+        assert f"images_prepared:{width}" in lifecycle_events
         assert f"context_closed:{width}" in lifecycle_events
         assert f"page_closed:{width}" in lifecycle_events
 

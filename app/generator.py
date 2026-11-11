@@ -846,6 +846,7 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
     hours: str | None = None
     policy: str | None = None
     verified_prices: list[tuple[str, str]] = []
+    seen_verified_prices: set[tuple[str, str]] = set()
     verified_services: list[str] = []
     has_unverified_pricing = False
 
@@ -865,7 +866,14 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
                 else:
                     svc_name = claim_key.removeprefix("price_").replace("_", " ").title()
                     price_str = claim_val
-                verified_prices.append((svc_name.strip(), price_str.strip()))
+                price_pair = (svc_name.strip(), price_str.strip())
+                normalized_price_pair = (
+                    price_pair[0].casefold(),
+                    price_pair[1].casefold(),
+                )
+                if normalized_price_pair not in seen_verified_prices:
+                    verified_prices.append(price_pair)
+                    seen_verified_prices.add(normalized_price_pair)
             else:
                 has_unverified_pricing = True
             continue
@@ -889,6 +897,10 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
         ):
             verified_services.append(claim_val)
 
+    priced_service_names = {label.casefold() for label, _ in verified_prices}
+    verified_services = [
+        service for service in verified_services if service.casefold() not in priced_service_names
+    ]
     pricing_needs_review = has_unverified_pricing or not verified_prices
 
     # Resolve hero and gallery image paths relative to website/index.html

@@ -32,8 +32,8 @@ Approval remains blocked until required checks and rights evidence pass.
 
 - Playwright and its Chromium browser are installed in the collector image at the same pinned
   Playwright version.
-- `docker compose down` stops the services but preserves the named n8n volume and project files.
-  Do not remove volumes or project data unless you intend to delete that state.
+- `docker compose down` stops the services but preserves the named n8n and worker-state volumes and
+  project files. Do not remove volumes or project data unless you intend to delete that state.
 - The Compose ports bind to `127.0.0.1`; `N8N_SECURE_COOKIE=false` is only for this local HTTP
   setup. Do not expose this configuration outside the local machine.
 - n8n task runners are disabled because the included workflows use no Code nodes. Enable and

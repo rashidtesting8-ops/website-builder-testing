@@ -5,5 +5,6 @@ COPY requirements.txt requirements-browser.txt ./
 RUN pip install --no-cache-dir -r requirements.txt -r requirements-browser.txt
 COPY src ./src
 COPY app ./app
+COPY config ./config
 EXPOSE 8787
 CMD ["uvicorn", "app.service:app", "--host", "0.0.0.0", "--port", "8787"]

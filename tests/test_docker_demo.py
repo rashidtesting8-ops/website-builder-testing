@@ -10,6 +10,7 @@ def test_docker_demo_includes_browser_qa_and_review_cockpit() -> None:
 
     assert "mcr.microsoft.com/playwright/python:v1.55.0-noble" in dockerfile
     assert "requirements-browser.txt" in dockerfile
+    assert "COPY config ./config" in dockerfile
     assert "n8nio/n8n:2.47.3" in compose
     assert "cockpit:" in compose
     assert "127.0.0.1:8888:8888" in compose
@@ -28,3 +29,23 @@ def test_n8n_demo_workflow_uses_reachable_operator_cockpit_url() -> None:
     ).read_text(encoding="utf-8")
 
     assert "http://127.0.0.1:8888/review/" in workflow
+
+
+def test_docker_runtime_installs_pinned_fact_extraction_dependency() -> None:
+    repo_root = Path(__file__).resolve().parent.parent
+    pyproject = (repo_root / "pyproject.toml").read_text(encoding="utf-8")
+    requirements = (repo_root / "requirements.txt").read_text(encoding="utf-8")
+
+    assert '"phonenumbers==8.13.55"' in pyproject
+    assert "phonenumbers==8.13.55" in requirements
+
+
+def test_worker_job_database_uses_persistent_docker_volume() -> None:
+    repo_root = Path(__file__).resolve().parent.parent
+    compose = (repo_root / "docker-compose.yml").read_text(encoding="utf-8")
+    service = (repo_root / "src" / "engine" / "service.py").read_text(encoding="utf-8")
+
+    assert "WORKER_DB_PATH=/var/lib/editvista/jobs.sqlite" in compose
+    assert "worker_state:/var/lib/editvista" in compose
+    assert "worker_state:" in compose
+    assert 'os.environ.get(\n        "WORKER_DB_PATH"' in service

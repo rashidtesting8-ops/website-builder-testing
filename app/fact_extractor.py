@@ -22,7 +22,7 @@ from urllib.parse import urlparse
 
 import phonenumbers
 from bs4 import BeautifulSoup, Tag
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.collector import collect_page_text, sanitize_prompt_injection, slugify
 
@@ -165,6 +165,24 @@ class ExtractedFact(BaseModel):
     status: FactStatus = "needs_review"
     last_checked_at: datetime = Field(default_factory=_utc_now)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_contract_aliases(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        normalized = value.copy()
+        for alias, internal in (
+            ("source_text", "source_text_snippet"),
+            ("verified", "is_verified"),
+        ):
+            if alias not in normalized:
+                continue
+            alias_value = normalized.pop(alias)
+            if internal in normalized and normalized[internal] != alias_value:
+                raise ValueError(f"{alias} must match {internal}")
+            normalized.setdefault(internal, alias_value)
+        return normalized
+
     @field_validator(
         "fact_id",
         "project_id",
@@ -198,6 +216,14 @@ class BusinessFactsReport(BaseModel):
     extracted_at: datetime = Field(default_factory=_utc_now)
     facts: list[ExtractedFact]
     prompt_injection_warnings: list[str] = Field(default_factory=list)
+
+
+def _serialize_business_facts_report(report: BusinessFactsReport) -> str:
+    payload = report.model_dump(mode="json")
+    for fact in payload["facts"]:
+        fact["source_text"] = fact["source_text_snippet"]
+        fact["verified"] = fact["is_verified"]
+    return json.dumps(payload, indent=2, ensure_ascii=False)
 
 
 def _detect_region(url: str, html_text: str) -> str:
@@ -1248,5 +1274,5 @@ def extract_business_facts(
         prompt_injection_warnings=sorted(set(injection_warnings)),
     )
     out_path = project_root / "research" / "business-facts.json"
-    _atomic_write_text(out_path, report.model_dump_json(indent=2))
+    _atomic_write_text(out_path, _serialize_business_facts_report(report))
     return report

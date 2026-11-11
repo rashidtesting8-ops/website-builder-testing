@@ -123,6 +123,31 @@ def test_generator_outputs_per_section_files_and_section_hashes(tmp_path: Path) 
         assert len(hashes[name]) == 64
 
 
+def test_generator_renders_duplicate_verified_pricing_once(tmp_path: Path) -> None:
+    project_root = _scaffold_project(tmp_path)
+    facts_path = project_root / "research" / "business-facts.json"
+    facts_payload = json.loads(facts_path.read_text(encoding="utf-8"))
+    duplicate = dict(facts_payload["facts"][1])
+    duplicate["fact_id"] = "f2-duplicate"
+    duplicate["source_url"] = "https://paws.example/prices"
+    facts_payload["facts"].append(duplicate)
+    service = dict(facts_payload["facts"][1])
+    service["fact_id"] = "f3-service"
+    service["category"] = "services"
+    service["claim_key"] = "service_full_groom"
+    service["claim_value"] = "Full Groom"
+    facts_payload["facts"].append(service)
+    facts_path.write_text(json.dumps(facts_payload), encoding="utf-8")
+
+    generate_website(project_root)
+
+    services_html = (project_root / "website" / "sections" / "services.html").read_text(
+        encoding="utf-8"
+    )
+    assert services_html.count("$75.00") == 1
+    assert services_html.count("Full Groom") == 1
+
+
 def test_revise_section_modifies_only_target_section_leaving_others_unchanged(
     tmp_path: Path,
 ) -> None:
@@ -306,5 +331,3 @@ def test_playwright_render_1440_and_390_section_screenshots_pixel_identical_exce
 
                 context.close()
             browser.close()
-
-
