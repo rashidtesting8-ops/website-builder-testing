@@ -1,6 +1,6 @@
 {
   "project_id": "us-denver-mobile-paw-van",
-  "extracted_at": "2026-11-09T14:59:28.722273Z",
+  "extracted_at": "2026-11-11T14:09:42.322375Z",
   "facts": [
     {
       "fact_id": "fact-99c1447c363d",
@@ -15,7 +15,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.722273Z"
+      "last_checked_at": "2026-11-11T14:09:42.322375Z",
+      "source_text": "Denver Mobile Paw Van",
+      "verified": true
     },
     {
       "fact_id": "fact-5a3dd851848e",
@@ -30,7 +32,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.722273Z"
+      "last_checked_at": "2026-11-11T14:09:42.322375Z",
+      "source_text": "Phone: (303) 555-0133",
+      "verified": true
     },
     {
       "fact_id": "fact-5b4cc1817561",
@@ -53,7 +57,9 @@
       },
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.722273Z"
+      "last_checked_at": "2026-11-11T14:09:42.322375Z",
+      "source_text": "Hours: Monday to Saturday 8am - 5pm",
+      "verified": true
     },
     {
       "fact_id": "fact-7b390fcd792c",
@@ -68,7 +74,9 @@
       "structured_value": null,
       "is_verified": false,
       "status": "needs_review",
-      "last_checked_at": "2026-11-09T14:59:28.722273Z"
+      "last_checked_at": "2026-11-11T14:09:42.322375Z",
+      "source_text": "Service Area: Denver Metro & Boulder; Base: 1200 17th St, Denver, CO 80202",
+      "verified": false
     },
     {
       "fact_id": "fact-8a2c33fd96b7",
@@ -83,7 +91,9 @@
       "structured_value": null,
       "is_verified": false,
       "status": "needs_review",
-      "last_checked_at": "2026-11-09T14:59:28.722273Z"
+      "last_checked_at": "2026-11-11T14:09:42.322375Z",
+      "source_text": "Mobile Hydro-Spa Bath - $65 - $85",
+      "verified": false
     },
     {
       "fact_id": "fact-85c432fdc8a8",
@@ -98,7 +108,9 @@
       "structured_value": null,
       "is_verified": false,
       "status": "needs_review",
-      "last_checked_at": "2026-11-09T14:59:28.722273Z"
+      "last_checked_at": "2026-11-11T14:09:42.322375Z",
+      "source_text": "Full Styling Groom - from $90",
+      "verified": false
     },
     {
       "fact_id": "fact-d8b1add5b256",
@@ -113,7 +125,9 @@
       "structured_value": null,
       "is_verified": false,
       "status": "needs_review",
-      "last_checked_at": "2026-11-09T14:59:28.722273Z"
+      "last_checked_at": "2026-11-11T14:09:42.322375Z",
+      "source_text": "Cancellation Policy: 48 hours notice is required for mobile van appointments.",
+      "verified": false
     }
   ],
   "prompt_injection_warnings": []

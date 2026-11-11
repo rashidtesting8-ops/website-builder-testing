@@ -1,6 +1,6 @@
 {
   "project_id": "us-austin-furry-tail-spa",
-  "extracted_at": "2026-11-09T14:59:28.683682Z",
+  "extracted_at": "2026-11-11T14:09:42.209453Z",
   "facts": [
     {
       "fact_id": "fact-69fdabb7ed36",
@@ -15,7 +15,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.683682Z"
+      "last_checked_at": "2026-11-11T14:09:42.209453Z",
+      "source_text": "Furry Tail Spa",
+      "verified": true
     },
     {
       "fact_id": "fact-59c7071bc3ba",
@@ -30,7 +32,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.683682Z"
+      "last_checked_at": "2026-11-11T14:09:42.209453Z",
+      "source_text": "Phone: (512) 555-0144",
+      "verified": true
     },
     {
       "fact_id": "fact-59d58a25c66d",
@@ -45,7 +49,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.683682Z"
+      "last_checked_at": "2026-11-11T14:09:42.209453Z",
+      "source_text": "Address: 742 Evergreen Terrace, Austin, TX 78701",
+      "verified": true
     },
     {
       "fact_id": "fact-354eff59ce5d",
@@ -68,7 +74,9 @@
       },
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.683682Z"
+      "last_checked_at": "2026-11-11T14:09:42.209453Z",
+      "source_text": "Hours: Mon - Sat 8:00 AM - 6:00 PM",
+      "verified": true
     },
     {
       "fact_id": "fact-70947df32223",
@@ -83,7 +91,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.683682Z"
+      "last_checked_at": "2026-11-11T14:09:42.209453Z",
+      "source_text": "Full Dog Groom & Styling - $85.00",
+      "verified": true
     },
     {
       "fact_id": "fact-e66a58ce9495",
@@ -98,7 +108,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.683682Z"
+      "last_checked_at": "2026-11-11T14:09:42.209453Z",
+      "source_text": "Full Dog Groom & Styling - $85.00",
+      "verified": true
     },
     {
       "fact_id": "fact-8d7f04f812dc",
@@ -113,7 +125,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.683682Z"
+      "last_checked_at": "2026-11-11T14:09:42.209453Z",
+      "source_text": "Luxury Bath & Deshedding - $55.00",
+      "verified": true
     },
     {
       "fact_id": "fact-23bbee6de9bc",
@@ -128,7 +142,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.683682Z"
+      "last_checked_at": "2026-11-11T14:09:42.209453Z",
+      "source_text": "Luxury Bath & Deshedding - $55.00",
+      "verified": true
     },
     {
       "fact_id": "fact-24061646877a",
@@ -143,7 +159,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.683682Z"
+      "last_checked_at": "2026-11-11T14:09:42.209453Z",
+      "source_text": "Puppy Intro Grooming Package - $45.00",
+      "verified": true
     },
     {
       "fact_id": "fact-a3219c6484c4",
@@ -158,7 +176,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.683682Z"
+      "last_checked_at": "2026-11-11T14:09:42.209453Z",
+      "source_text": "Puppy Intro Grooming Package - $45.00",
+      "verified": true
     },
     {
       "fact_id": "fact-0e31b58c6577",
@@ -173,7 +193,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.683682Z"
+      "last_checked_at": "2026-11-11T14:09:42.209453Z",
+      "source_text": "Feline Lion Cut & Cat Bath - $95.00",
+      "verified": true
     },
     {
       "fact_id": "fact-53a2ed507ab7",
@@ -188,7 +210,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.683682Z"
+      "last_checked_at": "2026-11-11T14:09:42.209453Z",
+      "source_text": "Feline Lion Cut & Cat Bath - $95.00",
+      "verified": true
     },
     {
       "fact_id": "fact-6dd4efc663df",
@@ -203,7 +227,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.683682Z"
+      "last_checked_at": "2026-11-11T14:09:42.209453Z",
+      "source_text": "Cancellation Policy: Please provide 24 hours notice for any cancellation.",
+      "verified": true
     }
   ],
   "prompt_injection_warnings": []

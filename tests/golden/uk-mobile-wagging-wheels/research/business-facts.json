@@ -1,6 +1,6 @@
 {
   "project_id": "uk-mobile-wagging-wheels",
-  "extracted_at": "2026-11-09T14:59:28.667536Z",
+  "extracted_at": "2026-11-11T14:09:41.475070Z",
   "facts": [
     {
       "fact_id": "fact-6afd0d154b05",
@@ -15,7 +15,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.667536Z"
+      "last_checked_at": "2026-11-11T14:09:41.475070Z",
+      "source_text": "Wagging Wheels Mobile Grooming",
+      "verified": true
     },
     {
       "fact_id": "fact-d2d1454fe543",
@@ -30,7 +32,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.667536Z"
+      "last_checked_at": "2026-11-11T14:09:41.475070Z",
+      "source_text": "Phone: 07700 900123",
+      "verified": true
     },
     {
       "fact_id": "fact-e56959998271",
@@ -53,7 +57,9 @@
       },
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.667536Z"
+      "last_checked_at": "2026-11-11T14:09:41.475070Z",
+      "source_text": "Hours: Monday to Saturday 8am - 6pm",
+      "verified": true
     },
     {
       "fact_id": "fact-a7d226aa5fa8",
@@ -68,7 +74,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.667536Z"
+      "last_checked_at": "2026-11-11T14:09:41.475070Z",
+      "source_text": "Mobile Hydrobath & De-shed - £48.00",
+      "verified": true
     },
     {
       "fact_id": "fact-831453af319f",
@@ -83,7 +91,9 @@
       "structured_value": null,
       "is_verified": false,
       "status": "needs_review",
-      "last_checked_at": "2026-11-09T14:59:28.667536Z"
+      "last_checked_at": "2026-11-11T14:09:41.475070Z",
+      "source_text": "Service Area: Covering Guildford, Woking, and Surrey GU1-GU24 (Mobile Van Service - No Walk-in Salon)",
+      "verified": false
     },
     {
       "fact_id": "fact-ea9427eab8ae",
@@ -98,7 +108,9 @@
       "structured_value": null,
       "is_verified": false,
       "status": "needs_review",
-      "last_checked_at": "2026-11-09T14:59:28.667536Z"
+      "last_checked_at": "2026-11-11T14:09:41.475070Z",
+      "source_text": "Full Mobile Groom & Styling - £60 - £80",
+      "verified": false
     },
     {
       "fact_id": "fact-df88b70358f1",
@@ -113,7 +125,9 @@
       "structured_value": null,
       "is_verified": false,
       "status": "needs_review",
-      "last_checked_at": "2026-11-09T14:59:28.667536Z"
+      "last_checked_at": "2026-11-11T14:09:41.475070Z",
+      "source_text": "Mobile Hydrobath & De-shed - £48.00",
+      "verified": false
     },
     {
       "fact_id": "fact-66dc49e9c08d",
@@ -128,7 +142,9 @@
       "structured_value": null,
       "is_verified": false,
       "status": "needs_review",
-      "last_checked_at": "2026-11-09T14:59:28.667536Z"
+      "last_checked_at": "2026-11-11T14:09:41.475070Z",
+      "source_text": "Cancellation Policy: 48 hours notice required for mobile appointments.",
+      "verified": false
     }
   ],
   "prompt_injection_warnings": []

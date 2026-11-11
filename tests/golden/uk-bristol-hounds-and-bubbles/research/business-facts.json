@@ -1,6 +1,6 @@
 {
   "project_id": "uk-bristol-hounds-and-bubbles",
-  "extracted_at": "2026-11-09T14:59:28.608896Z",
+  "extracted_at": "2026-11-11T14:09:41.315084Z",
   "facts": [
     {
       "fact_id": "fact-c8695dd7dc9f",
@@ -15,7 +15,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.608896Z"
+      "last_checked_at": "2026-11-11T14:09:41.315084Z",
+      "source_text": "Bristol Hounds & Bubbles",
+      "verified": true
     },
     {
       "fact_id": "fact-536ccc75a01d",
@@ -30,7 +32,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.608896Z"
+      "last_checked_at": "2026-11-11T14:09:41.315084Z",
+      "source_text": "Phone: 0117 924 8812",
+      "verified": true
     },
     {
       "fact_id": "fact-57320a01247f",
@@ -53,7 +57,9 @@
       },
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.608896Z"
+      "last_checked_at": "2026-11-11T14:09:41.315084Z",
+      "source_text": "Hours: Tue - Sat 9am - 5:30pm",
+      "verified": true
     },
     {
       "fact_id": "fact-47b2602fa65f",
@@ -68,7 +74,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.608896Z"
+      "last_checked_at": "2026-11-11T14:09:41.315084Z",
+      "source_text": "Signature Bath & Tidy - £42.00",
+      "verified": true
     },
     {
       "fact_id": "fact-9674d6b492a1",
@@ -83,7 +91,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.608896Z"
+      "last_checked_at": "2026-11-11T14:09:41.315084Z",
+      "source_text": "Signature Bath & Tidy - £42.00",
+      "verified": true
     },
     {
       "fact_id": "fact-e90265d1ef0e",
@@ -98,7 +108,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.608896Z"
+      "last_checked_at": "2026-11-11T14:09:41.315084Z",
+      "source_text": "Complete Scissor Groom - £58.00",
+      "verified": true
     },
     {
       "fact_id": "fact-446d9c9aa6bc",
@@ -113,7 +125,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.608896Z"
+      "last_checked_at": "2026-11-11T14:09:41.315084Z",
+      "source_text": "Complete Scissor Groom - £58.00",
+      "verified": true
     },
     {
       "fact_id": "fact-797967f33e95",
@@ -130,7 +144,9 @@
       "structured_value": null,
       "is_verified": false,
       "status": "needs_review",
-      "last_checked_at": "2026-11-09T14:59:28.608896Z"
+      "last_checked_at": "2026-11-11T14:09:41.315084Z",
+      "source_text": "Address: 12 Gloucester Road, Bristol, BS7 8AE",
+      "verified": false
     },
     {
       "fact_id": "fact-ea1998ebf96b",
@@ -147,7 +163,9 @@
       "structured_value": null,
       "is_verified": false,
       "status": "needs_review",
-      "last_checked_at": "2026-11-09T14:59:28.608896Z"
+      "last_checked_at": "2026-11-11T14:09:41.315084Z",
+      "source_text": "© 2026 Bristol Hounds & Bubbles. Registered Office: 5 Park Street, Bristol, BS1 5HR",
+      "verified": false
     }
   ],
   "prompt_injection_warnings": []

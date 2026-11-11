@@ -1,6 +1,6 @@
 {
   "project_id": "us-seattle-emerald-canine",
-  "extracted_at": "2026-11-09T14:59:28.750164Z",
+  "extracted_at": "2026-11-11T14:09:42.403796Z",
   "facts": [
     {
       "fact_id": "fact-e4e98901aa67",
@@ -15,7 +15,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.750164Z"
+      "last_checked_at": "2026-11-11T14:09:42.403796Z",
+      "source_text": "Emerald Canine Seattle",
+      "verified": true
     },
     {
       "fact_id": "fact-9858c8bf1630",
@@ -30,7 +32,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.750164Z"
+      "last_checked_at": "2026-11-11T14:09:42.403796Z",
+      "source_text": "Phone: (206) 555-0188",
+      "verified": true
     },
     {
       "fact_id": "fact-320024f2c444",
@@ -45,7 +49,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.750164Z"
+      "last_checked_at": "2026-11-11T14:09:42.403796Z",
+      "source_text": "Address: 1024 1st Avenue, Seattle, WA 98104",
+      "verified": true
     },
     {
       "fact_id": "fact-0056e69baafc",
@@ -68,7 +74,9 @@
       },
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.750164Z"
+      "last_checked_at": "2026-11-11T14:09:42.403796Z",
+      "source_text": "Hours: Monday to Friday 7:00 AM - 7:00 PM, Saturday 8:00 AM - 5:00 PM, Sunday: Closed",
+      "verified": true
     },
     {
       "fact_id": "fact-f5976d696a6a",
@@ -83,7 +91,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.750164Z"
+      "last_checked_at": "2026-11-11T14:09:42.403796Z",
+      "source_text": "Wash & Blowout - $40.00",
+      "verified": true
     },
     {
       "fact_id": "fact-6c8717b6fb62",
@@ -98,7 +108,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.750164Z"
+      "last_checked_at": "2026-11-11T14:09:42.403796Z",
+      "source_text": "Wash & Blowout - $40.00",
+      "verified": true
     },
     {
       "fact_id": "fact-23a563628267",
@@ -113,7 +125,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.750164Z"
+      "last_checked_at": "2026-11-11T14:09:42.403796Z",
+      "source_text": "Cancellation Policy: 24 hour notice is required to cancel or reschedule appointments.",
+      "verified": true
     },
     {
       "fact_id": "fact-784e14dd8c8f",
@@ -128,7 +142,9 @@
       "structured_value": null,
       "is_verified": false,
       "status": "needs_review",
-      "last_checked_at": "2026-11-09T14:59:28.750164Z"
+      "last_checked_at": "2026-11-11T14:09:42.403796Z",
+      "source_text": "Full Groom - from $75",
+      "verified": false
     }
   ],
   "prompt_injection_warnings": []

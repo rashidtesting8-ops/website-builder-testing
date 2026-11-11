@@ -1,6 +1,6 @@
 {
   "project_id": "uk-london-table-grooming-matrix",
-  "extracted_at": "2026-11-09T14:59:28.650556Z",
+  "extracted_at": "2026-11-11T14:09:41.444648Z",
   "facts": [
     {
       "fact_id": "fact-0f6c7217fadb",
@@ -15,7 +15,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.650556Z"
+      "last_checked_at": "2026-11-11T14:09:41.443643Z",
+      "source_text": "Marylebone Veterinary & Grooming Matrix",
+      "verified": true
     },
     {
       "fact_id": "fact-eacf336ba0a4",
@@ -30,7 +32,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.650556Z"
+      "last_checked_at": "2026-11-11T14:09:41.443643Z",
+      "source_text": "Phone: 020 7224 3688",
+      "verified": true
     },
     {
       "fact_id": "fact-ae3ad31aaba5",
@@ -45,7 +49,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.650556Z"
+      "last_checked_at": "2026-11-11T14:09:41.443643Z",
+      "source_text": "Full Groom & Styling: £45.00",
+      "verified": true
     },
     {
       "fact_id": "fact-c5198fbfc18d",
@@ -60,7 +66,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.650556Z"
+      "last_checked_at": "2026-11-11T14:09:41.443643Z",
+      "source_text": "Full Groom & Styling: £45.00",
+      "verified": true
     },
     {
       "fact_id": "fact-ad5c3a9e890a",
@@ -75,7 +83,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.650556Z"
+      "last_checked_at": "2026-11-11T14:09:41.444648Z",
+      "source_text": "Bath & De-shedding: £30.00",
+      "verified": true
     },
     {
       "fact_id": "fact-11a4063fe68d",
@@ -90,7 +100,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.650556Z"
+      "last_checked_at": "2026-11-11T14:09:41.444648Z",
+      "source_text": "Bath & De-shedding: £30.00",
+      "verified": true
     },
     {
       "fact_id": "fact-98bd12db11c8",
@@ -105,7 +117,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.650556Z"
+      "last_checked_at": "2026-11-11T14:09:41.444648Z",
+      "source_text": "Cancellation Policy: 24 hours advance notice required for all clinic appointments.",
+      "verified": true
     },
     {
       "fact_id": "fact-f48b34a5e883",
@@ -122,7 +136,9 @@
       "structured_value": null,
       "is_verified": false,
       "status": "needs_review",
-      "last_checked_at": "2026-11-09T14:59:28.650556Z"
+      "last_checked_at": "2026-11-11T14:09:41.443643Z",
+      "source_text": "Address: 221B Baker Street, Marylebone, London, NW1 6XE",
+      "verified": false
     },
     {
       "fact_id": "fact-8bb60714fff1",
@@ -139,7 +155,9 @@
       "structured_value": null,
       "is_verified": false,
       "status": "needs_review",
-      "last_checked_at": "2026-11-09T14:59:28.650556Z"
+      "last_checked_at": "2026-11-11T14:09:41.443643Z",
+      "source_text": "Marylebone Veterinary & Grooming Matrix • 221B Baker Street, London NW1 6XE",
+      "verified": false
     },
     {
       "fact_id": "fact-6c56d372ffa0",
@@ -154,7 +172,9 @@
       "structured_value": {},
       "is_verified": false,
       "status": "needs_review",
-      "last_checked_at": "2026-11-09T14:59:28.650556Z"
+      "last_checked_at": "2026-11-11T14:09:41.443643Z",
+      "source_text": "Salon Hours (Partial week captured: missing monday, tuesday, wednesday, thursday, friday, saturday, sunday)",
+      "verified": false
     }
   ],
   "prompt_injection_warnings": []

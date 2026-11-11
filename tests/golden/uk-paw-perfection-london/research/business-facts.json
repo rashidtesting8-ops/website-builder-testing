@@ -1,6 +1,6 @@
 {
   "project_id": "uk-paw-perfection-london",
-  "extracted_at": "2026-11-09T14:59:28.681017Z",
+  "extracted_at": "2026-11-11T14:09:41.526158Z",
   "facts": [
     {
       "fact_id": "fact-a1eee42fcefe",
@@ -15,7 +15,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.667536Z"
+      "last_checked_at": "2026-11-11T14:09:41.526158Z",
+      "source_text": "Paw Perfection London",
+      "verified": true
     },
     {
       "fact_id": "fact-668b9700ea9f",
@@ -30,7 +32,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.667536Z"
+      "last_checked_at": "2026-11-11T14:09:41.526158Z",
+      "source_text": "Phone: 020 7946 0192",
+      "verified": true
     },
     {
       "fact_id": "fact-2ef263170fc0",
@@ -45,7 +49,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.681017Z"
+      "last_checked_at": "2026-11-11T14:09:41.526158Z",
+      "source_text": "Address: 42 High Street, Islington, London, N1 2AB",
+      "verified": true
     },
     {
       "fact_id": "fact-d2bbb0ac2182",
@@ -68,7 +74,9 @@
       },
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.681017Z"
+      "last_checked_at": "2026-11-11T14:09:41.526158Z",
+      "source_text": "Hours: Monday to Friday: 9am - 5pm, Saturday: 10am - 4pm, Sunday: Closed",
+      "verified": true
     },
     {
       "fact_id": "fact-12bb5d84250b",
@@ -83,7 +91,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.681017Z"
+      "last_checked_at": "2026-11-11T14:09:41.526158Z",
+      "source_text": "Full Dog Groom - £55.00",
+      "verified": true
     },
     {
       "fact_id": "fact-f0a1e163fef2",
@@ -98,7 +108,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.681017Z"
+      "last_checked_at": "2026-11-11T14:09:41.526158Z",
+      "source_text": "Full Dog Groom - £55.00",
+      "verified": true
     },
     {
       "fact_id": "fact-225538fe03f4",
@@ -113,7 +125,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.681017Z"
+      "last_checked_at": "2026-11-11T14:09:41.526158Z",
+      "source_text": "Luxury Bath & Brush - £35.00",
+      "verified": true
     },
     {
       "fact_id": "fact-474b6fe15ca4",
@@ -128,7 +142,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.681017Z"
+      "last_checked_at": "2026-11-11T14:09:41.526158Z",
+      "source_text": "Luxury Bath & Brush - £35.00",
+      "verified": true
     },
     {
       "fact_id": "fact-3e5100626cd9",
@@ -143,7 +159,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.681017Z"
+      "last_checked_at": "2026-11-11T14:09:41.526158Z",
+      "source_text": "Cancellation Policy: Please provide 24 hours notice for any cancellation to avoid a fee.",
+      "verified": true
     },
     {
       "fact_id": "fact-484ad15c0710",
@@ -158,7 +176,9 @@
       "structured_value": null,
       "is_verified": false,
       "status": "needs_review",
-      "last_checked_at": "2026-11-09T14:59:28.681017Z"
+      "last_checked_at": "2026-11-11T14:09:41.526158Z",
+      "source_text": "Large Breed Groom - from £45",
+      "verified": false
     }
   ],
   "prompt_injection_warnings": []

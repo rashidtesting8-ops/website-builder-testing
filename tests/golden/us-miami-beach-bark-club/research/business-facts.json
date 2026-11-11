@@ -1,6 +1,6 @@
 {
   "project_id": "us-miami-beach-bark-club",
-  "extracted_at": "2026-11-09T14:59:28.734228Z",
+  "extracted_at": "2026-11-11T14:09:42.354721Z",
   "facts": [
     {
       "fact_id": "fact-0e2738e820a4",
@@ -15,7 +15,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.734228Z"
+      "last_checked_at": "2026-11-11T14:09:42.354721Z",
+      "source_text": "Miami Beach Bark Club",
+      "verified": true
     },
     {
       "fact_id": "fact-ab5666e0f9a3",
@@ -30,7 +32,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.734228Z"
+      "last_checked_at": "2026-11-11T14:09:42.354721Z",
+      "source_text": "Phone: (305) 555-0177",
+      "verified": true
     },
     {
       "fact_id": "fact-e209af10ad06",
@@ -45,7 +49,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.734228Z"
+      "last_checked_at": "2026-11-11T14:09:42.354721Z",
+      "source_text": "South Beach Styling - $90.00",
+      "verified": true
     },
     {
       "fact_id": "fact-a89e672bf88c",
@@ -60,7 +66,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.734228Z"
+      "last_checked_at": "2026-11-11T14:09:42.354721Z",
+      "source_text": "South Beach Styling - $90.00",
+      "verified": true
     },
     {
       "fact_id": "fact-a2f6efe60f2e",
@@ -75,7 +83,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.734228Z"
+      "last_checked_at": "2026-11-11T14:09:42.354721Z",
+      "source_text": "Ocean Bath & Brush - $50.00",
+      "verified": true
     },
     {
       "fact_id": "fact-76ba2cb4d2bf",
@@ -90,7 +100,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.734228Z"
+      "last_checked_at": "2026-11-11T14:09:42.354721Z",
+      "source_text": "Ocean Bath & Brush - $50.00",
+      "verified": true
     },
     {
       "fact_id": "fact-2fac2851e304",
@@ -107,7 +119,9 @@
       "structured_value": null,
       "is_verified": false,
       "status": "needs_review",
-      "last_checked_at": "2026-11-09T14:59:28.734228Z"
+      "last_checked_at": "2026-11-11T14:09:42.354721Z",
+      "source_text": "Address: 420 Lincoln Road, Miami Beach, FL 33139",
+      "verified": false
     },
     {
       "fact_id": "fact-a5804f1c04f1",
@@ -124,7 +138,9 @@
       "structured_value": null,
       "is_verified": false,
       "status": "needs_review",
-      "last_checked_at": "2026-11-09T14:59:28.734228Z"
+      "last_checked_at": "2026-11-11T14:09:42.354721Z",
+      "source_text": "Miami Beach Bark Club • Marina Suite 10, Miami Beach, FL 33139 • (305) 555-0177",
+      "verified": false
     },
     {
       "fact_id": "fact-d467d1962514",
@@ -139,7 +155,9 @@
       "structured_value": {},
       "is_verified": false,
       "status": "needs_review",
-      "last_checked_at": "2026-11-09T14:59:28.734228Z"
+      "last_checked_at": "2026-11-11T14:09:42.354721Z",
+      "source_text": "Hours: Open 24 Hours for Boarding; Grooming Salon: 8:00 AM - 6:00 PM (24h boarding ambiguity)",
+      "verified": false
     }
   ],
   "prompt_injection_warnings": []

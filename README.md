@@ -1,13 +1,15 @@
 # Pet Grooming Website Builder Engine (`EditVista`)
 
-[![CI](https://github.com/rashidtesting8-ops/pet-gromming-agent-factory/actions/workflows/ci.yml/badge.svg)](https://github.com/rashidtesting8-ops/pet-gromming-agent-factory/actions/workflows/ci.yml)
+[![CI](https://github.com/rashidtesting8-ops/website-builder-testing/actions/workflows/ci.yml/badge.svg)](https://github.com/rashidtesting8-ops/website-builder-testing/actions/workflows/ci.yml)
 ![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)
 ![Toolchain: uv](https://img.shields.io/badge/toolchain-uv-purple.svg)
 ![Typecheck: pyright](https://img.shields.io/badge/typecheck-pyright-success.svg)
 ![Lint: ruff](https://img.shields.io/badge/lint-ruff-orange.svg)
-![Tests: 178 Passing](https://img.shields.io/badge/tests-178%20passing-brightgreen.svg)
+![Tests: 200 Passing](https://img.shields.io/badge/tests-200%20passing-brightgreen.svg)
 
 **An evidence-preserving, local-first engine for automated media collection, cryptographic fact verification, locale-aware normalization, visual curation, luxury editorial art direction, per-section code generation, surgical revision, 5-viewport QA, budget-capped LLM adaptation, Minimum Viable Facts (MVF) gating, human-in-the-loop operator cockpit review, enterprise n8n studio orchestration, and immutable release packaging with GoHighLevel (GHL) isolation for bespoke pet grooming websites.**
+
+> **Prototype status:** This repository is not production-ready. The automated test suite and synthetic acceptance fixtures do not replace a live five-business pilot, human approval, rights clearance, or validation in an actual GoHighLevel account. Any preview with unresolved claims or unconfirmed asset rights must remain an unapproved local draft.
 
 ---
 
@@ -91,7 +93,7 @@ Traditional AI site generators suffer from critical production failure modes:
 | **Human Approval & Release Candidate Gate** | `app/approval.py` | Stages candidate deliverables to `release-candidate/`; `approve` checks QA candidate SHA-256 matching, audits referenced HTML assets for confirmed rights, freezes read-only HTML and referenced `assets/` in `delivery/` and `versions/vN/`, and records `checksums` + `asset_signatures` in `release-manifest.json`. |
 | **Release Verification & Scoped GHL Export** | `app/approval.py`, `src/engine/exporter.py`, `app/ghl_exporter.py` | Verifies delivery HTML and referenced project assets against `release-manifest.json` (`verify` CLI); packages verified releases into `projects/_archives/<id>-approved.zip`; formats GHL snippets scoped under `#ghl-ev-engine-root-[business_id]` with absolute CDN/Cockpit asset URL rewriting, strict IIFE JS encapsulation with `MutationObserver`, and simulation verification (`is_valid=True`, `unscoped_css_count=0`, `global_leak_detected=False`). |
 | **Approval-Gated Safe Storage Pruning** | `app/cleanup.py`, `src/engine/cleanup.py` | Refuses pruning unless verified approved release archive exists and matches manifest; permanently protects `delivery/`, version snapshots, and `retained-assets.json`. |
-| **5-Business Acceptance Pilot** | `app/pilot.py` | End-to-end benchmark suite validating 5 pet grooming archetypes (`pup-palace-salon`, `k9-advantedge-mobile`, `lilys-club-pet-spa`, `dog-grooming-studio`, `pets-grooming-uk`) with zero-fabrication checks and structured audit reports (`projects/_pilot/pilot-report.json` and `.md`). |
+| **Acceptance Pilot Harness** | `app/pilot.py` | Synthetic offline benchmark covering five grooming-business archetypes with zero-fabrication checks and structured audit reports (`projects/_pilot/pilot-report.json` and `.md`). This harness is not evidence that a live five-business pilot has been completed. |
 | **Local Worker & Pipeline Service** | `src/engine/service.py`, `app/service.py` | Bounded asynchronous task runner (`127.0.0.1:8787`) backed by SQLite WAL mode and concurrency semaphores (`4` queue slots, `2` execution threads) exposing `POST /jobs`, `POST /pipeline/run`, and `POST /pipeline/{project_id}/approve` with container-safe QA fallback. |
 | **Enterprise n8n Workflow Automation** | `n8n/*.json` | 4 production 7-node branching workflows with `Set` payload normalization, conditional `IF` completion gates, error/progress telemetry branches, and zero informal naming for client intake, status tracking, release sign-off, and one-click demo studio execution. |
 
@@ -567,9 +569,9 @@ uv run python -m app.cockpit --port 8787 --projects-dir ./projects
 ```
 Open `http://127.0.0.1:8787` in any browser to inspect projects, audit claim provenance, toggle asset rights, edit section markup surgically, and sign off on frozen releases.
 
-### 9.5 Executing the 5-Business Acceptance Pilot (`app/pilot.py`)
+### 9.5 Executing the Acceptance Pilot Harness (`app/pilot.py`)
 
-Execute the acceptance benchmark across five distinct pet grooming business archetypes (`pup-palace-salon`, `k9-advantedge-mobile`, `lilys-club-pet-spa`, `dog-grooming-studio`, `pets-grooming-uk`):
+Execute the synthetic acceptance benchmark across five grooming-business archetypes: classic salon, mobile groomer, mixed-species service, inquiry-led studio, and social-heavy business.
 
 ```bash
 # 1. Run all 5 archetypes using deterministic offline fixtures and generate audit reports
@@ -816,10 +818,10 @@ Per [`docs/DEVELOPER_BRIEF.md`](docs/DEVELOPER_BRIEF.md), the repository impleme
 - [x] **Milestone 2 — Visual & Content Intelligence**: Exact-substring fact extractor (`app/fact_extractor.py`), Pillow-based visual curator (`app/curator.py`), luxury editorial brand analyst & archetype art director (`app/art_director.py`), and Pydantic v2 domain schemas (`src/engine/contracts/`).
 - [x] **Milestone 3 — Design, Critique, QA & Surgical Revision Loop**: Bespoke editorial per-section website generator (`app/generator.py`), 5-viewport Playwright QA runner (`app/qa_engine.py`), automated visual critic (`app/visual_critic.py`), and unified surgical section reviser (`app/reviser.py`) with sibling SHA-256 invariance.
 - [x] **Milestone 4 — Human Approval, Frozen Release Export & Hardened LLM Engine**: Resumable pipeline orchestrator (`app/pipeline.py`) preserving `delivery/` and `versions/` across reruns, human approval gate CLI (`app/approval.py approve`) with self-contained versioned asset snapshots, pre-export release & asset signature verifier (`app/pipeline.py verify`), root-scoped GoHighLevel exporter (`app/ghl_exporter.py`), approval-gated cleanup (`app/cleanup.py`), and hardened multimodal LLM adapter (`src/engine/llm/adapter.py`).
-- [x] **Milestone 5 — Five-Business Acceptance Pilot & Operator Cockpit**:
+- [~] **Milestone 5 — Acceptance Pilot Harness & Operator Cockpit**:
   - **Track 1 (LLM Pipeline)**: Provider-agnostic LLM integration across art direction, section generation, visual critique, and surgical revision with `provider.default_model` resolution, `is_verified=True` prompt filtering, budget enforcement, and disk caching (verified offline via `FakeProvider` and live API keys).
   - **Track 2 (Operator Cockpit)**: Human-in-the-loop web UI (`app/cockpit.py`) with sandboxed multi-viewport previews, QA screenshot inspection, claim provenance audits, asset rights confirmation, surgical section edits, and release freezing.
-  - **Track 3 (Acceptance Pilot)**: Acceptance runner (`app/pilot.py`) validating 5 pet grooming archetypes (`pup-palace-salon`, `k9-advantedge-mobile`, `lilys-club-pet-spa`, `dog-grooming-studio`, `pets-grooming-uk`) via deterministic synthetic fixtures by default or live HTTP/Playwright collection via `--live`.
+  - **Track 3 (Acceptance Pilot)**: Runner (`app/pilot.py`) exercises five deterministic synthetic archetypes by default or can collect live sites with `--live`. The required end-to-end pilot across five real businesses remains outstanding.
   - **Track 4 (Scoped GHL Embed Validation)**: Dynamic CDN URL transformation, `#ghl-ev-engine-root-*` CSS isolation, root-scoped `.ev-ghl-scope` IIFE JS encapsulation with `MutationObserver`, and hostile host stylesheet simulation (`validate_ghl_embed_simulation`).
 - [x] **Quality & Robustness Hardening (Post-Milestone 5)**:
   - **Minimum Viable Facts (MVF) Gate**: Mandatory quality gate blocking approval of incomplete sites and eliminating `#contact` dead links (`app/mvf_gate.py`).

@@ -1,6 +1,6 @@
 {
   "project_id": "uk-cotswolds-canine-spa",
-  "extracted_at": "2026-11-09T14:59:28.618371Z",
+  "extracted_at": "2026-11-11T14:09:41.356530Z",
   "facts": [
     {
       "fact_id": "fact-d433ff1d9a69",
@@ -15,7 +15,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.618371Z"
+      "last_checked_at": "2026-11-11T14:09:41.356530Z",
+      "source_text": "Cotswolds Canine Spa",
+      "verified": true
     },
     {
       "fact_id": "fact-22c1955da791",
@@ -30,7 +32,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.618371Z"
+      "last_checked_at": "2026-11-11T14:09:41.356530Z",
+      "source_text": "Phone: 01451 820111",
+      "verified": true
     },
     {
       "fact_id": "fact-3b879eecb642",
@@ -45,7 +49,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.618371Z"
+      "last_checked_at": "2026-11-11T14:09:41.356530Z",
+      "source_text": "Address: The Old Mill, Church Lane, Bourton-on-the-Water, GL54 2AW",
+      "verified": true
     },
     {
       "fact_id": "fact-acdb65a52a77",
@@ -60,7 +66,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.618371Z"
+      "last_checked_at": "2026-11-11T14:09:41.356530Z",
+      "source_text": "Hydrotherapy Bath - £40.00",
+      "verified": true
     },
     {
       "fact_id": "fact-ff33e2a35f43",
@@ -75,7 +83,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.618371Z"
+      "last_checked_at": "2026-11-11T14:09:41.356530Z",
+      "source_text": "Hydrotherapy Bath - £40.00",
+      "verified": true
     },
     {
       "fact_id": "fact-746592870a2a",
@@ -90,7 +100,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-09T14:59:28.618371Z"
+      "last_checked_at": "2026-11-11T14:09:41.356530Z",
+      "source_text": "Cancellation Policy: All appointment cancellations require 48 hours notice.",
+      "verified": true
     },
     {
       "fact_id": "fact-e586553e1c14",
@@ -111,7 +123,9 @@
       },
       "is_verified": false,
       "status": "needs_review",
-      "last_checked_at": "2026-11-09T14:59:28.618371Z"
+      "last_checked_at": "2026-11-11T14:09:41.356530Z",
+      "source_text": "Hours: Mon - Fri 08:30 - 17:30 (Partial week captured: missing saturday, sunday)",
+      "verified": false
     },
     {
       "fact_id": "fact-444930f00e62",
@@ -126,7 +140,9 @@
       "structured_value": null,
       "is_verified": false,
       "status": "needs_review",
-      "last_checked_at": "2026-11-09T14:59:28.618371Z"
+      "last_checked_at": "2026-11-11T14:09:41.356530Z",
+      "source_text": "Full Scissor Styling - £65 - £85",
+      "verified": false
     }
   ],
   "prompt_injection_warnings": []
