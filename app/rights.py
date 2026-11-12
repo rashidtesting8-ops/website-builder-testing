@@ -13,10 +13,13 @@ from typing import Any, Literal
 
 from app.db import (
     AssetProvenanceRecord,
+    ProjectRecord,
     connect_db,
+    get_project,
     init_db,
     list_assets_for_project,
     upsert_asset_provenance,
+    upsert_project,
 )
 
 RightsBasis = Literal["client_provided", "owner_permission", "licensed"]
@@ -104,6 +107,24 @@ def confirm_asset_rights(
     audit_path = project_root / "research" / "rights-audit.jsonl"
     audit_path.parent.mkdir(parents=True, exist_ok=True)
 
+    resolved_db_path = (
+        Path(db_path).resolve()
+        if db_path is not None
+        else (project_root.parent / "editvista.sqlite3")
+    )
+    conn = connect_db(resolved_db_path)
+    init_db(conn)
+    if get_project(conn, project_id) is None:
+        upsert_project(
+            conn,
+            ProjectRecord(
+                project_id=project_id,
+                business_name=project_id.replace("-", " ").title(),
+                primary_url="https://local.invalid/project",
+                status="draft",
+            ),
+        )
+
     manifest_items: list[dict[str, Any]] = []
     if manifest_path.is_file():
         try:
@@ -112,14 +133,6 @@ def confirm_asset_rights(
                 manifest_items = raw
         except Exception:
             manifest_items = []
-
-    resolved_db_path = (
-        Path(db_path).resolve()
-        if db_path is not None
-        else (project_root.parent / "editvista.sqlite3")
-    )
-    conn = connect_db(resolved_db_path)
-    init_db(conn)
 
     existing_db_records = {r.asset_id: r for r in list_assets_for_project(conn, project_id)}
 

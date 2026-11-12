@@ -3,7 +3,7 @@
 ## Bugs / design gaps from the original package
 
 1. Social profiles were *only discovered*, not downloaded → optional gallery-dl adapter added.
-2. No one-year filter → `--date-after` cutoff requested at runtime; explicit `post_date_verified: false` until checked.
+2. A one-year filter was initially attempted at the gallery-dl CLI layer, but the actual installed gallery-dl version rejects that flag. The safe fallback is to apply post-date verification in Python after metadata parsing, and mark `post_date_verified: false` until a real timestamp is available.
 3. Too much potential disk usage → reduce default images, per-file and staging caps, short timeouts, selective post-approval cleanup.
 4. In-memory-only job status vanished on restart → SQLite persistence and interrupted status.
 5. Crawler could fetch more than its final HTML size check and leave streamed connections open → bounded streaming reads and resource cleanup.
@@ -21,7 +21,7 @@
 - `python -m compileall -q app`: completed successfully.
 - Confirmed source tree and JSON workflow files parse.
 - Synthetic local HTTP site test: HTML, linked gallery, manifest, robots and file deduplication.
-- Stub social extractor: verifies explicit one-year date flag, file count, duplicate handling, corrupted-image rejection and review flags.
+- Stub social extractor: verifies safe bounded collection defaults, file count, duplicate handling, corrupted-image rejection, and review flags without unsupported gallery-dl CLI flags.
 - Cleanup tests: refuses unapproved projects or missing archives; retains referenced images; archive and prune work on a temporary project; blocks unsafe relative paths.
 
 ## Not tested / cannot claim production ready

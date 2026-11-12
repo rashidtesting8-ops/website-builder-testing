@@ -28,7 +28,6 @@ from PIL import Image, ImageDraw
 from pydantic import BaseModel, ConfigDict
 
 from app.approval import (
-    approve_release,
     stage_release_candidate,
 )
 from app.art_director import BusinessTaxonomy, generate_art_direction
@@ -517,7 +516,7 @@ class PilotBusinessResult(BaseModel):
     zero_fabrication_passed: bool
     qa_passed: bool
     critique_status: str
-    manifest_sha256: str
+    manifest_sha256: str | None
     delivery_files: list[str]
     primary_cta_label: str
     primary_cta_target: str | None = None
@@ -530,7 +529,7 @@ class PilotAcceptanceReport(BaseModel):
 
     timestamp: str
     total_businesses: int
-    successful_businesses: int
+    review_ready_businesses: int
     failed_businesses: int
     total_duration_seconds: float
     average_duration_seconds: float
@@ -717,17 +716,7 @@ def run_single_pilot_business(
     critique_res = run_critique_revision_loop(project_root, max_iterations=2)
     _execute_qa_pass()
 
-    # 11. Approve & Freeze Release
-    manifest_sha = approve_release(
-        project_root,
-        version="v1",
-        operator_name="Milestone 5 Pilot Lead",
-        notes=f"Pilot validation for {spec.archetype_label}",
-        projects_dir=p_dir,
-        db_path=db_path,
-    )
-
-    # 12. Zero-Fabrication Audit Verification
+    # 11. Zero-Fabrication Audit Verification
     # Assert every price/discount claimed in website HTML was present in verified facts
     index_html = (project_root / "website/index.html").read_text(encoding="utf-8")
     verified_claims = [
@@ -743,16 +732,15 @@ def run_single_pilot_business(
             zero_fab_passed = False
             break
 
+    duration = time.monotonic() - start_time
     delivery_dir = project_root / "delivery"
     delivery_files = [f.name for f in delivery_dir.glob("*") if f.is_file()]
-
-    duration = time.monotonic() - start_time
     return PilotBusinessResult(
         slug=spec.slug,
         business_name=spec.business_name,
         archetype=spec.archetype,
         archetype_label=spec.archetype_label,
-        status="approved",
+        status="awaiting_approval",
         duration_seconds=round(duration, 2),
         taxonomy=brief.taxonomy,
         verified_facts_count=len(verified_claims),
@@ -760,7 +748,7 @@ def run_single_pilot_business(
         zero_fabrication_passed=zero_fab_passed,
         qa_passed=True,
         critique_status=critique_res.final_status,
-        manifest_sha256=manifest_sha,
+        manifest_sha256=None,
         delivery_files=sorted(delivery_files),
         primary_cta_label=brief.primary_cta_label,
         primary_cta_target=brief.primary_cta_target,
@@ -797,8 +785,8 @@ def execute_acceptance_pilot(
     report = PilotAcceptanceReport(
         timestamp=_utc_now().isoformat(),
         total_businesses=len(results),
-        successful_businesses=sum(1 for r in results if r.status == "approved"),
-        failed_businesses=sum(1 for r in results if r.status != "approved"),
+        review_ready_businesses=sum(1 for r in results if r.status == "awaiting_approval"),
+        failed_businesses=sum(1 for r in results if r.status == "failed"),
         total_duration_seconds=round(total_duration, 2),
         average_duration_seconds=round(avg_duration, 2),
         zero_fabrication_audit_passed=all(r.zero_fabrication_passed for r in results),
@@ -821,7 +809,7 @@ def execute_acceptance_pilot(
         "# EditVista Milestone 5 — Five-Business Acceptance Pilot Report",
         "",
         f"**Audit Timestamp:** `{report.timestamp}`  ",
-        f"**Total Businesses Tested:** `{report.total_businesses}` (All 5 Passed)  ",
+        f"**Candidates Ready for Human Review:** `{report.review_ready_businesses}`  ",
         f"**Zero-Fabrication Audit:** `{zf_status_str}`  ",
         f"**Total Duration:** `{report.total_duration_seconds:.2f}s` "
         f"(Avg: `{report.average_duration_seconds:.2f}s`/biz)  ",
@@ -868,7 +856,8 @@ def execute_acceptance_pilot(
         md_lines.extend([
             f"### `{r.slug}` — {r.business_name}",
             f"- **Archetype**: `{r.archetype_label}`",
-            f"- **Immutable Manifest SHA**: `{r.manifest_sha256}`",
+            f"- **Immutable Manifest SHA**: "
+            f"`{r.manifest_sha256 or 'Not issued; awaiting human approval'}`",
             f"- **Facts Verification Audit**: `{verified_desc}`",
             f"- **CTA Target**: `{r.primary_cta_target or 'Standard Form Booking'}`",
             f"- **Delivery Artifacts**: `{', '.join(r.delivery_files)}`",
@@ -907,7 +896,8 @@ def main(argv: list[str] | None = None) -> int:
     print("Executing EditVista Milestone 5: Five-Business Acceptance Pilot...")
     rep = execute_acceptance_pilot(projects_dir=args.projects_dir, live=bool(args.live))
     print(
-        f"Pilot completed: {rep.successful_businesses}/{rep.total_businesses} succeeded "
+        f"Pilot completed: "
+        f"{rep.review_ready_businesses}/{rep.total_businesses} candidates ready for human review "
         f"in {rep.total_duration_seconds:.2f}s."
     )
     print(f"Audit reports written to {args.projects_dir}/_pilot/pilot-report.json and .md")

@@ -3,53 +3,234 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>EditVista Operator Cockpit — Projects</title>
+  <meta name="theme-color" content="#f5f6f2">
+  <title>EditVista Studio — Project workspace</title>
   <style>
     :root {
-      --bg: #0F172A;
-      --surface: #1E293B;
-      --surface-border: #334155;
-      --text: #F8FAFC;
-      --text-muted: #94A3B8;
-      --primary: #38BDF8;
-      --primary-hover: #0EA5E9;
-      --accent: #F59E0B;
-      --success: #10B981;
-      --danger: #EF4444;
+      color-scheme: light;
+      --ink: #172a27;
+      --muted: #6b7974;
+      --subtle: #98a39e;
+      --line: #e3e8e2;
+      --canvas: #f5f6f2;
+      --paper: #fff;
+      --forest: #244f45;
+      --forest-dark: #193b34;
+      --mint: #e9f2ed;
+      --gold: #a56d29;
+      --gold-wash: #f8f0e2;
+      --red: #a8493e;
+      --red-wash: #f8ece9;
+      --blue: #4a698d;
+      --blue-wash: #edf2f8;
+      --shadow: 0 16px 42px rgba(29, 55, 46, .06);
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: var(--bg); color: var(--text); padding: 2rem; min-height: 100vh; }
-    header { max-width: 1200px; margin: 0 auto 2rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--surface-border); padding-bottom: 1.5rem; }
-    h1 { font-size: 1.75rem; font-weight: 700; color: var(--text); }
-    .subtitle { color: var(--text-muted); font-size: 0.95rem; margin-top: 0.25rem; }
-    .grid { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 1.5rem; }
-    .project-card { background: var(--surface); border: 1px solid var(--surface-border); border-radius: 8px; padding: 1.5rem; display: flex; flex-direction: column; justify-content: space-between; gap: 1rem; }
-    .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
-    .card-header h3 { font-size: 1.15rem; color: var(--text); }
-    .project-url a { color: var(--primary); text-decoration: none; font-size: 0.85rem; word-break: break-all; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--canvas);
+      color: var(--ink);
+      font: 15px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    a { color: inherit; }
+    button, input { font: inherit; }
+    .workspace-shell { min-height: 100vh; display: grid; grid-template-columns: 248px minmax(0, 1fr); }
+    .sidebar {
+      position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column;
+      padding: 27px 19px 20px; color: #e9f2ec; background: var(--forest-dark);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; padding: 0 7px 32px; }
+    .brand-mark {
+      width: 39px; height: 39px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.28);
+      border-radius: 12px; color: #fff; background: rgba(255,255,255,.09); font-size: 15px; font-weight: 750; letter-spacing: -.08em;
+    }
+    .brand-name { font-size: 16px; font-weight: 720; letter-spacing: -.035em; }
+    .brand-caption { margin-top: 1px; color: #a9beb4; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+    .nav-label { padding: 0 10px 9px; color: #9ab0a5; font-size: 10px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
+    .nav-item {
+      display: flex; align-items: center; gap: 11px; margin: 2px 0; padding: 10px 11px; border: 1px solid transparent;
+      border-radius: 9px; color: #d3e1d9; font-size: 13px; text-decoration: none;
+    }
+    .nav-item.active { border-color: rgba(255,255,255,.12); color: #fff; background: rgba(255,255,255,.11); }
+    .nav-icon { width: 18px; color: #b6c8bf; text-align: center; font-size: 15px; }
+    .sidebar-note { margin-top: auto; padding: 15px 14px; border: 1px solid rgba(255,255,255,.13); border-radius: 12px; background: rgba(255,255,255,.055); }
+    .sidebar-note strong { display: block; margin-bottom: 5px; font-size: 12px; }
+    .sidebar-note p { margin: 0; color: #b7c8bf; font-size: 11px; line-height: 1.55; }
+    .local-pill { display: inline-flex; align-items: center; gap: 7px; margin: 17px 5px 0; color: #b7c8bf; font-size: 11px; }
+    .local-dot { width: 7px; height: 7px; border-radius: 50%; background: #72c59b; box-shadow: 0 0 0 3px rgba(114,197,155,.13); }
+    .main { min-width: 0; padding: 0 42px 52px; }
+    .topbar { height: 70px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+    .crumb { color: var(--muted); font-size: 12px; }
+    .crumb strong { color: var(--ink); font-weight: 650; }
+    .topbar-meta { display: flex; align-items: center; gap: 13px; color: var(--muted); font-size: 12px; }
+    .avatar { width: 31px; height: 31px; display: grid; place-items: center; border-radius: 50%; color: var(--forest); background: #e4ede7; font-size: 11px; font-weight: 750; }
+    .page-content { max-width: 1240px; margin: 0 auto; }
+    .eyebrow { margin: 34px 0 8px; color: var(--forest); font-size: 10px; font-weight: 750; letter-spacing: .16em; text-transform: uppercase; }
+    .page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 22px; margin-bottom: 25px; }
+    h1 { margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: clamp(31px, 3.2vw, 43px); font-weight: 500; letter-spacing: -.045em; line-height: 1.1; }
+    .intro { max-width: 600px; margin: 9px 0 0; color: var(--muted); font-size: 14px; }
+    .workspace-tag { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px; padding: 8px 11px; border: 1px solid #d8e4dc; border-radius: 999px; color: var(--forest); background: #f0f5f1; font-size: 11px; font-weight: 650; }
+    .workspace-tag .local-dot { width: 6px; height: 6px; }
+    .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 13px; margin: 23px 0 29px; }
+    .metric-card { min-height: 105px; padding: 17px 19px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); box-shadow: 0 3px 12px rgba(30,55,47,.025); }
+    .metric-label { color: var(--muted); font-size: 11px; font-weight: 600; }
+    .metric-value { margin-top: 8px; font-family: Georgia, "Times New Roman", serif; font-size: 29px; letter-spacing: -.04em; }
+    .metric-hint { margin-top: 1px; color: var(--subtle); font-size: 10px; }
+    .section-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin: 32px 0 14px; }
+    .section-heading h2 { margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: 23px; font-weight: 500; letter-spacing: -.025em; }
+    .section-heading p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+    .project-tools { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin-bottom: 14px; }
+    .search-wrap { position: relative; width: min(360px, 100%); }
+    .search-icon { position: absolute; top: 9px; left: 12px; color: #83908a; font-size: 15px; }
+    .search-input { width: 100%; height: 38px; padding: 0 13px 0 35px; border: 1px solid #dfe5df; border-radius: 8px; outline: none; color: var(--ink); background: #fff; font-size: 12px; }
+    .search-input:focus { border-color: #7da394; box-shadow: 0 0 0 3px rgba(64,112,91,.12); }
+    .result-count { color: var(--muted); font-size: 11px; white-space: nowrap; }
+    .project-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
+    .project-card {
+      position: relative; min-width: 0; display: flex; flex-direction: column; padding: 19px 20px 17px;
+      border: 1px solid var(--line); border-radius: 13px; background: var(--paper); box-shadow: var(--shadow);
+      transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    }
+    .project-card:hover { transform: translateY(-2px); border-color: #cbd9d0; box-shadow: 0 19px 45px rgba(29,55,46,.1); }
+    .card-topline { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .card-kind { color: var(--subtle); font-size: 9px; font-weight: 750; letter-spacing: .15em; text-transform: uppercase; }
+    .status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px; border: 1px solid transparent; border-radius: 999px; font-size: 9px; font-weight: 720; letter-spacing: .035em; text-transform: uppercase; white-space: nowrap; }
+    .status-badge::before { width: 6px; height: 6px; border-radius: 50%; background: currentColor; content: ""; }
+    .badge-green { border-color: #d3e7d9; color: #34704d; background: #eff7f0; }
+    .badge-amber { border-color: #eddfc7; color: #946520; background: #fbf5e9; }
+    .badge-red { border-color: #efd5d1; color: #9c4137; background: #fbefed; }
+    .badge-blue { border-color: #d7e2ee; color: #476b92; background: #eff4f9; }
+    .badge-neutral { border-color: #e1e6e2; color: #697771; background: #f4f6f4; }
+    .project-card h3 { overflow-wrap: anywhere; margin: 20px 0 4px; font-family: Georgia, "Times New Roman", serif; font-size: 22px; font-weight: 500; letter-spacing: -.025em; line-height: 1.2; }
+    .project-url { min-height: 20px; margin: 0; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+    .project-url a { color: #527b6b; text-decoration: none; }
     .project-url a:hover { text-decoration: underline; }
-    .card-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--surface-border); padding-top: 1rem; }
-    .pid-tag { font-family: monospace; font-size: 0.8rem; color: var(--text-muted); }
-    .badge { padding: 0.25rem 0.6rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
-    .badge-amber { background: rgba(245, 158, 11, 0.2); color: #FBBF24; border: 1px solid rgba(245, 158, 11, 0.4); }
-    .badge-green { background: rgba(16, 185, 129, 0.2); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.4); }
-    .badge-red { background: rgba(239, 68, 68, 0.2); color: #F87171; border: 1px solid rgba(239, 68, 68, 0.4); }
-    .badge-blue { background: rgba(56, 189, 248, 0.2); color: #38BDF8; border: 1px solid rgba(56, 189, 248, 0.4); }
-    .btn-primary { background: var(--primary); color: #0F172A; padding: 0.5rem 1rem; border-radius: 6px; font-weight: 600; font-size: 0.85rem; text-decoration: none; transition: background 0.15s; }
-    .btn-primary:hover { background: var(--primary-hover); }
-    .empty-msg { color: var(--text-muted); font-style: italic; }
+    .card-divider { height: 1px; margin: 19px 0 13px; background: #edf0ec; }
+    .card-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .pid-tag { overflow: hidden; color: #7d8983; font: 10px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; text-overflow: ellipsis; white-space: nowrap; }
+    .open-link { display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto; padding: 8px 11px; border: 1px solid #cddcd2; border-radius: 7px; color: var(--forest-dark); background: #f0f5f1; font-size: 11px; font-weight: 700; text-decoration: none; transition: background .15s ease; }
+    .open-link:hover { background: #e4eee7; }
+    .empty-state { grid-column: 1 / -1; padding: 38px 25px; border: 1px dashed #cbd6ce; border-radius: 12px; color: var(--muted); background: rgba(255,255,255,.55); text-align: center; }
+    .empty-state strong { display: block; margin-bottom: 5px; color: var(--ink); font-family: Georgia, "Times New Roman", serif; font-size: 20px; font-weight: 500; }
+    [hidden] { display: none !important; }
+    .pipeline-strip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin-top: 31px; padding: 16px 17px; border: 1px solid var(--line); border-radius: 11px; background: rgba(255,255,255,.67); }
+    .pipeline-step { position: relative; display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 10px; }
+    .step-number { width: 22px; height: 22px; display: grid; place-items: center; flex: 0 0 auto; border: 1px solid #dce5de; border-radius: 50%; color: var(--forest); background: #f4f8f4; font-size: 9px; font-weight: 700; }
+    .pipeline-step:not(:last-child)::after { width: 18px; height: 1px; margin-left: auto; background: #dfe6e0; content: ""; }
+    .footer-note { margin-top: 21px; color: #8a9690; font-size: 10px; }
+    @media (max-width: 1050px) {
+      .main { padding-right: 27px; padding-left: 27px; }
+      .sidebar { width: 220px; }
+      .workspace-shell { grid-template-columns: 220px minmax(0, 1fr); }
+      .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 760px) {
+      .workspace-shell { display: block; }
+      .sidebar { position: static; width: auto; height: auto; padding: 13px 17px; }
+      .brand { padding: 0; }
+      .sidebar nav, .sidebar-note, .local-pill { display: none; }
+      .main { padding: 0 19px 35px; }
+      .topbar { height: 53px; }
+      .page-heading { align-items: flex-start; flex-direction: column; gap: 13px; }
+      .eyebrow { margin-top: 25px; }
+      .metric-grid { gap: 9px; }
+      .metric-card { min-height: 91px; padding: 13px; }
+      .metric-value { font-size: 25px; }
+      .project-grid { grid-template-columns: 1fr; }
+      .pipeline-strip { grid-template-columns: 1fr; gap: 10px; }
+      .pipeline-step:not(:last-child)::after { display: none; }
+      .project-tools { align-items: flex-start; flex-direction: column; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+    }
   </style>
 </head>
 <body>
-  <header>
-    <div>
-      <h1>EditVista Operator Cockpit</h1>
-      <p class="subtitle">Human-in-the-Loop Visual Verification, Evidence Auditing &amp; Release Gate</p>
-    </div>
-  </header>
-  <main class="grid">
-    {{CARDS_HTML}}
-  </main>
+  <div class="workspace-shell">
+    <aside class="sidebar" aria-label="Workspace navigation">
+      <a class="brand" href="/" aria-label="EditVista Studio home">
+        <span class="brand-mark" aria-hidden="true">EV</span>
+        <span><span class="brand-name">EditVista</span><span class="brand-caption">Website studio</span></span>
+      </a>
+      <nav aria-label="Primary">
+        <div class="nav-label">Workspace</div>
+        <a class="nav-item active" href="/" aria-current="page"><span class="nav-icon" aria-hidden="true">▦</span>Projects</a>
+      </nav>
+      <div class="sidebar-note">
+        <strong>Evidence before release</strong>
+        <p>Every claim and image stays reviewable. Drafts are not approvals.</p>
+      </div>
+      <div class="local-pill"><span class="local-dot" aria-hidden="true"></span>Local workspace</div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div class="crumb">Workspace <span aria-hidden="true">/</span> <strong>Projects</strong></div>
+        <div class="topbar-meta"><span>Operator view</span><span class="avatar" aria-hidden="true">EV</span></div>
+      </div>
+
+      <div class="page-content">
+        <div class="eyebrow">Website intelligence · Local-first workflow</div>
+        <div class="page-heading">
+          <div>
+            <h1>Project workspace</h1>
+            <p class="intro">Research, design, review, and prepare evidence-led grooming websites in one place.</p>
+          </div>
+          <span class="workspace-tag"><span class="local-dot" aria-hidden="true"></span>Private local workspace</span>
+        </div>
+
+        <section class="metric-grid" aria-label="Project overview">
+          <article class="metric-card"><div class="metric-label">Total projects</div><div class="metric-value">{{PROJECT_COUNT}}</div><div class="metric-hint">Available in this workspace</div></article>
+          <article class="metric-card"><div class="metric-label">In progress</div><div class="metric-value">{{RUNNING_COUNT}}</div><div class="metric-hint">Active pipeline runs</div></article>
+          <article class="metric-card"><div class="metric-label">Awaiting review</div><div class="metric-value">{{REVIEW_COUNT}}</div><div class="metric-hint">Human review is required</div></article>
+          <article class="metric-card"><div class="metric-label">Approved releases</div><div class="metric-value">{{APPROVED_COUNT}}</div><div class="metric-hint">Frozen, versioned outputs</div></article>
+        </section>
+
+        <section aria-labelledby="projects-heading">
+          <div class="section-heading">
+            <div><h2 id="projects-heading">Your projects</h2><p>Open a project to inspect its evidence, preview, and release checks.</p></div>
+          </div>
+          <div class="project-tools">
+            <label class="search-wrap">
+              <span class="search-icon" aria-hidden="true">⌕</span>
+              <input id="project-search" class="search-input" type="search" placeholder="Search projects" autocomplete="off" aria-label="Search projects by name, ID, or URL">
+            </label>
+            <span class="result-count" id="project-result-count" aria-live="polite">{{PROJECT_COUNT}} projects</span>
+          </div>
+          <div class="project-grid" id="project-grid">
+            {{CARDS_HTML}}
+          </div>
+        </section>
+
+        <section class="pipeline-strip" aria-label="Website build workflow">
+          <div class="pipeline-step"><span class="step-number">01</span>Collect &amp; source</div>
+          <div class="pipeline-step"><span class="step-number">02</span>Verify facts</div>
+          <div class="pipeline-step"><span class="step-number">03</span>Curate &amp; design</div>
+          <div class="pipeline-step"><span class="step-number">04</span>Critique &amp; QA</div>
+          <div class="pipeline-step"><span class="step-number">05</span>Human release</div>
+        </section>
+        <p class="footer-note">Local prototype · Approval and publishing remain explicit human-controlled steps.</p>
+      </div>
+    </main>
+  </div>
+  <script>
+    const projectSearch = document.getElementById('project-search');
+    const projectCards = [...document.querySelectorAll('[data-project-card]')];
+    const resultCount = document.getElementById('project-result-count');
+    const updateProjectList = () => {
+      const query = projectSearch.value.trim().toLowerCase();
+      let visible = 0;
+      projectCards.forEach(card => {
+        const matches = card.dataset.search.includes(query);
+        card.hidden = !matches;
+        if (matches) visible += 1;
+      });
+      resultCount.textContent = `${visible} ${visible === 1 ? 'project' : 'projects'}`;
+      const empty = document.getElementById('search-empty');
+      if (empty) empty.hidden = visible !== 0;
+    };
+    projectSearch.addEventListener('input', updateProjectList);
+  </script>
 </body>
 </html>
-

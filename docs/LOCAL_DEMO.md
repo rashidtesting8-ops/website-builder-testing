@@ -26,7 +26,15 @@ you are authorized to evaluate before using it as a customer demo.
 In the Cockpit, inspect factual claims and asset provenance. A rights confirmation requires a
 basis, reviewer name, and evidence. Confirm rights only when you have actual permission or
 another valid basis; do not treat successful downloading or public visibility as permission.
-Approval remains blocked until required checks and rights evidence pass.
+The release review checklist requires a named reviewer to inspect the exact candidate preview,
+source-backed facts, selected assets and rights evidence, and QA screenshots. The candidate
+SHA-256 is bound into the approval request and recorded in the release manifest. Approval
+remains blocked until required checks and rights evidence pass; the checklist does not grant
+asset rights or substitute for business-owner sign-off.
+
+For the CLI approval path, provide both `--operator` and `--notes`. Open visual/factual issues
+are denied by default; only the explicit `--acknowledge-open-issues` option records an
+acknowledgment in the release manifest.
 
 ## Demo boundaries
 

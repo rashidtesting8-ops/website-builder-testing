@@ -209,6 +209,18 @@ def _scaffold_reviewable_project(
     return projects_dir, project_root
 
 
+def _human_review_attestation(project_root: Path) -> dict[str, object]:
+    candidate = project_root / "release-candidate" / "standalone.html"
+    return {
+        "candidate_sha256": hashlib.sha256(candidate.read_bytes()).hexdigest(),
+        "reviewed_preview": True,
+        "reviewed_facts": True,
+        "reviewed_assets": True,
+        "reviewed_qa": True,
+        "confirmed_release": True,
+    }
+
+
 def test_approve_blocks_on_qa_critical_defects_and_unconfirmed_asset_rights(
     tmp_path: Path,
 ) -> None:
@@ -236,6 +248,17 @@ def test_approve_blocks_on_qa_critical_defects_and_unconfirmed_asset_rights(
                 str(project_qa),
                 "--version",
                 "v1",
+                "--operator",
+                "QA Operator",
+                "--notes",
+                "Attempted approval to verify QA gate.",
+                "--reviewed-candidate-sha256",
+                str(_human_review_attestation(project_qa)["candidate_sha256"]),
+                "--reviewed-preview",
+                "--reviewed-facts",
+                "--reviewed-assets",
+                "--reviewed-qa",
+                "--confirmed-release",
             ]
         )
     assert not (project_qa / "delivery").exists()
@@ -252,6 +275,43 @@ def test_approve_blocks_on_qa_critical_defects_and_unconfirmed_asset_rights(
         approve_release(project_rights, version="v1", projects_dir=projects_dir_rights)
     assert not (project_rights / "delivery").exists()
     assert not (project_rights / "versions" / "v1").exists()
+
+
+def test_approve_requires_human_operator_and_decision_notes(tmp_path: Path) -> None:
+    """Release approval cannot use fabricated fallback identity or notes."""
+    projects_dir, missing_operator = _scaffold_reviewable_project(
+        tmp_path / "missing_operator", "missing-operator"
+    )
+    with pytest.raises(ReleaseApprovalGateError, match="operator name"):
+        approve_release(
+            missing_operator,
+            notes="Reviewed candidate and evidence.",
+            projects_dir=projects_dir,
+        )
+    assert not (missing_operator / "delivery").exists()
+
+    projects_dir, missing_notes = _scaffold_reviewable_project(
+        tmp_path / "missing_notes", "missing-notes"
+    )
+    with pytest.raises(ReleaseApprovalGateError, match="approval notes"):
+        approve_release(
+            missing_notes,
+            operator_name="Named Reviewer",
+            projects_dir=projects_dir,
+        )
+    assert not (missing_notes / "delivery").exists()
+
+    _, missing_review = _scaffold_reviewable_project(
+        tmp_path / "missing_review", "missing-review"
+    )
+    with pytest.raises(ReleaseApprovalGateError, match="human review attestation"):
+        approve_release(
+            missing_review,
+            operator_name="Named Reviewer",
+            notes="Reviewed the candidate and evidence.",
+            projects_dir=tmp_path / "missing_review" / "projects",
+        )
+    assert not (missing_review / "delivery").exists()
 
 
 def test_approve_copies_candidate_writes_manifest_hashes_sets_readonly_and_blocks_duplicate_version(
@@ -285,6 +345,13 @@ def test_approve_copies_candidate_writes_manifest_hashes_sets_readonly_and_block
             "Alice Reviewer",
             "--notes",
             "Initial human sign-off",
+            "--reviewed-candidate-sha256",
+            str(_human_review_attestation(project_root)["candidate_sha256"]),
+            "--reviewed-preview",
+            "--reviewed-facts",
+            "--reviewed-assets",
+            "--reviewed-qa",
+            "--confirmed-release",
         ]
     )
     assert exit_code == 0
@@ -330,6 +397,17 @@ def test_approve_copies_candidate_writes_manifest_hashes_sets_readonly_and_block
                 str(project_root),
                 "--version",
                 "v1",
+                "--operator",
+                "Alice Reviewer",
+                "--notes",
+                "Attempted duplicate version approval.",
+                "--reviewed-candidate-sha256",
+                str(_human_review_attestation(project_root)["candidate_sha256"]),
+                "--reviewed-preview",
+                "--reviewed-facts",
+                "--reviewed-assets",
+                "--reviewed-qa",
+                "--confirmed-release",
             ]
         )
 
@@ -348,6 +426,7 @@ def test_approve_copies_candidate_writes_manifest_hashes_sets_readonly_and_block
         "hash-freeze-salon",
         operator_name="Alice Reviewer",
         notes="Updated primary color token",
+        review_attestation=_human_review_attestation(project_root),
         version="v2",
         projects_dir=projects_dir,
     )
@@ -373,6 +452,7 @@ def test_retained_assets_and_delivery_files_never_touched_by_cleanup(tmp_path: P
         "prune-safe-salon",
         operator_name="Bob Release Lead",
         notes="Approved for final delivery and staging cleanup",
+        review_attestation=_human_review_attestation(project_root),
         version="v1",
         projects_dir=projects_dir,
     )
@@ -432,13 +512,20 @@ def test_approve_refuses_when_qa_report_is_stale_or_candidate_hash_mismatched(
     # Case B: QA report updated with matching sha256 -> approval succeeds
     qa_data["candidate_sha256"] = real_sha
     qa_path.write_text(json.dumps(qa_data), encoding="utf-8")
-    v_hash = approve_release("stale-qa-salon", version="v1", projects_dir=projects_dir)
+    v_hash = approve_release(
+        "stale-qa-salon",
+        version="v1",
+        operator_name="QA Reviewer",
+        notes="Reviewed candidate after QA hash was refreshed.",
+        projects_dir=projects_dir,
+        review_attestation=_human_review_attestation(project_root),
+    )
     assert v_hash
 
     # Verify manifest records approver, UTC timestamp, and QA report sha256
     manifest_path = project_root / "delivery" / "release-manifest.json"
     manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
-    assert manifest_data["approver"] == "Dev"
+    assert manifest_data["approver"] == "QA Reviewer"
     assert "approved_at" in manifest_data
     assert manifest_data["qa_report_sha256"] == hashlib.sha256(qa_path.read_bytes()).hexdigest()
 
@@ -519,7 +606,14 @@ def test_rights_check_ignores_unreferenced_assets_and_blocks_referenced_unconfir
     qa_path.write_text(json.dumps(qa_data), encoding="utf-8")
 
     # Approval MUST SUCCEED because unreferenced_unconfirmed.jpg is unreferenced
-    version_hash = approve_release("rights-split-salon", version="v1", projects_dir=projects_dir)
+    version_hash = approve_release(
+        "rights-split-salon",
+        version="v1",
+        operator_name="Rights Reviewer",
+        notes="Reviewed used asset rights and confirmed unused assets are excluded.",
+        projects_dir=projects_dir,
+        review_attestation=_human_review_attestation(project_root),
+    )
     assert version_hash
 
     # Now create project where the candidate HTML references an unconfirmed asset
@@ -570,7 +664,14 @@ def test_verify_release_and_cli_fails_on_tampered_delivery_file_and_blocks_expor
     qa_path.write_text(json.dumps(qa_data), encoding="utf-8")
 
     # Approve release
-    approve_release("tamper-proof-salon", version="v1", projects_dir=projects_dir)
+    approve_release(
+        "tamper-proof-salon",
+        version="v1",
+        operator_name="Release Reviewer",
+        notes="Reviewed the release candidate and approved the frozen version.",
+        projects_dir=projects_dir,
+        review_attestation=_human_review_attestation(project_root),
+    )
 
     # Verification passes cleanly initially
     assert verify_release(project_root) is True

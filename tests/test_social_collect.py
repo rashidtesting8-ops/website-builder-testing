@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from app.rights import confirm_asset_rights
 from PIL import Image
 
 from engine.social_collect import (
@@ -103,6 +104,74 @@ def test_permission_flag_required_on_cli_and_collect(tmp_path: Path) -> None:
     assert cli_res["reason"] == "permission_required"
 
 
+def test_collect_social_writes_canonical_asset_manifest(tmp_path: Path) -> None:
+    project = tmp_path / "salon"
+    (project / "research").mkdir(parents=True)
+
+    def stub_runner(cmd: list[str], stage: Path) -> tuple[int, str]:
+        if "--dump-json" in cmd:
+            return 0, RECORDED_SUCCESS_DUMP_JSON
+        (stage / "fresh_cut.jpg").write_bytes(_make_jpeg_with_exif_gps())
+        return 0, "fresh_cut.jpg\n"
+
+    result = collect_social(
+        project,
+        "instagram",
+        "https://www.instagram.com/paws_and_claws_salon/",
+        max_files=5,
+        runner=stub_runner,
+        i_have_permission=True,
+    )
+    assert result["status"] == "collected_needs_review"
+    asset_manifest_path = project / "research" / "asset-manifest.json"
+    asset_manifest = json.loads(asset_manifest_path.read_text(encoding="utf-8"))
+    assert len(asset_manifest) == 1
+    assert asset_manifest[0]["file"].startswith("assets/")
+    assert asset_manifest[0]["rights_confirmed_for_preview"] is False
+    assert asset_manifest[0]["platform"] == "instagram"
+
+
+def test_confirm_asset_rights_creates_missing_project_record(tmp_path: Path) -> None:
+    project = tmp_path / "live-social-project"
+    (project / "research").mkdir(parents=True)
+    (project / "assets" / "facebook").mkdir(parents=True)
+    asset_file = project / "assets" / "facebook" / "demo.jpg"
+    asset_file.write_bytes(b"fake-jpg-bytes")
+    (project / "research" / "asset-manifest.json").write_text(
+        json.dumps([
+            {
+                "file": "assets/facebook/demo.jpg",
+                "sha256": "" + "0" * 64,
+                "source_url": "https://www.facebook.com/demo",
+                "rights_confirmed_for_preview": False,
+            }
+        ]),
+        encoding="utf-8",
+    )
+
+    # Force the manifest SHA to match the real file bytes for the update path.
+    import hashlib
+    actual_sha = hashlib.sha256(asset_file.read_bytes()).hexdigest()
+    manifest_path = project / "research" / "asset-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest[0]["sha256"] = actual_sha
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    confirm_asset_rights(
+        project,
+        asset=actual_sha,
+        basis="owner_permission",
+        operator="Alice Reviewer",
+        evidence="Reviewed by owner-approved business page evidence.",
+        projects_dir=tmp_path,
+    )
+
+    updated = json.loads((project / "research" / "asset-manifest.json").read_text(encoding="utf-8"))
+    assert updated[0]["rights_confirmed_for_preview"] is True
+    assert updated[0]["rights_basis"] == "owner_permission"
+    assert (tmp_path / "editvista.sqlite3").exists()
+
+
 def test_success_dry_run_metadata_and_exif_stripping(tmp_path: Path) -> None:
     project = tmp_path / "salon"
     (project / "research").mkdir(parents=True)
@@ -152,6 +221,7 @@ def test_success_dry_run_metadata_and_exif_stripping(tmp_path: Path) -> None:
         assert "--filesize-max" in cmd
         assert "--sleep-request" in cmd
         assert "--download-archive" in cmd
+        assert "--date-after" not in cmd
         # Never pass cookie or credential flags
         for forbidden in ("--cookies", "--cookies-from-browser", "--username", "--password"):
             assert forbidden not in cmd

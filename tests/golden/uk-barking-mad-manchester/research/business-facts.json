@@ -1,6 +1,6 @@
 {
   "project_id": "uk-barking-mad-manchester",
-  "extracted_at": "2026-11-11T14:09:41.277877Z",
+  "extracted_at": "2026-11-12T09:20:39.688517Z",
   "facts": [
     {
       "fact_id": "fact-eb62be69d4f7",
@@ -15,7 +15,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.277877Z",
+      "last_checked_at": "2026-11-12T09:20:39.688517Z",
       "source_text": "Barking Mad Manchester",
       "verified": true
     },
@@ -32,7 +32,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.277877Z",
+      "last_checked_at": "2026-11-12T09:20:39.688517Z",
       "source_text": "Address: 18 Deansgate, Manchester, M3 2NW",
       "verified": true
     },
@@ -57,7 +57,7 @@
       },
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.277877Z",
+      "last_checked_at": "2026-11-12T09:20:39.688517Z",
       "source_text": "Hours: Mon - Sat 9:00 AM - 6:00 PM",
       "verified": true
     },
@@ -74,7 +74,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.277877Z",
+      "last_checked_at": "2026-11-12T09:20:39.688517Z",
       "source_text": "Full Groom & Finish - £50.00",
       "verified": true
     },
@@ -91,7 +91,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.277877Z",
+      "last_checked_at": "2026-11-12T09:20:39.688517Z",
       "source_text": "Full Groom & Finish - £50.00",
       "verified": true
     },
@@ -108,7 +108,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.277877Z",
+      "last_checked_at": "2026-11-12T09:20:39.688517Z",
       "source_text": "Wash & Blow Dry - £30.00",
       "verified": true
     },
@@ -125,7 +125,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.277877Z",
+      "last_checked_at": "2026-11-12T09:20:39.688517Z",
       "source_text": "Wash & Blow Dry - £30.00",
       "verified": true
     },
@@ -134,7 +134,7 @@
       "project_id": "uk-barking-mad-manchester",
       "category": "phone",
       "claim_key": "phone",
-      "claim_value": "0161 834 9901 (conflicts with 0161 834 9900)",
+      "claim_value": "0161 834 9901",
       "source_url": "https://barkingmadmanchester.co.uk",
       "source_text_snippet": "Phone: 0161 834 9901",
       "source_kind": "regex",
@@ -144,7 +144,7 @@
       "structured_value": null,
       "is_verified": false,
       "status": "needs_review",
-      "last_checked_at": "2026-11-11T14:09:41.277877Z",
+      "last_checked_at": "2026-11-12T09:20:39.688517Z",
       "source_text": "Phone: 0161 834 9901",
       "verified": false
     },
@@ -153,7 +153,7 @@
       "project_id": "uk-barking-mad-manchester",
       "category": "phone",
       "claim_key": "phone",
-      "claim_value": "0161 834 9900 (conflicts with 0161 834 9901 (conflicts with 0161 834 9900))",
+      "claim_value": "0161 834 9900",
       "source_url": "https://barkingmadmanchester.co.uk",
       "source_text_snippet": "© 2026 Barking Mad Ltd. 18 Deansgate, Manchester, M3 2NW. For enquiries call 0161 834 9900",
       "source_kind": "regex",
@@ -163,7 +163,7 @@
       "structured_value": null,
       "is_verified": false,
       "status": "needs_review",
-      "last_checked_at": "2026-11-11T14:09:41.277877Z",
+      "last_checked_at": "2026-11-12T09:20:39.688517Z",
       "source_text": "© 2026 Barking Mad Ltd. 18 Deansgate, Manchester, M3 2NW. For enquiries call 0161 834 9900",
       "verified": false
     }

@@ -74,6 +74,18 @@ def _mock_qa_runner(project_folder: str | Path, **_kwargs: Any) -> QADefectRepor
     return report
 
 
+def _human_review_attestation(project_root: Path) -> dict[str, object]:
+    candidate = project_root / "release-candidate" / "standalone.html"
+    return {
+        "candidate_sha256": hashlib.sha256(candidate.read_bytes()).hexdigest(),
+        "reviewed_preview": True,
+        "reviewed_facts": True,
+        "reviewed_assets": True,
+        "reviewed_qa": True,
+        "confirmed_release": True,
+    }
+
+
 def _hash_directory_tree(base_dir: Path) -> dict[str, str]:
     hashes: dict[str, str] = {}
     if not base_dir.is_dir():
@@ -126,6 +138,8 @@ def test_approved_project_rerun_refuses_with_project_locked_error(tmp_path: Path
             notes="Release approved for production",
             projects_dir=projects_dir,
             db_path=db_path,
+            review_attestation=_human_review_attestation(project_root),
+            acknowledge_open_issues=True,
         )
         assert bool(release_tree_sha)
 
@@ -258,6 +272,8 @@ def test_cli_new_draft_flag_and_locked_error(tmp_path: Path) -> None:
             notes="Approved",
             projects_dir=projects_dir,
             db_path=db_path,
+            review_attestation=_human_review_attestation(project_root),
+            acknowledge_open_issues=True,
         )
 
         delivery_hashes_before = _hash_directory_tree(project_root / "delivery")

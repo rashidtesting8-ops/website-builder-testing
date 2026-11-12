@@ -891,8 +891,18 @@ def _handle_approve_subcommand(argv: Sequence[str]) -> int:
     parser.add_argument("--project", default=None, help="Target project slug ID or path")
     parser.add_argument("--project-id", default=None, help="Target project slug ID")
     parser.add_argument("--version", default="v1", help="Release version identifier (e.g. v1)")
-    parser.add_argument("--operator", default=None, help="Human reviewer/operator name")
-    parser.add_argument("--notes", default=None, help="Approval sign-off notes")
+    parser.add_argument("--operator", required=True, help="Human reviewer/operator name")
+    parser.add_argument("--notes", required=True, help="Human approval decision notes")
+    parser.add_argument(
+        "--reviewed-candidate-sha256",
+        required=True,
+        help="SHA-256 shown in the human review cockpit for the candidate being approved",
+    )
+    parser.add_argument("--reviewed-preview", action="store_true", required=True)
+    parser.add_argument("--reviewed-facts", action="store_true", required=True)
+    parser.add_argument("--reviewed-assets", action="store_true", required=True)
+    parser.add_argument("--reviewed-qa", action="store_true", required=True)
+    parser.add_argument("--confirmed-release", action="store_true", required=True)
     parser.add_argument(
         "--acknowledge-open-issues",
         action="store_true",
@@ -915,6 +925,14 @@ def _handle_approve_subcommand(argv: Sequence[str]) -> int:
         projects_dir=args.projects_dir,
         db_path=args.db_path,
         acknowledge_open_issues=bool(args.acknowledge_open_issues),
+        review_attestation={
+            "candidate_sha256": args.reviewed_candidate_sha256,
+            "reviewed_preview": bool(args.reviewed_preview),
+            "reviewed_facts": bool(args.reviewed_facts),
+            "reviewed_assets": bool(args.reviewed_assets),
+            "reviewed_qa": bool(args.reviewed_qa),
+            "confirmed_release": bool(args.confirmed_release),
+        },
     )
 
     # If qa/mvf-report.json has acknowledged gaps, record them in release-manifest.json

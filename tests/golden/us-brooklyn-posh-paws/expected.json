@@ -13,6 +13,13 @@
     "trap": "two conflicting phones (718) 555-0199 vs (718) 555-0122"
   },
   {
+    "category": "phone",
+    "normalized_value": "(718) 555-0122",
+    "claim_key": "phone",
+    "expected_status": "needs_review",
+    "trap": "footer phone conflicts with the contact number"
+  },
+  {
     "category": "address",
     "normalized_value": "155 Montague Street, Brooklyn, NY 11201",
     "claim_key": "address",

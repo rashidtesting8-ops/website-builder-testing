@@ -13,6 +13,13 @@
     "trap": "two different phone numbers (contact: 0161 834 9901 vs footer: 0161 834 9900)"
   },
   {
+    "category": "phone",
+    "normalized_value": "0161 834 9900",
+    "claim_key": "phone",
+    "expected_status": "needs_review",
+    "trap": "footer phone conflicts with the contact number"
+  },
+  {
     "category": "address",
     "normalized_value": "18 Deansgate, Manchester, M3 2NW",
     "claim_key": "address",

@@ -232,6 +232,27 @@ def _scaffold_cockpit_project(
     return project_root
 
 
+def _approval_payload(
+    project_root: Path,
+    *,
+    operator_name: str = "Senior Operator",
+    notes: str = "Reviewed candidate, sources, assets, and responsive QA.",
+) -> dict[str, object]:
+    candidate = project_root / "release-candidate" / "standalone.html"
+    return {
+        "operator_name": operator_name,
+        "notes": notes,
+        "human_review": {
+            "candidate_sha256": hashlib.sha256(candidate.read_bytes()).hexdigest(),
+            "reviewed_preview": True,
+            "reviewed_facts": True,
+            "reviewed_assets": True,
+            "reviewed_qa": True,
+            "confirmed_release": True,
+        },
+    }
+
+
 @contextmanager
 def _ephemeral_cockpit_server(projects_dir: Path) -> Iterator[str]:
     app = create_cockpit_app(projects_dir=projects_dir)
@@ -274,10 +295,13 @@ def test_cockpit_dashboard_lists_projects(tmp_path: Path) -> None:
     with _ephemeral_cockpit_server(projects_dir) as base_url:
         resp = requests.get(f"{base_url}/", timeout=3.0)
         assert resp.status_code == 200
-        assert "EditVista Operator Cockpit" in resp.text
+        assert "Project workspace" in resp.text
         assert "project-alpha" in resp.text
         assert "Cockpit Paws Spa" in resp.text
-        assert "awaiting_approval" in resp.text
+        assert "awaiting approval" in resp.text
+        assert 'id="project-search"' in resp.text
+        assert "workspace-shell" in resp.text
+        assert "data-project-card" in resp.text
 
 
 def test_cockpit_review_page_serves_facts_and_viewports(tmp_path: Path) -> None:
@@ -297,6 +321,11 @@ def test_cockpit_review_page_serves_facts_and_viewports(tmp_path: Path) -> None:
         assert "390px.png" in resp.text
         # Check preview iframe
         assert 'src="/preview/review-demo/standalone.html"' in resp.text
+        assert "review-summary" in resp.text
+        assert "1 asset(s) still need evidence" in resp.text
+        assert "Candidate preview" in resp.text
+        assert "I reviewed the candidate preview" in resp.text
+        assert "Exact candidate SHA-256" in resp.text
 
 
 def test_cockpit_preview_serving_and_path_traversal_defense(tmp_path: Path) -> None:
@@ -332,7 +361,11 @@ def test_cockpit_confirm_asset_rights_and_approve_release_gate(tmp_path: Path) -
         # 1. Approval fails when rights are unconfirmed
         fail_appr = requests.post(
             f"{base_url}/api/projects/gate-demo/approve",
-            json={"operator_name": "Dev QA", "notes": "Premature attempt"},
+            json=_approval_payload(
+                project_root,
+                operator_name="Dev QA",
+                notes="Premature attempt before rights confirmation.",
+            ),
             timeout=3.0,
         )
         assert fail_appr.status_code == 400
@@ -361,7 +394,7 @@ def test_cockpit_confirm_asset_rights_and_approve_release_gate(tmp_path: Path) -
         # 3. Approve release now succeeds
         ok_appr = requests.post(
             f"{base_url}/api/projects/gate-demo/approve",
-            json={"operator_name": "Senior Operator", "notes": "Approved via Cockpit UI"},
+            json=_approval_payload(project_root),
             timeout=3.0,
         )
         assert ok_appr.status_code == 200
@@ -372,6 +405,59 @@ def test_cockpit_confirm_asset_rights_and_approve_release_gate(tmp_path: Path) -
         # Verify delivery/ was frozen
         assert (project_root / "delivery/release-manifest.json").is_file()
         assert (project_root / "versions/v1/release-manifest.json").is_file()
+        manifest = json.loads(
+            (project_root / "delivery/release-manifest.json").read_text(encoding="utf-8")
+        )
+        assert manifest["human_review"]["reviewed_by"] == "Senior Operator"
+        assert manifest["human_review"]["reviewed_preview"] is True
+        assert manifest["human_review"]["confirmed_release"] is True
+        assert manifest["human_review"]["candidate_sha256"] == hashlib.sha256(
+            (project_root / "release-candidate/standalone.html").read_bytes()
+        ).hexdigest()
+
+
+def test_cockpit_requires_complete_current_candidate_human_attestation(
+    tmp_path: Path,
+) -> None:
+    projects_dir = tmp_path / "projects"
+    projects_dir.mkdir(parents=True)
+    project_root = _scaffold_cockpit_project(
+        projects_dir, "attestation-demo", rights_confirmed=True
+    )
+
+    with _ephemeral_cockpit_server(projects_dir) as base_url:
+        missing_attestation = requests.post(
+            f"{base_url}/api/projects/attestation-demo/approve",
+            json={"operator_name": "Reviewer", "notes": "Reviewed the candidate carefully."},
+            timeout=3.0,
+        )
+        assert missing_attestation.status_code == 400
+        assert not (project_root / "delivery" / "release-manifest.json").exists()
+
+        rejected_attestation = _approval_payload(project_root)
+        review = rejected_attestation["human_review"]
+        assert isinstance(review, dict)
+        review["reviewed_facts"] = False
+        rejected = requests.post(
+            f"{base_url}/api/projects/attestation-demo/approve",
+            json=rejected_attestation,
+            timeout=3.0,
+        )
+        assert rejected.status_code == 422
+        assert not (project_root / "delivery" / "release-manifest.json").exists()
+
+        stale_attestation = _approval_payload(project_root)
+        review = stale_attestation["human_review"]
+        assert isinstance(review, dict)
+        review["candidate_sha256"] = "0" * 64
+        stale = requests.post(
+            f"{base_url}/api/projects/attestation-demo/approve",
+            json=stale_attestation,
+            timeout=3.0,
+        )
+        assert stale.status_code == 409
+        assert "candidate" in stale.json()["detail"].lower()
+        assert not (project_root / "delivery" / "release-manifest.json").exists()
 
 
 def test_cockpit_surgical_revision_api(tmp_path: Path) -> None:
@@ -420,7 +506,11 @@ def test_cockpit_ghl_export_and_live_funnel_simulator(tmp_path: Path) -> None:
         # 1. Approve project first so delivery/ is frozen
         appr = requests.post(
             f"{base_url}/api/projects/ghl-demo/approve",
-            json={"operator_name": "GHL Lead", "notes": "Freeze for GHL export"},
+            json=_approval_payload(
+                project_root,
+                operator_name="GHL Lead",
+                notes="Reviewed candidate and froze for GHL export.",
+            ),
             timeout=3.0,
         )
         assert appr.status_code == 200

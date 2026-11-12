@@ -1,6 +1,6 @@
 {
   "project_id": "uk-bristol-hounds-and-bubbles",
-  "extracted_at": "2026-11-11T14:09:41.315084Z",
+  "extracted_at": "2026-11-12T09:20:39.707521Z",
   "facts": [
     {
       "fact_id": "fact-c8695dd7dc9f",
@@ -15,7 +15,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.315084Z",
+      "last_checked_at": "2026-11-12T09:20:39.707521Z",
       "source_text": "Bristol Hounds & Bubbles",
       "verified": true
     },
@@ -32,7 +32,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.315084Z",
+      "last_checked_at": "2026-11-12T09:20:39.707521Z",
       "source_text": "Phone: 0117 924 8812",
       "verified": true
     },
@@ -57,7 +57,7 @@
       },
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.315084Z",
+      "last_checked_at": "2026-11-12T09:20:39.707521Z",
       "source_text": "Hours: Tue - Sat 9am - 5:30pm",
       "verified": true
     },
@@ -74,7 +74,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.315084Z",
+      "last_checked_at": "2026-11-12T09:20:39.707521Z",
       "source_text": "Signature Bath & Tidy - £42.00",
       "verified": true
     },
@@ -91,7 +91,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.315084Z",
+      "last_checked_at": "2026-11-12T09:20:39.707521Z",
       "source_text": "Signature Bath & Tidy - £42.00",
       "verified": true
     },
@@ -108,7 +108,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.315084Z",
+      "last_checked_at": "2026-11-12T09:20:39.707521Z",
       "source_text": "Complete Scissor Groom - £58.00",
       "verified": true
     },
@@ -125,7 +125,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.315084Z",
+      "last_checked_at": "2026-11-12T09:20:39.707521Z",
       "source_text": "Complete Scissor Groom - £58.00",
       "verified": true
     },
@@ -134,7 +134,7 @@
       "project_id": "uk-bristol-hounds-and-bubbles",
       "category": "address",
       "claim_key": "address",
-      "claim_value": "12 Gloucester Road, Bristol, BS7 8AE (conflicts with 5 Park Street, Bristol, BS1 5HR)",
+      "claim_value": "12 Gloucester Road, Bristol, BS7 8AE",
       "source_url": "https://bristolhoundsandbubbles.co.uk",
       "source_text_snippet": "Address: 12 Gloucester Road, Bristol, BS7 8AE",
       "source_kind": "regex",
@@ -144,7 +144,7 @@
       "structured_value": null,
       "is_verified": false,
       "status": "needs_review",
-      "last_checked_at": "2026-11-11T14:09:41.315084Z",
+      "last_checked_at": "2026-11-12T09:20:39.707521Z",
       "source_text": "Address: 12 Gloucester Road, Bristol, BS7 8AE",
       "verified": false
     },
@@ -153,7 +153,7 @@
       "project_id": "uk-bristol-hounds-and-bubbles",
       "category": "address",
       "claim_key": "address",
-      "claim_value": "5 Park Street, Bristol, BS1 5HR (conflicts with 12 Gloucester Road, Bristol, BS7 8AE (conflicts with 5 Park Street, Bristol, BS1 5HR))",
+      "claim_value": "5 Park Street, Bristol, BS1 5HR",
       "source_url": "https://bristolhoundsandbubbles.co.uk",
       "source_text_snippet": "© 2026 Bristol Hounds & Bubbles. Registered Office: 5 Park Street, Bristol, BS1 5HR",
       "source_kind": "regex",
@@ -163,7 +163,7 @@
       "structured_value": null,
       "is_verified": false,
       "status": "needs_review",
-      "last_checked_at": "2026-11-11T14:09:41.315084Z",
+      "last_checked_at": "2026-11-12T09:20:39.707521Z",
       "source_text": "© 2026 Bristol Hounds & Bubbles. Registered Office: 5 Park Street, Bristol, BS1 5HR",
       "verified": false
     }

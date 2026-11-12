@@ -289,7 +289,7 @@ class CollectorTests(unittest.TestCase):
             self.assertEqual(cmd[cmd.index("--sleep-request") + 1], "3.0")
             self.assertIn("--range", cmd)
             self.assertEqual(cmd[cmd.index("--range") + 1], "1-40")
-            self.assertIn("--date-after", cmd)
+            self.assertNotIn("--date-after", cmd)
 
 
 if __name__ == "__main__":

@@ -340,8 +340,6 @@ def _build_gallery_dl_cmd(
         cmd.append("--dump-json")
     cmd.extend(
         [
-            "--date-after",
-            cutoff_date,
             "--range",
             f"1-{max_files}",
             "--filesize-max",
@@ -358,8 +356,6 @@ def _build_gallery_dl_cmd(
             str(archive_path),
             "--directory",
             str(stage),
-            "--whitelist",
-            platform,
             url,
         ]
     )
@@ -489,12 +485,22 @@ def collect_social(
         optimized_dest.mkdir(parents=True, exist_ok=True)
         archive_path = project_path / "research" / f"social-archive-{platform}.txt"
         manifest_path = project_path / "research" / "social-media-manifest.json"
+        asset_manifest_path = project_path / "research" / "asset-manifest.json"
         existing: list[dict[str, Any]] = (
             json.loads(manifest_path.read_text(encoding="utf8"))
             if manifest_path.exists()
             else []
         )
-        known_hashes = {str(x["sha256"]) for x in existing if "sha256" in x}
+        existing_asset_manifest: list[dict[str, Any]] = (
+            json.loads(asset_manifest_path.read_text(encoding="utf8"))
+            if asset_manifest_path.exists()
+            else []
+        )
+        known_hashes = {
+            str(x["sha256"])
+            for x in (*existing, *existing_asset_manifest)
+            if "sha256" in x
+        }
         rows: list[dict[str, Any]] = []
         corrupt_rejected = 0
 
@@ -634,6 +640,32 @@ def collect_social(
         if rows:
             existing.extend(rows)
             _atomic_write_text(manifest_path, json.dumps(existing, indent=2))
+
+            canonical_asset_rows = [
+                {
+                    "file": row["file"],
+                    "optimized_file": row.get("optimized_file"),
+                    "platform": row.get("platform", platform),
+                    "source_url": (
+                        row.get("source_post_url") or row.get("source_profile_url") or url
+                    ),
+                    "original_post_url": (
+                        row.get("original_post_url") or row.get("source_post_url") or url
+                    ),
+                    "sha256": row["sha256"],
+                    "bytes": row.get("bytes"),
+                    "captured_at": row.get("captured_at"),
+                    "post_date": row.get("post_date"),
+                    "post_date_verified": bool(row.get("post_date_verified", False)),
+                    "rights_confirmed_for_preview": False,
+                    "ownership_verified": False,
+                    "status": "downloaded",
+                    "category": "social_media",
+                }
+                for row in rows
+            ]
+            existing_asset_manifest.extend(canonical_asset_rows)
+            _atomic_write_text(asset_manifest_path, json.dumps(existing_asset_manifest, indent=2))
 
         failure_reason: str | None = None
         if not rows:

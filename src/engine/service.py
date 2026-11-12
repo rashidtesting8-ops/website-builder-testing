@@ -88,8 +88,9 @@ class PipelineRequest(BaseModel):
 
 class ApprovePipelineRequest(BaseModel):
     version: str = "v1"
-    operator: str = "Operator"
-    notes: str = "Approved via n8n"
+    operator: str
+    notes: str
+    human_review: dict[str, Any]
 
 
 def _infer_business_name(url: str, explicit_name: str | None) -> str:
@@ -232,6 +233,7 @@ def approve_pipeline_project(
             operator_name=req.operator,
             notes=req.notes,
             projects_dir=DATA_DIR,
+            review_attestation=req.human_review,
         )
         return {
             "status": "approved",

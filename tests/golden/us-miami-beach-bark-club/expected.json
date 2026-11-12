@@ -19,6 +19,13 @@
     "trap": "footer address disagrees with contact page"
   },
   {
+    "category": "address",
+    "normalized_value": "Marina Suite 10, Miami Beach, FL 33139",
+    "claim_key": "address",
+    "expected_status": "needs_review",
+    "trap": "footer location differs from the listed salon address"
+  },
+  {
     "category": "hours",
     "normalized_value": "Open 24 Hours for Boarding; Grooming Salon: 8:00 AM - 6:00 PM",
     "claim_key": "hours",

@@ -23,9 +23,9 @@ import stat
 import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.cleanup import make_archive
 from app.db import ProjectRecord, connect_db, get_project, init_db, upsert_project
@@ -40,6 +40,17 @@ class ReleaseApprovalGateError(PermissionError):
 
 class ReleaseVerificationError(ValueError):
     """Raised when delivery/ files do not match delivery/release-manifest.json."""
+
+
+class HumanReviewAttestation(BaseModel):
+    """Checklist attesting that a human reviewed the exact release candidate."""
+
+    candidate_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    reviewed_preview: Literal[True]
+    reviewed_facts: Literal[True]
+    reviewed_assets: Literal[True]
+    reviewed_qa: Literal[True]
+    confirmed_release: Literal[True]
 
 
 def _utc_now() -> datetime:
@@ -100,6 +111,7 @@ class ReleaseManifest(BaseModel):
     section_hashes: dict[str, str] = Field(default_factory=dict)
     asset_signatures: dict[str, str] = Field(default_factory=dict)
     acknowledged_issues: list[str] = Field(default_factory=list)
+    human_review: dict[str, Any] | None = None
 
 
 def generate_review_summary(
@@ -167,8 +179,16 @@ def generate_review_summary(
         visual_critique_status = str(crit_data.get("status", "pending"))
         visual_defects = list(crit_data.get("defects", []))
 
+    candidate_path = project_root / "release-candidate" / "standalone.html"
+    candidate_sha256 = (
+        hashlib.sha256(candidate_path.read_bytes()).hexdigest()
+        if candidate_path.is_file()
+        else ""
+    )
+
     return {
         "project_id": project_root.name,
+        "candidate_sha256": candidate_sha256,
         "fact_metrics": {
             "verified_count": verified_count,
             "needs_review_count": needs_review_count,
@@ -309,6 +329,7 @@ def approve_release(
     projects_dir: str | Path = "./projects",
     db_path: str | Path | None = None,
     acknowledge_open_issues: bool | None = None,
+    review_attestation: dict[str, Any] | None = None,
 ) -> str:
     """Human approval gate: verifies QA/rights, copies candidate to delivery/ & versions/vN/,
 
@@ -356,7 +377,6 @@ def approve_release(
 
     candidate_html = rc_dir / "standalone.html"
     current_candidate_sha = hashlib.sha256(candidate_html.read_bytes()).hexdigest()
-
     # Refuse if QA report candidate sha256 differs from current candidate (stale QA)
     qa_candidate_sha = qa_data.get("candidate_sha256")
     if not qa_candidate_sha or qa_candidate_sha != current_candidate_sha:
@@ -395,10 +415,17 @@ def approve_release(
     if critique_path.is_file():
         try:
             crit_data = json.loads(critique_path.read_text(encoding="utf-8"))
-            if crit_data.get("status") == "defects_found" or crit_data.get("defects"):
-                for d in crit_data.get("defects", []):
-                    desc = d.get("description") if isinstance(d, dict) else str(d)
+            critique_defects = crit_data.get("defects", [])
+            if crit_data.get("status") == "defects_found" or critique_defects:
+                for d in critique_defects:
+                    desc = (
+                        d.get("description") or d.get("actionable_instruction") or str(d)
+                        if isinstance(d, dict)
+                        else str(d)
+                    )
                     open_issues.append(f"visual_critique_defect: {desc}")
+                if not critique_defects:
+                    open_issues.append("visual_critique_defect: report has no defect details")
         except Exception:
             pass
 
@@ -418,13 +445,38 @@ def approve_release(
         except Exception:
             pass
 
-    if open_issues and acknowledge_open_issues is False:
+    if open_issues and not acknowledge_open_issues:
         raise ReleaseApprovalGateError(
             f"Release blocked: open issues detected (visual critique defects or unverified facts): "
             f"{open_issues}. Pass --acknowledge-open-issues to approve."
         )
 
+    if not clean_op:
+        raise ReleaseApprovalGateError("Human operator name is required for release approval")
+    if not clean_notes:
+        raise ReleaseApprovalGateError("Human approval notes are required for release approval")
+    if review_attestation is None:
+        raise ReleaseApprovalGateError(
+            "human review attestation is required before freezing a release"
+        )
+    try:
+        attestation = HumanReviewAttestation.model_validate(review_attestation)
+    except ValidationError as exc:
+        raise ReleaseApprovalGateError(
+            f"Human review checklist is incomplete or invalid: {exc}"
+        ) from exc
+    if attestation.candidate_sha256 != current_candidate_sha:
+        raise ReleaseApprovalGateError(
+            "Human review is stale: the release candidate changed after it was reviewed"
+        )
+
     # 4. Copy candidate into delivery/ and versions/vN/
+    human_review = {
+        **attestation.model_dump(mode="json"),
+        "reviewed_by": clean_op,
+        "attested_at": _utc_now().isoformat(),
+    }
+
     delivery_dir = project_root / "delivery"
     delivery_dir.mkdir(parents=True, exist_ok=True)
     version_dir.mkdir(parents=True, exist_ok=True)
@@ -467,21 +519,20 @@ def approve_release(
     version_hash, checksum_tree, asset_signatures = compute_release_checksum_tree(project_root)
 
     qa_report_sha256 = hashlib.sha256(qa_path.read_bytes()).hexdigest()
-    final_op = clean_op if clean_op is not None else "Dev"
-    final_notes = clean_notes if clean_notes is not None else "Verified"
     manifest = ReleaseManifest(
         project_id=resolved_project_id,
         version=version,
         version_hash=version_hash,
         approved_at=_utc_now(),
-        approver=final_op,
-        operator_name=final_op,
+        approver=clean_op,
+        operator_name=clean_op,
         qa_report_sha256=qa_report_sha256,
-        notes=final_notes,
+        notes=clean_notes,
         checksum_tree=checksum_tree,
         section_hashes=section_hashes,
         asset_signatures=asset_signatures,
         acknowledged_issues=open_issues if acknowledge_open_issues else [],
+        human_review=human_review,
     )
     manifest_json = manifest.model_dump_json(indent=2)
     _atomic_write_text(delivery_dir / "release-manifest.json", manifest_json)
@@ -529,6 +580,7 @@ def approve_and_freeze_release(
     operator_name: str,
     notes: str,
     *,
+    review_attestation: dict[str, Any],
     version: str = "v1",
     projects_dir: str | Path = "./projects",
     db_path: str | Path | None = None,
@@ -541,6 +593,7 @@ def approve_and_freeze_release(
         notes=notes,
         projects_dir=projects_dir,
         db_path=db_path,
+        review_attestation=review_attestation,
     )
 
 
