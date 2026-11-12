@@ -1,6 +1,6 @@
-"""Milestone 5: Real-World 5-Business Acceptance Pilot Runner & Audit Engine.
+"""Deterministic five-archetype demo fixture runner; not a real-business pilot.
 
-Orchestrates end-to-end execution of 5 diverse pet grooming business archetypes:
+Exercises end-to-end flows for 5 synthetic pet grooming business archetypes:
 1. Classic Luxury Salon (Pup Palace archetype: tiered pricing, rich gallery, dog salon)
 2. Mobile Grooming Van (K9 Advantedge archetype: van equipment, service radius, instant call CTA)
 3. Mixed Species Daycare & Spa (Lily's Club archetype: dog & cat segregated pricing, daycare)
@@ -149,7 +149,7 @@ def _create_mock_image(
 
 
 class PilotBusinessSpec(BaseModel):
-    """Specification and seed data for a real-world pilot business."""
+    """Synthetic specification and seed data for one demo fixture."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -505,6 +505,7 @@ class PilotBusinessResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     slug: str
+    demo: bool
     business_name: str
     archetype: ArchetypeKind
     archetype_label: str
@@ -523,12 +524,14 @@ class PilotBusinessResult(BaseModel):
 
 
 class PilotAcceptanceReport(BaseModel):
-    """Comprehensive milestone 5 acceptance report across all 5 archetypes."""
+    """Execution and audit metrics for fixture and eligible real-business runs."""
 
     model_config = ConfigDict(extra="forbid")
 
     timestamp: str
     total_businesses: int
+    fixture_businesses: int
+    eligible_real_businesses: int
     review_ready_businesses: int
     failed_businesses: int
     total_duration_seconds: float
@@ -544,7 +547,7 @@ def run_single_pilot_business(
     qa_runner: Callable[[Path], QADefectReport] | None = None,
     live: bool = False,
 ) -> PilotBusinessResult:
-    """Execute the EditVista pipeline end-to-end for one pilot business specification."""
+    """Execute the EditVista pipeline for one synthetic pilot fixture."""
     start_time = time.monotonic()
     active_qa_runner = qa_runner or (run_qa_engine if live else None)
     p_dir = Path(projects_dir).resolve()
@@ -564,6 +567,23 @@ def run_single_pilot_business(
         "release-candidate",
     ):
         (project_root / sub).mkdir(parents=True, exist_ok=True)
+
+    _atomic_write_text(
+        project_root / "input.json",
+        json.dumps(
+            {
+                "demo": {
+                    "is_fixture": True,
+                    "kind": "fictional",
+                    "reason": (
+                        "Deterministic pilot fixture with synthetic business facts "
+                        "and generated mock images."
+                    ),
+                }
+            },
+            indent=2,
+        ),
+    )
 
     # 2. Database state initialization
     conn = connect_db(db_path)
@@ -737,6 +757,7 @@ def run_single_pilot_business(
     delivery_files = [f.name for f in delivery_dir.glob("*") if f.is_file()]
     return PilotBusinessResult(
         slug=spec.slug,
+        demo=True,
         business_name=spec.business_name,
         archetype=spec.archetype,
         archetype_label=spec.archetype_label,
@@ -761,7 +782,7 @@ def execute_acceptance_pilot(
     qa_runner: Callable[[Path], QADefectReport] | None = None,
     live: bool = False,
 ) -> PilotAcceptanceReport:
-    """Run all 5 pilot business archetypes end-to-end and generate acceptance reports."""
+    """Run synthetic archetype fixtures and report real-run counts separately."""
     p_dir = Path(projects_dir).resolve()
     p_dir.mkdir(parents=True, exist_ok=True)
     pilot_out_dir = p_dir / "_pilot"
@@ -785,6 +806,8 @@ def execute_acceptance_pilot(
     report = PilotAcceptanceReport(
         timestamp=_utc_now().isoformat(),
         total_businesses=len(results),
+        fixture_businesses=sum(1 for result in results if result.demo),
+        eligible_real_businesses=sum(1 for result in results if not result.demo),
         review_ready_businesses=sum(1 for r in results if r.status == "awaiting_approval"),
         failed_businesses=sum(1 for r in results if r.status == "failed"),
         total_duration_seconds=round(total_duration, 2),
@@ -806,9 +829,12 @@ def execute_acceptance_pilot(
         else "FAILED"
     )
     md_lines = [
-        "# EditVista Milestone 5 — Five-Business Acceptance Pilot Report",
+        "# EditVista Milestone 5 — Five-Business Acceptance Pilot Report (Fixtures Only)",
         "",
         f"**Audit Timestamp:** `{report.timestamp}`  ",
+        f"**Fixture Projects (not real-business acceptance):** `{report.fixture_businesses}`  ",
+        f"**Eligible Real-Business Runs:** `{report.eligible_real_businesses}`  ",
+        "**Note:** Synthetic fixtures do not establish real-client pilot acceptance.  ",
         f"**Candidates Ready for Human Review:** `{report.review_ready_businesses}`  ",
         f"**Zero-Fabrication Audit:** `{zf_status_str}`  ",
         f"**Total Duration:** `{report.total_duration_seconds:.2f}s` "

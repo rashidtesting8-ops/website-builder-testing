@@ -29,6 +29,11 @@ from app.art_director import (
 )
 from app.fact_extractor import canonicalize_business_name
 from app.reviser import compute_section_hashes
+from engine.contracts import (
+    DEMO_BANNER_ATTRIBUTE,
+    DEMO_BANNER_TEXT,
+    freeze_demo_metadata,
+)
 
 MAX_SECTION_HTML_BYTES: int = 500_000
 FORBIDDEN_URL_PREFIXES: tuple[str, ...] = ("http://", "https://", "//", "javascript:", "data:")
@@ -181,6 +186,16 @@ def rebuild_index_from_sections(
     )
     all_main_names = preferred_order + other_sections
     main_body = "\n    ".join(sections_map[k] for k in all_main_names)
+    demo_metadata = freeze_demo_metadata(wdir.parent)
+    demo_banner = ""
+    if demo_metadata is not None and demo_metadata.is_fixture:
+        demo_banner = (
+            f'<div {DEMO_BANNER_ATTRIBUTE} role="note" '
+            'style="position:sticky;top:0;z-index:9999;padding:0.65rem 1rem;'
+            "background:#fff1b8;color:#211b00;text-align:center;"
+            'font:700 0.9rem/1.3 sans-serif">'
+            f"{DEMO_BANNER_TEXT}</div>"
+        )
 
     html_doc = f"""<!DOCTYPE html>
 <html lang="en">
@@ -191,6 +206,7 @@ def rebuild_index_from_sections(
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+  {demo_banner}
   {sections_map['header']}
   <main id="top" class="ev-main">
     {main_body}

@@ -2,14 +2,127 @@
 
 from __future__ import annotations
 
+import json
+import os
 import re
+import tempfile
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    ValidationError,
+    field_validator,
+)
 
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 ClaimStatus = Literal["verified", "needs_review", "expired"]
+DemoKind = Literal["fictional", "third_party_internal_demo"]
+DEMO_BANNER_TEXT = "INTERNAL DEMO - NOT A VERIFIED BUSINESS"
+DEMO_BANNER_ATTRIBUTE = 'data-editvista-demo="true"'
+
+
+class DemoMetadata(BaseModel):
+    """Project-local classification for an internal demo fixture."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    is_fixture: StrictBool
+    kind: DemoKind
+    reason: str = Field(min_length=1)
+
+    @field_validator("reason")
+    @classmethod
+    def validate_reason(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("reason must not be empty or whitespace-only")
+        return value.strip()
+
+
+def read_demo_metadata(project_root: str | Path) -> DemoMetadata | None:
+    """Read and validate the optional demo classification from this project's input.json."""
+    input_path = Path(project_root) / "input.json"
+    metadata: DemoMetadata | None = None
+    if input_path.is_file():
+        try:
+            payload = json.loads(input_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError(f"Invalid input.json at {input_path}: {exc}") from exc
+
+        if not isinstance(payload, dict):
+            raise ValueError(f"Invalid input.json at {input_path}: expected a JSON object")
+        if "demo" in payload:
+            try:
+                metadata = DemoMetadata.model_validate(payload["demo"])
+            except ValidationError as exc:
+                raise ValueError(f"Invalid demo metadata in {input_path}: {exc}") from exc
+
+    state_path = Path(project_root) / ".editvista-demo-mode.json"
+    if state_path.is_file():
+        try:
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError(f"Invalid demo state at {state_path}: {exc}") from exc
+        if not isinstance(state, dict) or "demo" not in state:
+            raise ValueError(f"Invalid demo state at {state_path}: expected a demo field")
+        saved_demo = state["demo"]
+        if saved_demo is not None:
+            try:
+                saved_metadata = DemoMetadata.model_validate(saved_demo)
+            except ValidationError as exc:
+                raise ValueError(f"Invalid demo state at {state_path}: {exc}") from exc
+            saved_demo = saved_metadata.model_dump(mode="json")
+        current_demo = metadata.model_dump(mode="json") if metadata is not None else None
+        if saved_demo != current_demo:
+            raise ValueError(
+                f"Demo classification changed for {Path(project_root)}; use a new project ID"
+            )
+
+    return metadata
+
+
+def freeze_demo_metadata(project_root: str | Path) -> DemoMetadata | None:
+    """Persist this project's first demo classification and reject later relabeling."""
+    root = Path(project_root)
+    metadata = read_demo_metadata(root)
+    state_path = root / ".editvista-demo-mode.json"
+    if state_path.is_file():
+        return metadata
+
+    root.mkdir(parents=True, exist_ok=True)
+    content = json.dumps(
+        {"demo": metadata.model_dump(mode="json") if metadata is not None else None},
+        indent=2,
+        sort_keys=True,
+    )
+    fd, temp_name = tempfile.mkstemp(
+        prefix=f".{state_path.name}.",
+        suffix=".tmp",
+        dir=str(root),
+    )
+    temp_path = Path(temp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(content)
+        os.replace(temp_path, state_path)
+    except Exception:
+        temp_path.unlink(missing_ok=True)
+        raise
+    return metadata
+
+
+def has_demo_banner(html: str) -> bool:
+    """Return whether HTML contains both the marker and visible demo warning."""
+    return DEMO_BANNER_ATTRIBUTE in html and DEMO_BANNER_TEXT in html
+
+
+def contains_demo_banner(html: str) -> bool:
+    """Return whether HTML contains any part of the demo warning marker or text."""
+    return DEMO_BANNER_ATTRIBUTE in html or DEMO_BANNER_TEXT in html
 
 
 class Warning(BaseModel):
@@ -122,7 +235,15 @@ __all__ = [
     "Asset",
     "Claim",
     "ClaimStatus",
+    "DEMO_BANNER_ATTRIBUTE",
+    "DEMO_BANNER_TEXT",
+    "DemoKind",
+    "DemoMetadata",
     "StageInput",
     "StageOutput",
     "Warning",
+    "contains_demo_banner",
+    "freeze_demo_metadata",
+    "has_demo_banner",
+    "read_demo_metadata",
 ]
