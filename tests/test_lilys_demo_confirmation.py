@@ -4,12 +4,17 @@ import hashlib
 import json
 from pathlib import Path
 
+import pytest
 from app.claims_lint import run_claims_lint
 
 PROJECT_ROOT = (
     Path(__file__).resolve().parents[1]
     / "projects"
     / "lilys-club-demo-20261111"
+)
+pytestmark = pytest.mark.skipif(
+    not (PROJECT_ROOT / "research" / "business-facts.json").is_file(),
+    reason="Local Lily demo data is Git-ignored and unavailable in clean checkouts.",
 )
 
 

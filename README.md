@@ -722,7 +722,7 @@ make test        # uv run pytest
 
 ### Current Validation Snapshot
 
-Last locally verified on 2026-11-12: **209 tests passed across 35 test modules**, Ruff reported all checks passed, and Pyright reported 0 errors, warnings, or informations. The table below highlights representative coverage areas; `tests/` is the authoritative inventory.
+Last locally verified on 2026-11-12: **209 tests passed across 35 test modules** in the local workspace. The two optional Lily reference-demo checks require project data that is Git-ignored; they skip with an explicit reason in clean checkouts. Ruff reported all checks passed, and Pyright reported 0 errors, warnings, or informations. The table below highlights representative coverage areas; `tests/` is the authoritative inventory.
 
 ### Representative Test Coverage
 
@@ -760,7 +760,7 @@ Last locally verified on 2026-11-12: **209 tests passed across 35 test modules**
 | `tests/test_pipeline_e2e.py` | End-to-end integration: full pipeline execution against an ephemeral grooming salon HTTP server, verifying inquiry CTA fallbacks when pricing is unverified. |
 | `tests/test_pipeline_lifecycle.py` | Crash recovery and state lifecycle: simulated mid-run pipeline crashes, `--resume` stage skipping, and `--pause-for-approval` human approval gate execution. |
 
-| `tests/test_lilys_demo_confirmation.py` | Review-only source facts, unresolved contacts and asset rights, candidate QA hash, and no delivery release. |
+| `tests/test_lilys_demo_confirmation.py` | Optional local reference-demo checks for review-only facts, unresolved contacts/rights, candidate QA hash, and no delivery release; skipped when Git-ignored project data is absent. |
 ---
 
 ## 15. Deployment & Container Orchestration
