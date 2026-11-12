@@ -67,6 +67,7 @@ from app.mvf_gate import enforce_mvf_gate
 from app.qa_engine import QADefectReport, run_qa_engine
 from app.reviser import MAX_REVISION_ITERATIONS, apply_targeted_revisions
 from app.visual_critic import run_visual_critic
+from engine.contracts import freeze_demo_metadata, read_demo_metadata
 
 QARunnerFn = Callable[..., QADefectReport]
 
@@ -169,7 +170,17 @@ def _stage_downloaded_assets_for_curator(
         return provenance_records
 
     items: list[dict[str, Any]] = json.loads(manifest_path.read_text(encoding="utf-8"))
+    demo = read_demo_metadata(project_root)
+    third_party_demo = (
+        demo is not None
+        and demo.is_fixture
+        and demo.kind == "third_party_internal_demo"
+    )
+    manifest_changed = False
     for idx, item in enumerate(items, start=1):
+        if third_party_demo and item.get("rights_confirmed_for_preview") is not False:
+            item["rights_confirmed_for_preview"] = False
+            manifest_changed = True
         if item.get("status") != "downloaded":
             continue
         rel_file = str(item.get("file", ""))
@@ -193,12 +204,65 @@ def _stage_downloaded_assets_for_curator(
             sha256_hash=sha256,
             source_url=src_url or "https://local.invalid/asset",
             local_path=rel_file,
-            rights_confirmed_for_preview=bool(item.get("rights_confirmed_for_preview", False)),
+            rights_confirmed_for_preview=(
+                False
+                if third_party_demo
+                else bool(item.get("rights_confirmed_for_preview", False))
+            ),
         )
         upsert_asset_provenance(conn, rec)
         provenance_records.append(rec)
 
+    if manifest_changed:
+        _atomic_write_text(manifest_path, json.dumps(items, indent=2))
+
     return provenance_records
+
+
+def _enforce_third_party_demo_rights(
+    conn: sqlite3.Connection,
+    project_root: Path,
+    project_id: str,
+) -> None:
+    """Keep third-party demo assets unconfirmed in both the manifest and SQLite."""
+    demo = read_demo_metadata(project_root)
+    if demo is None or not demo.is_fixture or demo.kind != "third_party_internal_demo":
+        return
+
+    for relative_path in (
+        "research/asset-manifest.json",
+        "research/social-media-manifest.json",
+    ):
+        manifest_path = project_root / relative_path
+        if not manifest_path.is_file():
+            continue
+        items = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if not isinstance(items, list):
+            raise ValueError(f"Invalid asset manifest at {manifest_path}: expected a list")
+        changed = False
+        for item in items:
+            if not isinstance(item, dict):
+                raise ValueError(f"Invalid asset manifest row at {manifest_path}")
+            if item.get("rights_confirmed_for_preview") is not False:
+                item["rights_confirmed_for_preview"] = False
+                changed = True
+        if changed:
+            _atomic_write_text(manifest_path, json.dumps(items, indent=2))
+
+    for record in list_assets_for_project(conn, project_id):
+        if record.rights_confirmed_for_preview:
+            upsert_asset_provenance(
+                conn,
+                AssetProvenanceRecord(
+                    asset_id=record.asset_id,
+                    project_id=record.project_id,
+                    sha256_hash=record.sha256_hash,
+                    phash=record.phash,
+                    source_url=record.source_url,
+                    local_path=record.local_path,
+                    rights_confirmed_for_preview=False,
+                ),
+            )
 
 
 class ProjectLockedError(RuntimeError):
@@ -257,10 +321,10 @@ def run_pipeline(
 ) -> PipelineRunResult:
     """Execute the EditVista lifecycle with SQLite idempotency, resumption, and approval gate."""
     projects_root = Path(projects_dir).resolve()
-    projects_root.mkdir(parents=True, exist_ok=True)
-
     project_id = slugify(business_id or business_name)
     project_root = projects_root / project_id
+    read_demo_metadata(project_root)
+    projects_root.mkdir(parents=True, exist_ok=True)
     resolved_db_path = Path(db_path).resolve() if db_path else (projects_root / "editvista.sqlite3")
 
     warnings: list[str] = []
@@ -290,6 +354,9 @@ def run_pipeline(
         )
 
     try:
+        freeze_demo_metadata(project_root)
+        _enforce_third_party_demo_rights(conn, project_root, project_id)
+
         # Step 0: Draft reset if not resuming (never touching delivery/, versions/, or archives)
         if not resume and project_root.exists():
             _reset_draft_directories(project_root)
@@ -343,13 +410,14 @@ def run_pipeline(
                 crawled_folder = Path(str(collect_summary["project_folder"]))
                 project_root.mkdir(parents=True, exist_ok=True)
                 for item_path in crawled_folder.iterdir():
-                    if item_path.name in ("delivery", "versions"):
+                    if item_path.name in ("delivery", "versions", "input.json"):
                         continue
                     dest = project_root / item_path.name
                     if item_path.is_dir():
                         shutil.copytree(item_path, dest, dirs_exist_ok=True)
                     else:
                         shutil.copy2(item_path, dest)
+                _enforce_third_party_demo_rights(conn, project_root, project_id)
                 shutil.rmtree(staging_collect_dir, ignore_errors=True)
                 _record_job_transition(
                     conn,

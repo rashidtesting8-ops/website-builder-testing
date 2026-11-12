@@ -24,6 +24,13 @@ from typing import Any
 
 from bs4 import BeautifulSoup
 
+from engine.contracts import (
+    DemoKind,
+    contains_demo_banner,
+    freeze_demo_metadata,
+    has_demo_banner,
+)
+
 ASSET_REF_RE = re.compile(
     r"(?:\.\./|\./|/|^)(assets/[A-Za-z0-9._/-]+)"
 )
@@ -182,7 +189,12 @@ def check_used_asset_rights(
     return offending
 
 
-def _build_ghl_snippet(html: str, scope_id: str) -> str:
+def _build_ghl_snippet(
+    html: str,
+    scope_id: str,
+    *,
+    demo_kind: DemoKind | None = None,
+) -> str:
     """Convert approved standalone HTML into a scoped GoHighLevel snippet with no html/head/body."""
     from app.ghl_exporter import (
         UnscopedCSSError,
@@ -193,7 +205,10 @@ def _build_ghl_snippet(html: str, scope_id: str) -> str:
     )
 
     root_selector = f"#{scope_id}"
-    inner_markup, styles, scripts = sanitize_and_extract_markup(html)
+    inner_markup, styles, scripts = sanitize_and_extract_markup(
+        html,
+        demo_kind=demo_kind,
+    )
 
     parts: list[str] = [f'<div id="{scope_id}" class="ev-ghl-scope">']
     if styles:
@@ -223,6 +238,16 @@ def export_release(
     project_root = Path(project_folder).resolve()
     if not project_root.is_dir():
         raise ValueError("Project folder does not exist")
+
+    demo = freeze_demo_metadata(project_root)
+    if demo is not None and demo.is_fixture and demo.kind == "third_party_internal_demo":
+        return {
+            "status": "blocked_demo_fixture",
+            "approved_built": False,
+            "ghl_built": False,
+            "offending_assets": [],
+            "reason": "Third-party internal demo projects cannot be exported",
+        }
 
     delivery_dir = project_root / "delivery"
     if delivery_dir.is_dir() and (delivery_dir / "release-manifest.json").is_file():
@@ -279,6 +304,27 @@ def export_release(
         raise ValueError(f"Source HTML file not found: {html_file}")
 
     html = html_file.read_text(encoding="utf-8")
+    if demo is not None and demo.is_fixture:
+        if not has_demo_banner(html):
+            return {
+                "status": "blocked_demo_banner",
+                "approved_built": False,
+                "ghl_built": False,
+                "offending_assets": [],
+                "reason": "Fixture HTML is missing its required internal-demo banner",
+            }
+    elif contains_demo_banner(html):
+        return {
+            "status": "blocked_demo_mode_mismatch",
+            "approved_built": False,
+            "ghl_built": False,
+            "offending_assets": [],
+            "reason": (
+                "Fixture banner is present but input.json does not classify "
+                "this project as a fixture"
+            ),
+        }
+
     used_assets = extract_used_assets(html)
     offending = check_used_asset_rights(project_root, source_html_path=html_file)
 
@@ -296,18 +342,32 @@ def export_release(
 
     html_sha = hashlib.sha256(html.encode("utf-8")).hexdigest()
     scope_id = f"ev-ghl-{html_sha[:10]}"
-    ghl_html = _build_ghl_snippet(html, scope_id)
+    ghl_html = _build_ghl_snippet(
+        html,
+        scope_id,
+        demo_kind=demo.kind if demo is not None and demo.is_fixture else None,
+    )
     ghl_sha = hashlib.sha256(ghl_html.encode("utf-8")).hexdigest()
 
     retained_payload = {
         "approved": True,
         "assets": used_assets,
+        **(
+            {"demo": True, "kind": demo.kind, "reason": demo.reason}
+            if demo is not None and demo.is_fixture
+            else {}
+        ),
     }
     release_payload = {
         "released_at": datetime.now(UTC).isoformat(),
         "approved_homepage_sha256": html_sha,
         "ghl_ready_sha256": ghl_sha,
         "used_assets": used_assets,
+        **(
+            {"demo": True, "kind": demo.kind, "reason": demo.reason}
+            if demo is not None and demo.is_fixture
+            else {}
+        ),
     }
 
     _atomic_write_text(approved_out, html)
@@ -327,6 +387,7 @@ def export_release(
 
     return {
         "status": "exported",
+        "demo": bool(demo is not None and demo.is_fixture),
         "approved_built": True,
         "ghl_built": True,
         "offending_assets": [],

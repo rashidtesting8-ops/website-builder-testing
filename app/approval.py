@@ -31,6 +31,13 @@ from app.cleanup import make_archive
 from app.db import ProjectRecord, connect_db, get_project, init_db, upsert_project
 from app.ghl_exporter import export_ghl_snippet, export_ghl_snippet_from_html
 from app.reviser import compute_section_hashes
+from engine.contracts import (
+    DemoMetadata,
+    contains_demo_banner,
+    freeze_demo_metadata,
+    has_demo_banner,
+    read_demo_metadata,
+)
 from engine.exporter import check_used_asset_rights, extract_used_assets
 
 
@@ -112,6 +119,28 @@ class ReleaseManifest(BaseModel):
     asset_signatures: dict[str, str] = Field(default_factory=dict)
     acknowledged_issues: list[str] = Field(default_factory=list)
     human_review: dict[str, Any] | None = None
+    demo: bool | None = None
+    kind: str | None = None
+    reason: str | None = None
+
+
+def _require_demo_banner(
+    html: str,
+    demo: DemoMetadata | None,
+    *,
+    action: str,
+    error_type: type[Exception] = ReleaseApprovalGateError,
+) -> None:
+    if demo is not None and demo.is_fixture:
+        if not has_demo_banner(html):
+            raise error_type(
+                f"{action} blocked: demo banner is missing or altered for a fixture project"
+            )
+    elif contains_demo_banner(html):
+        raise error_type(
+            f"{action} blocked: fixture banner is present but this project "
+            "is not classified as a fixture"
+        )
 
 
 def generate_review_summary(
@@ -203,8 +232,9 @@ def generate_review_summary(
 
 
 def stage_release_candidate(project_folder: str | Path) -> tuple[Path, Path]:
-    """Compile candidate standalone HTML and GHL snippet into release-candidate/ (not delivery/)."""
+    """Stage standalone HTML and, when allowed, GHL HTML under release-candidate/."""
     project_root = Path(project_folder).resolve()
+    demo = freeze_demo_metadata(project_root)
     website_dir = project_root / "website"
     index_path = website_dir / "index.html"
     if not index_path.is_file():
@@ -227,6 +257,8 @@ def stage_release_candidate(project_folder: str | Path) -> tuple[Path, Path]:
             f"<script>\n{js_text}\n</script>",
         )
 
+    _require_demo_banner(html_doc, demo, action="Candidate staging")
+
     rc_dir = project_root / "release-candidate"
     rc_dir.mkdir(parents=True, exist_ok=True)
 
@@ -235,9 +267,23 @@ def stage_release_candidate(project_folder: str | Path) -> tuple[Path, Path]:
     _atomic_write_text(standalone_path, html_doc)
     _atomic_write_text(approved_alias_path, html_doc)
 
-    ghl_snippet = export_ghl_snippet_from_html(html_doc, business_id=project_root.name)
     ghl_path = rc_dir / "ghl-ready.html"
-    _atomic_write_text(ghl_path, ghl_snippet)
+    third_party_demo = (
+        demo is not None
+        and demo.is_fixture
+        and demo.kind == "third_party_internal_demo"
+    )
+    if third_party_demo and ghl_path.exists():
+        raise ReleaseApprovalGateError(
+            "Candidate staging is blocked by an existing GHL export for a third-party demo"
+        )
+    if not third_party_demo:
+        ghl_snippet = export_ghl_snippet_from_html(
+            html_doc,
+            business_id=project_root.name,
+            demo_kind=demo.kind if demo is not None and demo.is_fixture else None,
+        )
+        _atomic_write_text(ghl_path, ghl_snippet)
 
     return standalone_path, ghl_path
 
@@ -249,13 +295,20 @@ def export_approved_deliverables(
     approval_token: str | None = None,
 ) -> tuple[Path, Path]:
     """Compile approved-homepage.html and ghl-ready.html behind the human approval gate."""
+    project_root = Path(project_folder).resolve()
+    demo = read_demo_metadata(project_root)
+    if demo is not None and demo.is_fixture and demo.kind == "third_party_internal_demo":
+        raise ReleaseApprovalGateError(
+            "Deliverable export is blocked for third-party internal demo projects"
+        )
+    freeze_demo_metadata(project_root)
+
     has_valid_token = isinstance(approval_token, str) and len(approval_token.strip()) >= 4
     if not is_approved and not has_valid_token:
         raise ReleaseApprovalGateError(
             "Deliverable export is locked: require is_approved=True or valid approval_token"
         )
 
-    project_root = Path(project_folder).resolve()
     standalone_path, _ = stage_release_candidate(project_root)
 
     delivery_dir = project_root / "delivery"
@@ -281,7 +334,22 @@ def export_approved_deliverables(
 
     _atomic_write_text(
         retained_path,
-        json.dumps({"approved": True, "assets": retained_assets}, indent=2),
+        json.dumps(
+            {
+                "approved": True,
+                "assets": retained_assets,
+                **(
+                    {
+                        "demo": True,
+                        "kind": demo.kind,
+                        "reason": demo.reason,
+                    }
+                    if demo is not None and demo.is_fixture
+                    else {}
+                ),
+            },
+            indent=2,
+        ),
     )
 
     return approved_html_path, ghl_ready_path
@@ -347,6 +415,13 @@ def approve_release(
     if not project_root.is_dir():
         raise ValueError(f"Project directory not found: {project_root}")
 
+    demo = read_demo_metadata(project_root)
+    if demo is not None and demo.is_fixture and demo.kind == "third_party_internal_demo":
+        raise ReleaseApprovalGateError(
+            "Approval is blocked for third-party internal demo projects"
+        )
+    freeze_demo_metadata(project_root)
+
     resolved_project_id = project_root.name
     version = (version or "v1").strip()
     if ".." in version or "/" in version or "\\" in version:
@@ -376,6 +451,11 @@ def approve_release(
         stage_release_candidate(project_root)
 
     candidate_html = rc_dir / "standalone.html"
+    _require_demo_banner(
+        candidate_html.read_text(encoding="utf-8"),
+        demo,
+        action="Approval",
+    )
     current_candidate_sha = hashlib.sha256(candidate_html.read_bytes()).hexdigest()
     # Refuse if QA report candidate sha256 differs from current candidate (stale QA)
     qa_candidate_sha = qa_data.get("candidate_sha256")
@@ -485,6 +565,15 @@ def approve_release(
     retained_payload = {
         "approved": True,
         "assets": used_assets,
+        **(
+            {
+                "demo": True,
+                "kind": demo.kind,
+                "reason": demo.reason,
+            }
+            if demo is not None and demo.is_fixture
+            else {}
+        ),
     }
     _atomic_write_text(
         delivery_dir / "retained-assets.json",
@@ -533,8 +622,11 @@ def approve_release(
         asset_signatures=asset_signatures,
         acknowledged_issues=open_issues if acknowledge_open_issues else [],
         human_review=human_review,
+        demo=True if demo is not None and demo.is_fixture else None,
+        kind=demo.kind if demo is not None and demo.is_fixture else None,
+        reason=demo.reason if demo is not None and demo.is_fixture else None,
     )
-    manifest_json = manifest.model_dump_json(indent=2)
+    manifest_json = manifest.model_dump_json(indent=2, exclude_none=True)
     _atomic_write_text(delivery_dir / "release-manifest.json", manifest_json)
     _atomic_write_text(version_dir / "release-manifest.json", manifest_json)
 
@@ -606,6 +698,30 @@ def verify_release(project_folder: str | Path) -> bool:
         raise ReleaseVerificationError(f"Release manifest not found at {manifest_path}")
 
     manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    demo = read_demo_metadata(project_root)
+    if demo is not None and demo.is_fixture:
+        if demo.kind == "third_party_internal_demo":
+            raise ReleaseVerificationError(
+                "Third-party internal demo projects cannot have an approved release"
+            )
+        if (
+            manifest_data.get("demo") is not True
+            or manifest_data.get("kind") != demo.kind
+            or manifest_data.get("reason") != demo.reason
+        ):
+            raise ReleaseVerificationError(
+                "Demo release metadata does not match the project's input.json"
+            )
+        for html_path in sorted(delivery_dir.glob("*.html")):
+            if not has_demo_banner(html_path.read_text(encoding="utf-8")):
+                raise ReleaseVerificationError(
+                    f"Demo banner missing or altered in {html_path.relative_to(project_root)}"
+                )
+    elif manifest_data.get("demo") is True:
+        raise ReleaseVerificationError(
+            "Release is marked as a demo but the project's input.json is not"
+        )
+
     checksum_tree: dict[str, str] = manifest_data.get("checksum_tree", {})
 
     for rel_path, expected_sha in sorted(checksum_tree.items()):

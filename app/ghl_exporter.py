@@ -11,6 +11,14 @@ from typing import Any
 
 from bs4 import BeautifulSoup, Doctype, Tag
 
+from engine.contracts import (
+    DemoKind,
+    contains_demo_banner,
+    freeze_demo_metadata,
+    has_demo_banner,
+    read_demo_metadata,
+)
+
 _GLOBAL_LEAK_RE = re.compile(
     r"\b(?:window|document|globalThis)\s*(?:\.\s*[A-Za-z_$][A-Za-z0-9_$]*|\[\s*['\"][^'\"]+['\"]\s*\])\s*=(?!=)"
 )
@@ -306,8 +314,26 @@ def isolate_javascript(js_text: str, root_id: str) -> str:
     )
 
 
-def sanitize_and_extract_markup(html_text: str) -> tuple[str, list[str], list[str]]:
+def sanitize_and_extract_markup(
+    html_text: str,
+    *,
+    demo_kind: DemoKind | None = None,
+) -> tuple[str, list[str], list[str]]:
     """Strip DOCTYPE, html, head, body tags and extract inline <style> and <script> blocks."""
+    if contains_demo_banner(html_text):
+        if demo_kind == "third_party_internal_demo":
+            raise PermissionError("GHL export is blocked for third-party internal demo projects")
+        if demo_kind != "fictional":
+            raise PermissionError(
+                "GHL export of a demo page requires its project demo classification"
+            )
+        if not has_demo_banner(html_text):
+            raise ValueError(
+                "GHL export is blocked because the fixture banner is missing or altered"
+            )
+    elif demo_kind is not None:
+        raise ValueError("GHL export is blocked because the fixture banner is missing")
+
     soup = BeautifulSoup(html_text, "html.parser")
 
     for item in list(soup.contents):
@@ -345,6 +371,7 @@ def export_ghl_snippet_from_html(
     html_text: str,
     *,
     business_id: str,
+    demo_kind: DemoKind | None = None,
     extra_css: str = "",
     extra_js: str = "",
     cdn_base_url: str | None = None,
@@ -367,7 +394,10 @@ def export_ghl_snippet_from_html(
     root_id = f"ghl-ev-engine-root-{business_id}"
     root_selector = f"#{root_id}"
 
-    inner_markup, inline_styles, inline_scripts = sanitize_and_extract_markup(html_text)
+    inner_markup, inline_styles, inline_scripts = sanitize_and_extract_markup(
+        html_text,
+        demo_kind=demo_kind,
+    )
 
     css_chunks: list[str] = [extra_css] if extra_css.strip() else []
     css_chunks.extend(inline_styles)
@@ -404,6 +434,11 @@ def export_ghl_snippet(
     if not delivery_dir.is_dir():
         raise ValueError(f"delivery/ directory not found in {project_root}")
 
+    demo = read_demo_metadata(project_root)
+    if demo is not None and demo.is_fixture and demo.kind == "third_party_internal_demo":
+        raise PermissionError("GHL export is blocked for third-party internal demo projects")
+    freeze_demo_metadata(project_root)
+
     candidate_files = (
         delivery_dir / "approved-homepage.html",
         delivery_dir / "standalone.html",
@@ -414,9 +449,14 @@ def export_ghl_snippet(
 
     biz_id = business_id or project_root.name
     raw_html = source_path.read_text(encoding="utf-8")
+    if demo is not None and demo.is_fixture and not has_demo_banner(raw_html):
+        raise ValueError("GHL export is blocked because the fixture banner is missing or altered")
+    if (demo is None or not demo.is_fixture) and contains_demo_banner(raw_html):
+        raise ValueError("GHL export is blocked because fixture mode is missing from input.json")
     final_output = export_ghl_snippet_from_html(
         raw_html,
         business_id=biz_id,
+        demo_kind=demo.kind if demo is not None and demo.is_fixture else None,
         cdn_base_url=cdn_base_url,
         asset_url_map=asset_url_map,
     )

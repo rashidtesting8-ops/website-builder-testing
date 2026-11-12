@@ -21,6 +21,7 @@ from app.db import (
     upsert_asset_provenance,
     upsert_project,
 )
+from engine.contracts import freeze_demo_metadata, read_demo_metadata
 
 RightsBasis = Literal["client_provided", "owner_permission", "licensed"]
 ALLOWED_BASES: set[str] = {"client_provided", "owner_permission", "licensed"}
@@ -101,6 +102,13 @@ def confirm_asset_rights(
     project_root = _resolve_project_root(project_id_or_path, projects_dir)
     if not project_root.is_dir():
         raise ValueError(f"Project directory not found: {project_root}")
+
+    demo = read_demo_metadata(project_root)
+    if demo is not None and demo.is_fixture and demo.kind == "third_party_internal_demo":
+        raise ValueError(
+            "Rights confirmation is blocked for third-party internal demo projects"
+        )
+    freeze_demo_metadata(project_root)
 
     project_id = project_root.name
     manifest_path = project_root / "research" / "asset-manifest.json"

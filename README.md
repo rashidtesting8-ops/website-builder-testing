@@ -9,7 +9,7 @@
 
 **An evidence-preserving, local-first engine for automated media collection, cryptographic fact verification, locale-aware normalization, visual curation, luxury editorial art direction, per-section code generation, surgical revision, 5-viewport QA, budget-capped LLM adaptation, Minimum Viable Facts (MVF) gating, human-in-the-loop operator cockpit review, enterprise n8n studio orchestration, and immutable release packaging with GoHighLevel (GHL) isolation for bespoke pet grooming websites.**
 
-> **Prototype status (last checked 2026-11-12):** This repository is not production-ready. The latest local checks passed Ruff, Pyright (0 errors), and pytest (209 passed). These checks and synthetic fixtures do not replace a live five-business pilot, client fact review, asset-rights clearance, human approval, or validation in an actual GoHighLevel account. Public availability is not permission to reuse media. Previews with unresolved claims or unconfirmed rights must remain unapproved local drafts; no real-business pilot has been completed.
+> **Prototype status (last checked 2026-11-12):** This repository is not production-ready. In a clean Git checkout, Ruff and Pyright passed and pytest collected 220 tests: 218 passed and 2 optional local-reference checks were skipped because their Git-ignored project data was absent. With that local data available, all 220 tests passed. Demo fixtures are explicitly labeled, kept separate from real-business pilot counts, and never establish client approval or asset rights. These automated checks do not replace a live five-business pilot, client fact review, asset-rights clearance, human approval, or validation in an actual GoHighLevel account. Public availability is not permission to reuse media. Previews with unresolved claims or unconfirmed rights must remain unapproved local drafts; no real-business pilot has been completed.
 
 ---
 
@@ -24,6 +24,7 @@
 7. [Installation & Setup](#7-installation--setup)
 8. [Environment Configuration](#8-environment-configuration)
 9. [Usage & CLI Reference](#9-usage--cli-reference)
+   - [9.7 Demo Fixture Mode](#97-demo-fixture-mode)
 10. [Minimum Viable Facts (MVF) Gate & Rights Workflow](#10-minimum-viable-facts-mvf-gate--rights-workflow)
 11. [Golden Test Corpus & Extraction Benchmarks](#11-golden-test-corpus--extraction-benchmarks)
 12. [Enterprise n8n Workflow Automation](#12-enterprise-n8n-workflow-automation)
@@ -56,6 +57,7 @@ Traditional AI site generators suffer from critical production failure modes:
 - **Cryptographic Provenance & Zero Fabrication**: Every scraped webpage is archived to raw HTML snapshots keyed by SHA-256 (`research/snapshots/<sha256>.html`). Every extracted fact requires an exact substring match within the source snapshot; unverified claims or prices are automatically downgraded to `status="needs_review"` and rendered as custom quote inquiry CTAs rather than synthetic copy. Only verified facts (`is_verified=True`) are passed into downstream LLM art-direction and generation prompts.
 - **Minimum Viable Facts (MVF) Quality Gate**: A project is strictly blocked from reaching `awaiting_approval` if it lacks verified baseline facts: official business name, at least one verified contact path (phone number, booking URL, or email address), and service-type classification (`animal_types` and `business_model`). When contact paths are missing, the generator never emits dead `#contact` CTAs, flagging the omission in `qa/mvf-report.json`. The pipeline can only proceed when explicitly acknowledging gaps via `--acknowledge-gaps`, which is permanently recorded in review summaries and release manifests.
 - **Auditable Asset Rights Management**: Built-in, human-driven legal audit trail (`research/rights-audit.jsonl`). Every referenced visual asset requires an explicit, operator-confirmed legal basis (`client_provided`, `owner_permission`, `licensed`) linked to its current SHA-256 hash before release approval is permitted.
+- **Demo Fixture Isolation**: Optional project-local `input.json` metadata distinguishes fictional and third-party internal demos from real businesses. Fixture previews retain a visible warning, fixture releases record `demo: true`, third-party demos cannot confirm media rights or export, and demo classifications are frozen per project.
 - **Rerun Safety & Draft Isolation**: Re-running the pipeline without `--resume` executes a safe draft reset (`_reset_draft_directories`), clearing only draft workspaces (`research/`, `design/`, `website/`, `qa/`) while strictly preserving existing `delivery/`, `versions/vN/`, and archive packages. Approved projects are locked against accidental rerun unless explicitly instructed via `--new-draft`.
 - **Locale-Aware Fact Normalization & Conflict Resolution**: Dual-locale parser supporting UK postcodes, international phone normalization via `phonenumbers` (GB, US, PK), 7-day structured weekly hours verification (requiring full week completeness), price trap defense (ranges, "from" pricing, mobile service area tiers), promotion expiration validation, and multi-candidate conflict resolution (`conflicts_with`).
 - **Luxury Editorial Design & Archetype Differentiation**: Rather than generic SaaS card templates, the art director and section generator synthesize bespoke luxury editorial layouts featuring high-contrast serif display typography (`--ev-font-display`) paired with clean geometric sans body copy (`--ev-font-sans`), warm alabaster/stone surfaces (`#FAF8F5`, `#F4EFEA`), dotted-leader spa treatment menus (`ev-menu-leader`), asymmetric bento portfolio grids (`ev-portfolio-bento`), verified header brand marks, dynamic `suggested_sections` ordering, and structurally distinct hero compositions for `salon` (`ev-hero--salon-editorial`), `mobile` (`ev-hero--mobile-van`), and `multi-species` (`ev-hero--multi-species`) groomers.
@@ -76,6 +78,7 @@ Traditional AI site generators suffer from critical production failure modes:
 | **Resumable Master Orchestrator** | `app/pipeline.py` | Connects all pipeline stages with SQLite idempotency keys (`{project_id}_{stage_name}_{input_manifest_hash}`), `--resume` stage skipping, safe draft reset on clean runs (`resume=False`), `--new-draft` approval locking, and subcommands (`approve`, `confirm-rights`, `verify`, `prune`, `cockpit`, `pilot`). |
 | **Minimum Viable Facts Gate** | `app/mvf_gate.py` | Validates essential business facts (business name, contact path, animal/service model classification); writes `qa/mvf-report.json`; omits `#contact` CTAs when no contact path exists; blocks at `needs_review` unless `--acknowledge-gaps` is passed. |
 | **Auditable Rights Management** | `app/rights.py` | Human-driven asset rights confirmation (`confirm_asset_rights`, `check_used_assets_audit_signatures`); records immutable audit log in `research/rights-audit.jsonl` with legal basis (`client_provided`, `owner_permission`, `licensed`). |
+| **Demo Fixture Safety** | `src/engine/contracts/`, `app/pipeline.py`, `app/approval.py`, `app/rights.py`, exporters | Validates project-local demo metadata, adds a visible non-section banner to fixture HTML, freezes classification per project, records fixture release metadata, blocks third-party rights confirmation and export, and separates fixture runs from real-pilot counts. |
 | **SSRF & DNS-Rebinding Hardened Crawler** | `src/engine/collector.py` | Restricts crawls to same-site pages (`<= 40`), respects `robots.txt`, validates all resolved DNS IPs before connection, archives raw HTML snapshots, decomposes dangerous DOM nodes (`<script>`, `<style>`, `<iframe>`, `<svg>`), and strips prompt injection delimiters. |
 | **Dynamic JS Gallery Discovery** | `src/engine/browser_gallery.py` | Spawns an ephemeral headless Chromium browser with `page.route("**/*", ...)` SSRF request interception (blocking non-HTTP schemes and private/internal IPs) to scroll and render JavaScript-dependent galleries, downloading media through the verified socket pipeline. |
 | **Subprocess Social Media Collector** | `src/engine/social_collect.py` | Invokes `gallery-dl` in an isolated subprocess (`--config-ignore`, `--no-input`, `--sleep-request 3.0`), verifies post timestamps via `--dump-json` dry-runs, strips EXIF/GPS metadata, enforces storage limits, and classifies failures without crashing. |
@@ -93,7 +96,7 @@ Traditional AI site generators suffer from critical production failure modes:
 | **Human Approval & Release Candidate Gate** | `app/approval.py` | Stages candidate deliverables to `release-candidate/`; `approve` checks QA candidate SHA-256 matching, audits referenced HTML assets for confirmed rights, freezes read-only HTML and referenced `assets/` in `delivery/` and `versions/vN/`, and records `checksums` + `asset_signatures` in `release-manifest.json`. |
 | **Release Verification & Scoped GHL Export** | `app/approval.py`, `src/engine/exporter.py`, `app/ghl_exporter.py` | Verifies delivery HTML and referenced project assets against `release-manifest.json` (`verify` CLI); packages verified releases into `projects/_archives/<id>-approved.zip`; formats GHL snippets scoped under `#ghl-ev-engine-root-[business_id]` with absolute CDN/Cockpit asset URL rewriting, strict IIFE JS encapsulation with `MutationObserver`, and simulation verification (`is_valid=True`, `unscoped_css_count=0`, `global_leak_detected=False`). |
 | **Approval-Gated Safe Storage Pruning** | `app/cleanup.py`, `src/engine/cleanup.py` | Refuses pruning unless verified approved release archive exists and matches manifest; permanently protects `delivery/`, version snapshots, and `retained-assets.json`. |
-| **Acceptance Pilot Harness** | `app/pilot.py` | Synthetic offline benchmark covering five grooming-business archetypes with zero-fabrication checks and structured audit reports (`projects/_pilot/pilot-report.json` and `.md`). This harness is not evidence that a live five-business pilot has been completed. |
+| **Synthetic Pilot Fixture Harness** | `app/pilot.py` | Deterministic benchmark covering five synthetic grooming-business archetypes with zero-fabrication checks and structured audit reports (`projects/_pilot/pilot-report.json` and `.md`). Fixture totals are separate from eligible real-business runs; `--live` selects browser QA only. This harness is not evidence that a live five-business pilot has been completed. |
 | **Local Worker & Pipeline Service** | `src/engine/service.py`, `app/service.py` | Bounded asynchronous task runner (`127.0.0.1:8787`) backed by SQLite WAL mode and concurrency semaphores (`4` queue slots, `2` execution threads) exposing `POST /jobs`, `POST /pipeline/run`, and `POST /pipeline/{project_id}/approve` with container-safe QA fallback. |
 | **Enterprise n8n Workflow Automation** | `n8n/*.json` | 4 production 7-node branching workflows with `Set` payload normalization, conditional `IF` completion gates, error/progress telemetry branches, and zero informal naming for client intake, status tracking, release sign-off, and one-click demo studio execution. |
 
@@ -279,7 +282,7 @@ flowchart LR
 | **State Storage** | SQLite (`sqlite3`) | Standard Library (WAL) | Relational state machine, stage manifests, idempotency keys, LLM budget locks. |
 | **Operator Cockpit & API** | FastAPI, Uvicorn | `fastapi >= 0.115`, `uvicorn >= 0.32` | Interactive review cockpit UI (`127.0.0.1:8787`), scoped GHL exporter, and async job worker. |
 | **Workflow Automation** | n8n (Self-Hosted) | `n8nio/n8n:latest` | Enterprise 7-node branching graphs for webhook intake, live telemetry polling, and release sign-off. |
-| **Static Verification** | Ruff, Pyright, Pytest | `ruff >= 0.9`, `pyright >= 1.1`, `pytest >= 8.3` | Linting, strict type-checking, and comprehensive 178-test suite across 31 modules. |
+| **Static Verification** | Ruff, Pyright, Pytest | `ruff >= 0.9`, `pyright >= 1.1`, `pytest >= 8.3` | Linting, strict type-checking, and 220-test suite across 36 test modules (latest local run). |
 
 ---
 
@@ -300,6 +303,7 @@ pet-gromming-agent-factory/
 ├── requirements-social.txt                  # Optional social media collector pin (gallery-dl==1.30.0)
 ├── docs/
 │   ├── DEVELOPER_BRIEF.md                   # Full architectural specification, rules & milestone roadmaps
+│   ├── DEMO_MODE.md                          # Demo fixture input, banner, rights, export & pilot rules
 │   ├── AUDIT_AND_TESTS.md                   # Security audit logs and collector penetration test details
 │   └── BUDGET_AND_QUALITY.md                # Spend controls, storage limits, and QA threshold metrics
 ├── examples/
@@ -314,7 +318,7 @@ pet-gromming-agent-factory/
 ├── src/engine/
 │   ├── __init__.py
 │   ├── contracts/
-│   │   └── __init__.py                      # Pydantic v2 domain schemas (StageInput, StageOutput, Asset, Claim)
+│   │   └── __init__.py                      # Pydantic v2 contracts, including project demo metadata
 │   ├── collector.py                         # SSRF-shielded web crawler, HTML sanitizer & snapshot archiver
 │   ├── browser_gallery.py                   # Headless Playwright dynamic gallery discovery with SSRF route guard
 │   ├── social_collect.py                    # Subprocess-isolated gallery-dl runner with EXIF stripping
@@ -344,7 +348,7 @@ pet-gromming-agent-factory/
 │   ├── approval.py                          # Human approval gate CLI, release-manifest freeze & release verifier
 │   ├── cockpit.py                           # Local Visual Review & Operator Cockpit (Web UI for Human-in-the-Loop)
 │   ├── ghl_exporter.py                      # Scoped GoHighLevel custom code exporter with CDN URL rewriting
-│   ├── pilot.py                             # 5-Business Acceptance Pilot Runner & Audit Engine
+│   ├── pilot.py                             # Synthetic five-archetype fixture runner; not a real-client pilot
 │   ├── pipeline.py                          # Master resumable CLI pipeline orchestrator & subcommand router
 │   └── cleanup.py                           # High-level wrapper for safe_prune_project()
 └── tests/
@@ -353,6 +357,7 @@ pet-gromming-agent-factory/
     ├── test_fact_extractor_locale.py        # Locale-aware address, phone, weekly hours & conflict resolution tests
     ├── test_mvf_gate.py                     # Minimum Viable Facts gate and #contact CTA omission tests
     ├── test_rights_and_approval.py          # Human-driven asset rights workflow and approval locking tests
+    ├── test_demo_mode.py                   # Fixture banner, rights/export blocks, pilot separation and regressions
     ├── test_pipeline_rerun_safety.py        # Draft directory reset safety & approved project locking tests
     ├── test_pipeline_collect_failure.py     # Collect failure halting & anti-fabrication recovery tests
     ├── test_ssrf_rebinding.py               # 29 SSRF, IP literal, cloud metadata & DNS rebinding tests
@@ -508,6 +513,11 @@ uv run python -m app.pipeline \
   --new-draft
 ```
 
+For an internal fixture, create `projects/<business-id>/input.json` before the first
+pipeline run and add the `demo` object shown in [9.7 Demo Fixture Mode](#97-demo-fixture-mode).
+The directory name must match the resolved project ID. The CLI URL, name, and ID remain
+authoritative; demo metadata only classifies the project.
+
 ### 9.2 Human Asset Rights Confirmation (`confirm-rights`)
 
 Before release approval, all visual assets used on the site must have an auditable legal confirmation recorded:
@@ -580,10 +590,13 @@ uv run python -m app.pilot --run-all --projects-dir ./projects
 # 2. Run a single specific business archetype by slug
 uv run python -m app.pilot --business pup-palace-salon --projects-dir ./projects
 
-# 3. Run all 5 archetypes against live public websites + Playwright Chromium QA
+# 3. Run all 5 synthetic archetypes with live Playwright Chromium QA
 uv run python -m app.pilot --run-all --live --projects-dir ./projects
 ```
-Audit artifacts are written to `projects/_pilot/pilot-report.json` and `projects/_pilot/pilot-report.md`.
+`--live` changes the QA runner only; it does not fetch live business websites or make
+fixtures eligible as real-business pilot results. The report lists fixture and eligible
+real-business counts separately. Audit artifacts are written to
+`projects/_pilot/pilot-report.json` and `projects/_pilot/pilot-report.md`.
 
 ### 9.6 Scoped GoHighLevel (GHL) Export with CDN Asset Rewriting
 
@@ -598,6 +611,41 @@ uv run python -m app.ghl_exporter \
   --project ./projects/pup-palace \
   --cdn-base-url https://cdn.editvista.com/pup-palace
 ```
+
+### 9.7 Demo Fixture Mode
+
+Demo metadata belongs to the project—not to its URL, business name, or a shared/global
+setting. Add it to `projects/<project_id>/input.json` before running the pipeline:
+
+```json
+{
+  "demo": {
+    "is_fixture": true,
+    "kind": "fictional",
+    "reason": "Internal workflow demonstration using synthetic business data."
+  }
+}
+```
+
+Supported `kind` values are `fictional` and `third_party_internal_demo`. The `demo`
+object is validated before collection or project mutation. An absent `demo` field keeps
+the existing real-business path. The first pipeline/generation operation freezes the
+classification in the project-local `.editvista-demo-mode.json`; changing or removing
+the classification requires a new project ID.
+
+- Fixture website previews and allowed delivery HTML show the visible
+  `INTERNAL DEMO - NOT A VERIFIED BUSINESS` banner, outside revision-controlled
+  sections. Fictional releases record `demo: true`, kind, and reason.
+- `third_party_internal_demo` projects remain review-only: rights confirmation,
+  approval, standalone export, and GHL export are blocked. Their asset-rights flags
+  remain false. A demo label does not grant permission to reuse public media.
+- Built-in pilot harness runs are marked as fixtures and excluded from eligible
+  real-business totals. `--live` still means browser QA, not real-business intake.
+
+Use this mode for internal synthetic demos or clearly labeled third-party research only.
+It is not a substitute for client permission, source-backed fact review, asset-rights
+clearance, or approval of a specific release. See [docs/DEMO_MODE.md](docs/DEMO_MODE.md)
+for the design and enforcement details.
 
 ---
 
@@ -722,7 +770,7 @@ make test        # uv run pytest
 
 ### Current Validation Snapshot
 
-Last locally verified on 2026-11-12: **209 tests passed across 35 test modules** in the local workspace. The two optional Lily reference-demo checks require project data that is Git-ignored; they skip with an explicit reason in clean checkouts. Ruff reported all checks passed, and Pyright reported 0 errors, warnings, or informations. The table below highlights representative coverage areas; `tests/` is the authoritative inventory.
+Last locally verified on 2026-11-12: **218 passed, 2 skipped (220 collected) across 36 test modules** in a clean Git checkout. The two optional Lily reference-demo checks require project data that is Git-ignored; they skip with an explicit reason when that data is absent. With the local data available, all 220 tests passed. Ruff reported all checks passed, and Pyright reported 0 errors, warnings, or informations. These are automated local results, not evidence of a real-client pilot or published GHL acceptance. The table below highlights representative coverage areas; `tests/` is the authoritative inventory.
 
 ### Representative Test Coverage
 
@@ -731,6 +779,7 @@ Last locally verified on 2026-11-12: **209 tests passed across 35 test modules**
 | `tests/test_ssrf_rebinding.py` | Comprehensive network attack testing: RFC 1918 private IPs, loopback (`127.0.0.1`, `::1`), link-local / cloud metadata (`169.254.169.254`), CGNAT (`100.64.0.0/10`), IPv4-mapped IPv6, integer/octal/hex IP literals, redirect blocking, multi-record DNS rejection, and single-resolution DNS rebinding TOCTOU defense. |
 | `tests/test_llm_adapter.py` | Multimodal LLM adapter verification: SHA-256 disk cache hits with text and images, SQLite budget persistence surviving restarts, upfront cost estimation blocking before spending, retry tracking against call caps, secret redaction, and path traversal rejection for image inputs. |
 | `tests/test_contracts.py` | Pydantic v2 contract integrity: `StageInput`, `StageOutput`, `Asset`, `Claim`, timezone-aware UTC datetime enforcement, non-empty source text verification, and `rights_confirmed_for_preview=False` defaults. |
+| `tests/test_demo_mode.py` | Demo fixture isolation: project-local metadata validation and freezing; persistent HTML banner; third-party rights, approval, and export refusal; fictional release metadata; per-project separation; and pilot fixture accounting. |
 | `tests/test_social_collect.py` | Subprocess social collection: `--i-have-permission` flag enforcement, dry-run `--dump-json` post timestamp verification, EXIF/GPS metadata stripping, corrupt image rejection, and non-crashing failure classification (`login_required`, `rate_limited`, `extractor_broken`, `unknown`). |
 | `tests/test_approval_archival.py` | Approval release gate: blocks export on critical QA defects or unconfirmed asset rights; stale QA rejection via candidate SHA-256 matching; read-only release freeze in `delivery/` and `versions/vN/`; release manifest verification; and immunity of delivery files during cleanup. |
 | `tests/test_audit_invariants.py` | Cross-module engineering audit invariants: rerun preservation of `delivery/` and `versions/`; `verify_release()` asset tamper detection; unified canonical section state across revisions; composite `(project_id, asset_id)` SQLite primary key; `provider.default_model` resolution; unverified claim exclusion in LLM prompts; and root-scoped `.ev-ghl-scope` JS. |
@@ -743,7 +792,7 @@ Last locally verified on 2026-11-12: **209 tests passed across 35 test modules**
 | `tests/test_collector.py` | Web crawler verification: local HTTP crawl, HTML snapshot SHA-256 verification, stripping of executable DOM nodes, prompt injection neutralization, and exact-substring fact extraction. |
 | `tests/test_exporter_release_gate.py` | Release packaging: ensures `export_approved_deliverables()` blocks when `delivery/` is unverified or any referenced asset lacks confirmed preview rights; generates deliverable bundles when all assets are confirmed. |
 | `tests/test_llm_pipeline_integration.py` | Real LLM pipeline integration: art direction brand positioning synthesis, fact-grounded section copy generation, visual critic defect feedback, surgical section code revisions, and offline FakeProvider fallbacks. |
-| `tests/test_pilot_milestone5.py` | Milestone 5 Five-Business Acceptance Pilot: end-to-end execution across 5 diverse archetypes, single-business CLI execution, audit report generation (`pilot-report.json`), and zero-fabrication assertion validation. |
+| `tests/test_pilot_milestone5.py` | Synthetic five-archetype fixture harness: end-to-end fixture execution, single-archetype CLI, audit report generation (`pilot-report.json`), and zero-fabrication assertions. This does not certify the real-business pilot. |
 | `tests/test_pipeline_collect_failure.py` | Crawler failure handling: asserts pipeline cleanly halts on collect exceptions, prevents fabrication of synthetic `pages.json`, sets project status to `failed`, and logs actionable errors. |
 | `tests/test_ghl_embed_live.py` | Live GoHighLevel embed validation: relative asset URL rewriting to CDN base URLs and explicit asset maps, root container CSS encapsulation, IIFE JS isolation with `MutationObserver`, and simulation inside hostile host page templates. |
 | `tests/test_ghl_export.py` | GoHighLevel encapsulation: `#ghl-ev-engine-root-*` CSS scoping, `:root` variable rewriting, HTML body extraction, IIFE + `MutationObserver` JS encapsulation, and global `window.*` / `document.*` leakage rejection. |
@@ -826,13 +875,14 @@ Per [`docs/DEVELOPER_BRIEF.md`](docs/DEVELOPER_BRIEF.md), the repository impleme
 - [~] **Milestone 5 — Acceptance Pilot Harness & Operator Cockpit**:
   - **Track 1 (LLM Pipeline)**: Provider-agnostic LLM integration across art direction, section generation, visual critique, and surgical revision with `provider.default_model` resolution, `is_verified=True` prompt filtering, budget enforcement, and disk caching (verified offline via `FakeProvider` and live API keys).
   - **Track 2 (Operator Cockpit)**: Human-in-the-loop web UI (`app/cockpit.py`) with sandboxed multi-viewport previews, QA screenshot inspection, claim provenance audits, asset rights confirmation, surgical section edits, and release freezing.
-  - **Track 3 (Acceptance Pilot)**: Runner (`app/pilot.py`) exercises five deterministic synthetic archetypes by default or can collect live sites with `--live`. The required end-to-end pilot across five real businesses remains outstanding.
+  - **Track 3 (Acceptance Pilot)**: Runner (`app/pilot.py`) exercises five deterministic synthetic archetypes; `--live` selects real Playwright QA and does not collect live business websites. The required end-to-end pilot across five participating real businesses remains outstanding.
   - **Track 4 (Scoped GHL Embed Validation)**: Dynamic CDN URL transformation, `#ghl-ev-engine-root-*` CSS isolation, root-scoped `.ev-ghl-scope` IIFE JS encapsulation with `MutationObserver`, and hostile host stylesheet simulation (`validate_ghl_embed_simulation`).
 - [x] **Quality & Robustness Hardening (Post-Milestone 5)**:
   - **Minimum Viable Facts (MVF) Gate**: Mandatory quality gate blocking approval of incomplete sites and eliminating `#contact` dead links (`app/mvf_gate.py`).
   - **Auditable Rights Management**: Legal basis confirmation and tamper-evident audit logging for all referenced assets (`app/rights.py`).
   - **Draft Reset & Rerun Safety**: Complete isolation of approved delivery and version directories during draft rebuilds (`app/pipeline.py`).
   - **Golden Regression Benchmark**: 12-business golden fixture corpus ensuring zero extraction regressions across UK/US locales (`tests/golden/`, `scripts/freeze_site.py`).
+  - **Demo Fixture Isolation**: Project-local classification, persistent preview/release banner, third-party rights/export blocks, and fixture-vs-real pilot accounting (`docs/DEMO_MODE.md`, `tests/test_demo_mode.py`).
 
 ---
 
