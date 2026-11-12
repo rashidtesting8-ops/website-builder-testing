@@ -1,6 +1,6 @@
 {
   "project_id": "us-brooklyn-posh-paws",
-  "extracted_at": "2026-11-11T14:09:42.261932Z",
+  "extracted_at": "2026-11-12T09:20:40.366837Z",
   "facts": [
     {
       "fact_id": "fact-15fae534c622",
@@ -15,7 +15,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:42.261932Z",
+      "last_checked_at": "2026-11-12T09:20:40.365821Z",
       "source_text": "Posh Paws Brooklyn",
       "verified": true
     },
@@ -32,7 +32,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:42.261932Z",
+      "last_checked_at": "2026-11-12T09:20:40.365821Z",
       "source_text": "Address: 155 Montague Street, Brooklyn, NY 11201",
       "verified": true
     },
@@ -57,7 +57,7 @@
       },
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:42.261932Z",
+      "last_checked_at": "2026-11-12T09:20:40.365821Z",
       "source_text": "Hours: 9am - 7pm daily",
       "verified": true
     },
@@ -74,7 +74,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:42.261932Z",
+      "last_checked_at": "2026-11-12T09:20:40.365821Z",
       "source_text": "Feline Lion Cut - $95.00",
       "verified": true
     },
@@ -91,7 +91,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:42.261932Z",
+      "last_checked_at": "2026-11-12T09:20:40.365821Z",
       "source_text": "Feline Lion Cut - $95.00",
       "verified": true
     },
@@ -100,7 +100,7 @@
       "project_id": "us-brooklyn-posh-paws",
       "category": "phone",
       "claim_key": "phone",
-      "claim_value": "(718) 555-0199 (conflicts with (718) 555-0122)",
+      "claim_value": "(718) 555-0199",
       "source_url": "https://poshpawsbrooklyn.com",
       "source_text_snippet": "Phone: (718) 555-0199",
       "source_kind": "regex",
@@ -110,7 +110,7 @@
       "structured_value": null,
       "is_verified": false,
       "status": "needs_review",
-      "last_checked_at": "2026-11-11T14:09:42.261932Z",
+      "last_checked_at": "2026-11-12T09:20:40.365821Z",
       "source_text": "Phone: (718) 555-0199",
       "verified": false
     },
@@ -119,7 +119,7 @@
       "project_id": "us-brooklyn-posh-paws",
       "category": "phone",
       "claim_key": "phone",
-      "claim_value": "(718) 555-0122 (conflicts with (718) 555-0199 (conflicts with (718) 555-0122))",
+      "claim_value": "(718) 555-0122",
       "source_url": "https://poshpawsbrooklyn.com",
       "source_text_snippet": "Posh Paws Brooklyn • 155 Montague Street, Brooklyn, NY 11201 • Direct line: (718) 555-0122",
       "source_kind": "regex",
@@ -129,7 +129,7 @@
       "structured_value": null,
       "is_verified": false,
       "status": "needs_review",
-      "last_checked_at": "2026-11-11T14:09:42.261932Z",
+      "last_checked_at": "2026-11-12T09:20:40.365821Z",
       "source_text": "Posh Paws Brooklyn • 155 Montague Street, Brooklyn, NY 11201 • Direct line: (718) 555-0122",
       "verified": false
     }

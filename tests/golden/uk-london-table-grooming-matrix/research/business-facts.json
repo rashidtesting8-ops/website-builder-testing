@@ -1,6 +1,6 @@
 {
   "project_id": "uk-london-table-grooming-matrix",
-  "extracted_at": "2026-11-11T14:09:41.444648Z",
+  "extracted_at": "2026-11-12T09:20:39.799023Z",
   "facts": [
     {
       "fact_id": "fact-0f6c7217fadb",
@@ -15,7 +15,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.443643Z",
+      "last_checked_at": "2026-11-12T09:20:39.799023Z",
       "source_text": "Marylebone Veterinary & Grooming Matrix",
       "verified": true
     },
@@ -32,8 +32,42 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.443643Z",
+      "last_checked_at": "2026-11-12T09:20:39.799023Z",
       "source_text": "Phone: 020 7224 3688",
+      "verified": true
+    },
+    {
+      "fact_id": "fact-f48b34a5e883",
+      "project_id": "uk-london-table-grooming-matrix",
+      "category": "address",
+      "claim_key": "address",
+      "claim_value": "221B Baker Street, Marylebone, London, NW1 6XE",
+      "source_url": "https://marylebonek9matrix.co.uk",
+      "source_text_snippet": "Address: 221B Baker Street, Marylebone, London, NW1 6XE",
+      "source_kind": "regex",
+      "conflicts_with": [],
+      "structured_value": null,
+      "is_verified": true,
+      "status": "verified",
+      "last_checked_at": "2026-11-12T09:20:39.799023Z",
+      "source_text": "Address: 221B Baker Street, Marylebone, London, NW1 6XE",
+      "verified": true
+    },
+    {
+      "fact_id": "fact-8bb60714fff1",
+      "project_id": "uk-london-table-grooming-matrix",
+      "category": "address",
+      "claim_key": "address",
+      "claim_value": "221B Baker Street, London NW1 6XE",
+      "source_url": "https://marylebonek9matrix.co.uk",
+      "source_text_snippet": "Marylebone Veterinary & Grooming Matrix • 221B Baker Street, London NW1 6XE",
+      "source_kind": "regex",
+      "conflicts_with": [],
+      "structured_value": null,
+      "is_verified": true,
+      "status": "verified",
+      "last_checked_at": "2026-11-12T09:20:39.799023Z",
+      "source_text": "Marylebone Veterinary & Grooming Matrix • 221B Baker Street, London NW1 6XE",
       "verified": true
     },
     {
@@ -49,7 +83,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.443643Z",
+      "last_checked_at": "2026-11-12T09:20:39.799023Z",
       "source_text": "Full Groom & Styling: £45.00",
       "verified": true
     },
@@ -66,7 +100,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.443643Z",
+      "last_checked_at": "2026-11-12T09:20:39.799023Z",
       "source_text": "Full Groom & Styling: £45.00",
       "verified": true
     },
@@ -83,7 +117,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.444648Z",
+      "last_checked_at": "2026-11-12T09:20:39.799023Z",
       "source_text": "Bath & De-shedding: £30.00",
       "verified": true
     },
@@ -100,7 +134,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.444648Z",
+      "last_checked_at": "2026-11-12T09:20:39.799023Z",
       "source_text": "Bath & De-shedding: £30.00",
       "verified": true
     },
@@ -117,47 +151,9 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.444648Z",
+      "last_checked_at": "2026-11-12T09:20:39.799023Z",
       "source_text": "Cancellation Policy: 24 hours advance notice required for all clinic appointments.",
       "verified": true
-    },
-    {
-      "fact_id": "fact-f48b34a5e883",
-      "project_id": "uk-london-table-grooming-matrix",
-      "category": "address",
-      "claim_key": "address",
-      "claim_value": "221B Baker Street, Marylebone, London, NW1 6XE (conflicts with 221B Baker Street, London NW1 6XE)",
-      "source_url": "https://marylebonek9matrix.co.uk",
-      "source_text_snippet": "Address: 221B Baker Street, Marylebone, London, NW1 6XE",
-      "source_kind": "regex",
-      "conflicts_with": [
-        "fact-8bb60714fff1"
-      ],
-      "structured_value": null,
-      "is_verified": false,
-      "status": "needs_review",
-      "last_checked_at": "2026-11-11T14:09:41.443643Z",
-      "source_text": "Address: 221B Baker Street, Marylebone, London, NW1 6XE",
-      "verified": false
-    },
-    {
-      "fact_id": "fact-8bb60714fff1",
-      "project_id": "uk-london-table-grooming-matrix",
-      "category": "address",
-      "claim_key": "address",
-      "claim_value": "221B Baker Street, London NW1 6XE (conflicts with 221B Baker Street, Marylebone, London, NW1 6XE (conflicts with 221B Baker Street, London NW1 6XE))",
-      "source_url": "https://marylebonek9matrix.co.uk",
-      "source_text_snippet": "Marylebone Veterinary & Grooming Matrix • 221B Baker Street, London NW1 6XE",
-      "source_kind": "regex",
-      "conflicts_with": [
-        "fact-f48b34a5e883"
-      ],
-      "structured_value": null,
-      "is_verified": false,
-      "status": "needs_review",
-      "last_checked_at": "2026-11-11T14:09:41.443643Z",
-      "source_text": "Marylebone Veterinary & Grooming Matrix • 221B Baker Street, London NW1 6XE",
-      "verified": false
     },
     {
       "fact_id": "fact-6c56d372ffa0",
@@ -172,7 +168,7 @@
       "structured_value": {},
       "is_verified": false,
       "status": "needs_review",
-      "last_checked_at": "2026-11-11T14:09:41.443643Z",
+      "last_checked_at": "2026-11-12T09:20:39.799023Z",
       "source_text": "Salon Hours (Partial week captured: missing monday, tuesday, wednesday, thursday, friday, saturday, sunday)",
       "verified": false
     }

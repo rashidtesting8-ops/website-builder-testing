@@ -180,6 +180,21 @@ def test_service_pipeline_run_and_approval_endpoints(
             version="v1",
             operator="Rashid",
             notes="Approved via n8n workflow",
+            human_review={
+                "candidate_sha256": hashlib.sha256(
+                    (
+                        tmp_path
+                        / "royal-paws-spa"
+                        / "release-candidate"
+                        / "standalone.html"
+                    ).read_bytes()
+                ).hexdigest(),
+                "reviewed_preview": True,
+                "reviewed_facts": True,
+                "reviewed_assets": True,
+                "reviewed_qa": True,
+                "confirmed_release": True,
+            },
         ),
     )
     assert app_data["status"] == "approved"

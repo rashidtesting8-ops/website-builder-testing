@@ -110,6 +110,52 @@ def test_mvf_check_passes_when_all_criteria_met(tmp_path: Path) -> None:
     assert "service_type" in mvf.verified_items
 
 
+def test_page_title_suffix_does_not_break_verified_business_name_for_multi_branch_site(
+    tmp_path: Path,
+) -> None:
+    """Business names should resolve to the same brand when titles include section names."""
+    html = """<!DOCTYPE html>
+    <html>
+      <head><title>About us – Lily's Club Dog Grooming</title></head>
+      <body>
+        <h1>Lily's Club Dog Grooming</h1>
+        <p>Dog grooming salon in Harrow and Wood Green.</p>
+        <p><a href="https://www.lilys-club.co.uk/book-an-appointment-2">Book Appointment</a></p>
+        <p>Harrow phone: +44 7521 298312</p>
+        <p>Wood Green phone: +44 7895 015546</p>
+      </body>
+    </html>"""
+    proj = tmp_path / "lilys-club"
+    research = proj / "research"
+    snaps = research / "snapshots"
+    snaps.mkdir(parents=True, exist_ok=True)
+    sha = "lilys-sha"
+    (snaps / f"{sha}.html").write_text(html, encoding="utf-8")
+    pages = [{
+        "url": "https://www.lilys-club.co.uk/about-us-2",
+        "sha256": sha,
+        "title": "About us – Lily's Club Dog Grooming",
+        "text": html,
+    }]
+    (research / "pages.json").write_text(json.dumps(pages), encoding="utf-8")
+    report = extract_business_facts(proj, extract_classification=True)
+
+    names = [f for f in report.facts if f.category == "business_name"]
+    assert names
+    assert any(
+        f.is_verified and f.status == "verified" and "Lily's Club Dog Grooming" in f.claim_value
+        for f in names
+    )
+    assert any(f.category == "booking_url" and f.is_verified for f in report.facts)
+    assert any(f.category == "phone" and f.is_verified for f in report.facts)
+
+    mvf = check_mvf(proj)
+    assert mvf.passed is True
+    assert "business_name" in mvf.verified_items
+    assert "contact_path" in mvf.verified_items
+    assert "service_type" in mvf.verified_items
+
+
 def test_mvf_check_fails_and_writes_report_when_contact_path_missing(tmp_path: Path) -> None:
     """Requirement 2 & 3: MVF fails if contact path missing; writes qa/mvf-report.json."""
     # HTML with business name and animal/model, but NO phone, booking URL, or email

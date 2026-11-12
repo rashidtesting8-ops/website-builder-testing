@@ -222,6 +222,15 @@ def test_pipeline_pauses_at_approval_gate_and_unlocks_on_cli_approve_and_prune(
             "Dev",
             "--notes",
             "Verified",
+            "--reviewed-candidate-sha256",
+            hashlib.sha256(
+                (project_root / "release-candidate" / "standalone.html").read_bytes()
+            ).hexdigest(),
+            "--reviewed-preview",
+            "--reviewed-facts",
+            "--reviewed-assets",
+            "--reviewed-qa",
+            "--confirmed-release",
             "--projects-dir",
             str(projects_dir),
             "--db-path",

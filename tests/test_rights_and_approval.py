@@ -219,6 +219,16 @@ def test_confirm_rights_cli_and_subsequent_approval(tmp_path: Path) -> None:
         version="v1",
         projects_dir=tmp_path,
         db_path=db_path,
+        review_attestation={
+            "candidate_sha256": hashlib.sha256(
+                (project_root / "release-candidate" / "standalone.html").read_bytes()
+            ).hexdigest(),
+            "reviewed_preview": True,
+            "reviewed_facts": True,
+            "reviewed_assets": True,
+            "reviewed_qa": True,
+            "confirmed_release": True,
+        },
     )
     assert len(manifest_sha) == 64
     assert (project_root / "delivery" / "release-manifest.json").is_file()
@@ -370,7 +380,8 @@ def test_acknowledge_open_issues_stored_in_release_manifest(tmp_path: Path) -> N
         encoding="utf-8",
     )
 
-    # Attempting approve_release without acknowledgment must be refused
+    # Attempting approve_release without explicit acknowledgment must be refused.
+    # Omission must be as safe as an explicit False.
     with pytest.raises(ReleaseApprovalGateError, match="open issues|critique|defect"):
         approve_release(
             project_root,
@@ -379,7 +390,6 @@ def test_acknowledge_open_issues_stored_in_release_manifest(tmp_path: Path) -> N
             version="v1",
             projects_dir=tmp_path,
             db_path=db_path,
-            acknowledge_open_issues=False,
         )
 
     # With acknowledge_open_issues=True, approval succeeds and records issues in manifest
@@ -391,6 +401,16 @@ def test_acknowledge_open_issues_stored_in_release_manifest(tmp_path: Path) -> N
         projects_dir=tmp_path,
         db_path=db_path,
         acknowledge_open_issues=True,
+        review_attestation={
+            "candidate_sha256": hashlib.sha256(
+                (project_root / "release-candidate" / "standalone.html").read_bytes()
+            ).hexdigest(),
+            "reviewed_preview": True,
+            "reviewed_facts": True,
+            "reviewed_assets": True,
+            "reviewed_qa": True,
+            "confirmed_release": True,
+        },
     )
     assert len(manifest_sha) == 64
 

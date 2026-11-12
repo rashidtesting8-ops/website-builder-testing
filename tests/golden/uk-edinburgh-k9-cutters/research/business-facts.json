@@ -1,6 +1,6 @@
 {
   "project_id": "uk-edinburgh-k9-cutters",
-  "extracted_at": "2026-11-11T14:09:41.392812Z",
+  "extracted_at": "2026-11-12T09:20:39.738334Z",
   "facts": [
     {
       "fact_id": "fact-d56ef808f9e7",
@@ -15,7 +15,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.392812Z",
+      "last_checked_at": "2026-11-12T09:20:39.738334Z",
       "source_text": "Edinburgh K9 Cutters",
       "verified": true
     },
@@ -32,7 +32,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.392812Z",
+      "last_checked_at": "2026-11-12T09:20:39.738334Z",
       "source_text": "Phone: 0131 229 4433",
       "verified": true
     },
@@ -49,7 +49,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.392812Z",
+      "last_checked_at": "2026-11-12T09:20:39.738334Z",
       "source_text": "Address: 85 Lothian Road, Edinburgh, EH3 9AW",
       "verified": true
     },
@@ -74,7 +74,7 @@
       },
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.392812Z",
+      "last_checked_at": "2026-11-12T09:20:39.738334Z",
       "source_text": "Hours: Monday to Friday: 9:00 AM - 6:00 PM, Saturday: 9:00 AM - 1:00 PM, Sunday: Closed",
       "verified": true
     },
@@ -91,7 +91,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.392812Z",
+      "last_checked_at": "2026-11-12T09:20:39.738334Z",
       "source_text": "Full Breed Styling - £52.00",
       "verified": true
     },
@@ -108,7 +108,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.392812Z",
+      "last_checked_at": "2026-11-12T09:20:39.738334Z",
       "source_text": "Full Breed Styling - £52.00",
       "verified": true
     },
@@ -125,7 +125,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.392812Z",
+      "last_checked_at": "2026-11-12T09:20:39.738334Z",
       "source_text": "Deshedding Treatment - £38.00",
       "verified": true
     },
@@ -142,7 +142,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.392812Z",
+      "last_checked_at": "2026-11-12T09:20:39.738334Z",
       "source_text": "Deshedding Treatment - £38.00",
       "verified": true
     },
@@ -159,7 +159,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-11T14:09:41.392812Z",
+      "last_checked_at": "2026-11-12T09:20:39.738334Z",
       "source_text": "Cancellation Policy: Please provide 24 hours notice for cancellations or a £20 fee applies.",
       "verified": true
     }

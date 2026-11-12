@@ -237,6 +237,7 @@ def test_conflict_detection_marks_all_candidates_needs_review(tmp_path: Path) ->
     for a in addrs:
         assert a.status == "needs_review", "Conflicting address must NOT be verified"
         assert len(a.conflicts_with) >= 1
+        assert "conflicts with" not in a.claim_value.lower()
 
 
 def test_structured_weekly_hours_and_partial_week_status(tmp_path: Path) -> None:

@@ -11,20 +11,16 @@ Tests:
 - Pilot runner executes all 5 businesses end-to-end.
 - Verifies taxonomy classification for all 5 archetypes.
 - Verifies zero-fabrication: unverified claims become needs_review.
-- Verifies delivery/ integrity and release-manifest verification for approved deliverables.
+- Confirms pilot candidates stop at human approval instead of self-approving.
 - Verifies comprehensive pilot report generation with execution metrics and audit tables.
 """
 
 from __future__ import annotations
 
-import hashlib
 import json
-from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
 import pytest
-from app.approval import approve_release, verify_release
 from app.pilot import (
     PILOT_BUSINESS_SPECS,
     PilotAcceptanceReport,
@@ -33,40 +29,6 @@ from app.pilot import (
 )
 from app.qa_engine import BREAKPOINTS, QADefectReport, ViewportQAResult
 from PIL import Image
-
-
-@pytest.fixture(autouse=True)
-def _record_synthetic_pilot_rights(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Model an explicit human review of locally generated pilot-test images."""
-    import app.pilot as pilot_mod
-
-    def approve_with_fixture_audit(
-        project_id_or_path: str | Path, *args: Any, **kwargs: Any
-    ) -> str:
-        project_root = Path(project_id_or_path)
-        manifest_path = project_root / "research" / "asset-manifest.json"
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        audit_path = project_root / "research" / "rights-audit.jsonl"
-        entries = []
-        for item in manifest:
-            asset_path = project_root / str(item["file"])
-            entries.append(
-                {
-                    "who": "Synthetic Pilot Test Reviewer",
-                    "when": datetime.now(UTC).isoformat(),
-                    "basis": "synthetic_test_fixture",
-                    "evidence": "Locally generated image fixture; no third-party asset.",
-                    "asset_sha256": hashlib.sha256(asset_path.read_bytes()).hexdigest(),
-                    "file": str(item["file"]),
-                }
-            )
-        audit_path.write_text(
-            "".join(json.dumps(entry) + "\n" for entry in entries),
-            encoding="utf-8",
-        )
-        return approve_release(project_id_or_path, *args, **kwargs)
-
-    monkeypatch.setattr(pilot_mod, "approve_release", approve_with_fixture_audit)
 
 
 def _mock_qa_runner(project_folder: str | Path, **_kwargs) -> QADefectReport:
@@ -144,16 +106,16 @@ def test_single_pilot_mobile_groomer_taxonomy_and_call_cta(tmp_path: Path) -> No
     spec = next(s for s in PILOT_BUSINESS_SPECS if s.archetype == "mobile_groomer")
     result = run_single_pilot_business(spec, projects_dir=projects_dir, qa_runner=_mock_qa_runner)
 
-    assert result.status == "approved"
+    assert result.status == "awaiting_approval"
     assert result.taxonomy.is_mobile_groomer is True
     assert result.taxonomy.is_salon is False
     assert result.primary_cta_target is not None
     assert result.primary_cta_target.startswith("tel:")
 
-    # Verify immutable release
+    # Candidate generation is complete, but only a human can freeze a release.
     project_root = projects_dir / spec.slug
-    assert verify_release(project_root) is True
-    assert (project_root / "delivery/ghl-ready.html").is_file()
+    assert (project_root / "release-candidate/ghl-ready.html").is_file()
+    assert not (project_root / "delivery/release-manifest.json").exists()
 
 
 def test_single_pilot_minimalist_site_zero_fabrication(tmp_path: Path) -> None:
@@ -164,7 +126,7 @@ def test_single_pilot_minimalist_site_zero_fabrication(tmp_path: Path) -> None:
     spec = next(s for s in PILOT_BUSINESS_SPECS if s.archetype == "minimalist_inquiry")
     result = run_single_pilot_business(spec, projects_dir=projects_dir, qa_runner=_mock_qa_runner)
 
-    assert result.status == "approved"
+    assert result.status == "awaiting_approval"
     # Pricing is not verified, so it must fall back to inquiry CTA or consultation
     brief_file = projects_dir / spec.slug / "design/creative-brief.json"
     brief_data = json.loads(brief_file.read_text(encoding="utf-8"))
@@ -188,7 +150,7 @@ def test_execute_acceptance_pilot_runs_all_five_and_generates_report(tmp_path: P
     )
 
     assert pilot_report.total_businesses == 5
-    assert pilot_report.successful_businesses == 5
+    assert pilot_report.review_ready_businesses == 5
     assert pilot_report.failed_businesses == 0
     assert len(pilot_report.results) == 5
 
@@ -210,10 +172,11 @@ def test_execute_acceptance_pilot_runs_all_five_and_generates_report(tmp_path: P
     assert "Minimalist Studio" in md_content
     assert "Social-Heavy" in md_content
 
-    # Every business must have a valid delivery/ and verified release manifest
+    # Each candidate awaits a separate human review and immutable release decision.
     for res in pilot_report.results:
         p_dir = projects_dir / res.slug
-        assert verify_release(p_dir) is True
+        assert res.status == "awaiting_approval"
+        assert not (p_dir / "delivery" / "release-manifest.json").exists()
         assert res.zero_fabrication_passed is True
 
 

@@ -50,7 +50,7 @@ class WorkflowV2Tests(unittest.TestCase):
             )
             self.assertEqual(out["files_added"], 1)
             self.assertEqual(out["status"], "collected_needs_review")
-            self.assertIn("--date-after", saved[0])
+            self.assertNotIn("--date-after", saved[0])
             self.assertEqual(saved[0][saved[0].index("--range") + 1], "1-4")
             mani = json.loads(
                 (project / "research/social-media-manifest.json").read_text(encoding="utf-8")

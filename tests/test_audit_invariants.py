@@ -156,7 +156,24 @@ def test_p1_1_pipeline_rerun_preserves_approved_delivery_and_versions(
         evidence="Synthetic asset used by the pipeline invariant test.",
         projects_dir=tmp_path,
     )
-    approve_release(res1.project_folder, version="v1", projects_dir=tmp_path)
+    approve_release(
+        res1.project_folder,
+        version="v1",
+        operator_name="Pilot Reviewer",
+        notes="Reviewed the pilot candidate and its source evidence.",
+        projects_dir=tmp_path,
+        acknowledge_open_issues=True,
+        review_attestation={
+            "candidate_sha256": hashlib.sha256(
+                (res1.project_folder / "release-candidate" / "standalone.html").read_bytes()
+            ).hexdigest(),
+            "reviewed_preview": True,
+            "reviewed_facts": True,
+            "reviewed_assets": True,
+            "reviewed_qa": True,
+            "confirmed_release": True,
+        },
+    )
     v1_html_path = res1.project_folder / "versions" / "v1" / "approved-homepage.html"
     assert v1_html_path.is_file()
     v1_bytes_before = v1_html_path.read_bytes()
@@ -256,7 +273,23 @@ def test_p1_2_verify_release_detects_tampered_asset_bytes(tmp_path: Path) -> Non
     generate_art_direction(proj)
     generate_website(proj)
     _mock_qa_runner(proj)
-    approve_release(proj, version="v1", projects_dir=tmp_path)
+    approve_release(
+        proj,
+        version="v1",
+        operator_name="Release Reviewer",
+        notes="Reviewed source evidence and the generated release candidate.",
+        projects_dir=tmp_path,
+        review_attestation={
+            "candidate_sha256": hashlib.sha256(
+                (proj / "release-candidate" / "standalone.html").read_bytes()
+            ).hexdigest(),
+            "reviewed_preview": True,
+            "reviewed_facts": True,
+            "reviewed_assets": True,
+            "reviewed_qa": True,
+            "confirmed_release": True,
+        },
+    )
 
     # Initial verification succeeds
     assert verify_release(proj) is True

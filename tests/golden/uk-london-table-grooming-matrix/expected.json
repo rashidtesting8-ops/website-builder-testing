@@ -19,6 +19,12 @@
     "expected_status": "verified"
   },
   {
+    "category": "address",
+    "normalized_value": "221B Baker Street, London NW1 6XE",
+    "claim_key": "address",
+    "expected_status": "verified"
+  },
+  {
     "category": "hours",
     "normalized_value": "Monday 08:00 - 18:00, Saturday 09:00 - 17:00, Sunday Closed",
     "claim_key": "hours",

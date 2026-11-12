@@ -19,6 +19,13 @@
     "trap": "footer disagrees with contact page (12 Gloucester Rd vs 5 Park St)"
   },
   {
+    "category": "address",
+    "normalized_value": "5 Park Street, Bristol, BS1 5HR",
+    "claim_key": "address",
+    "expected_status": "needs_review",
+    "trap": "registered office differs from the listed salon address"
+  },
+  {
     "category": "hours",
     "normalized_value": "Tue - Sat 9am - 5:30pm",
     "claim_key": "hours",

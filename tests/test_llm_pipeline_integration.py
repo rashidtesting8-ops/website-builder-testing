@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -317,7 +318,21 @@ def test_pipeline_e2e_with_llm_adapter_executes_orchestration(tmp_path: Path) ->
     )
     from app.approval import approve_release
 
-    manifest_sha = approve_release(result.project_folder, operator_name="Test QA Dev")
+    manifest_sha = approve_release(
+        result.project_folder,
+        operator_name="Test QA Reviewer",
+        notes="Reviewed the candidate and source-backed business facts.",
+        review_attestation={
+            "candidate_sha256": hashlib.sha256(
+                (result.project_folder / "release-candidate" / "standalone.html").read_bytes()
+            ).hexdigest(),
+            "reviewed_preview": True,
+            "reviewed_facts": True,
+            "reviewed_assets": True,
+            "reviewed_qa": True,
+            "confirmed_release": True,
+        },
+    )
     assert len(manifest_sha) == 64
     assert (result.project_folder / "delivery" / "release-manifest.json").is_file()
 

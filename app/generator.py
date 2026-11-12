@@ -27,6 +27,7 @@ from app.art_director import (
     FALLBACK_WARM_AMBER_HEX,
     generate_art_direction,
 )
+from app.fact_extractor import canonicalize_business_name
 from app.reviser import compute_section_hashes
 
 MAX_SECTION_HTML_BYTES: int = 500_000
@@ -836,9 +837,25 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
     primary_hex = str(brand_data.get("primary_color", FALLBACK_NAVY_HEX))
     secondary_hex = str(brand_data.get("secondary_color", FALLBACK_WARM_AMBER_HEX))
     accent_hex = str(brand_data.get("accent_color", FALLBACK_SOFT_SAGE_HEX))
-    business_name = str(
+    configured_name = str(
         brief_data.get("business_name") or brand_data.get("business_name") or project_id
     )
+    business_name_facts = [
+        fact for fact in facts_list if str(fact.get("category", "")) == "business_name"
+    ]
+    verified_names = {
+        canonicalize_business_name(str(fact.get("claim_value", "")))
+        for fact in business_name_facts
+        if bool(fact.get("is_verified", fact.get("verified", False)))
+        and str(fact.get("status", "")) == "verified"
+        and canonicalize_business_name(str(fact.get("claim_value", "")))
+    }
+    if len(verified_names) == 1:
+        business_name = verified_names.pop()
+    elif business_name_facts:
+        business_name = "Pet Grooming Salon"
+    else:
+        business_name = canonicalize_business_name(configured_name) or "Pet Grooming Salon"
 
     # Extract strictly verified facts
     phone: str | None = None
@@ -881,9 +898,7 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
         if not is_verified or status != "verified":
             continue
 
-        if category == "business_name" and claim_val:
-            business_name = claim_val
-        elif category == "phone" and phone is None:
+        if category == "phone" and phone is None:
             phone = claim_val
         elif category == "address" and address is None:
             address = claim_val
@@ -935,6 +950,49 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
                     (resolved_rel, str(item.get("object_position", "50% 30%")))
                 )
 
+    selected_images = [
+        item
+        for item in [hero_obj, *selection_data.get("grooming_gallery", [])]
+        if isinstance(item, dict) and _resolve_asset_rel(item)
+    ]
+    manifest_path = project_root / "research" / "asset-manifest.json"
+    manifest_payload: Any = []
+    if manifest_path.is_file():
+        manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if isinstance(manifest_payload, dict):
+        manifest_entries = manifest_payload.get("assets", [])
+    else:
+        manifest_entries = manifest_payload
+
+    def _is_unconfirmed_image(image: dict[str, Any]) -> bool:
+        filename = str(image.get("filename", "")).casefold()
+        sha256 = str(image.get("sha256", "")).casefold()
+        matching_entries = [
+            entry
+            for entry in manifest_entries
+            if isinstance(entry, dict)
+            and (
+                (
+                    filename
+                    and Path(str(entry.get("file", ""))).name.casefold() == filename
+                )
+                or (sha256 and str(entry.get("sha256", "")).casefold() == sha256)
+            )
+        ]
+        return not matching_entries or not all(
+            entry.get("rights_confirmed_for_preview") is True
+            for entry in matching_entries
+        )
+
+    rights_notice_html = ""
+    if any(_is_unconfirmed_image(image) for image in selected_images):
+        rights_notice_html = (
+            '<p class="ev-asset-rights-note" role="note">'
+            "Local preview only. Photo reuse rights have not been confirmed; "
+            "do not approve or publish."
+            "</p>"
+        )
+
     before_after = _find_before_after_pair(project_root)
 
     esc_name = html.escape(business_name)
@@ -979,10 +1037,15 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
         default_tagline = "Pet grooming services."
 
     raw_headline = str(brief_data.get("editorial_headline") or "").strip()
-    if not raw_headline:
+    name_match = re.search(re.escape(business_name), raw_headline, re.I)
+    if name_match:
+        prefix = raw_headline[: name_match.start()]
+        if prefix and canonicalize_business_name(prefix):
+            raw_headline = default_headline
+        else:
+            raw_headline = raw_headline[name_match.start() :].strip(" \t-–—:|")
+    else:
         raw_headline = default_headline
-    elif business_name.lower() not in raw_headline.lower():
-        raw_headline = f"{business_name} — {raw_headline}"
 
     raw_tagline = str(brief_data.get("editorial_tagline") or "").strip()
     if (
@@ -994,6 +1057,7 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
     raw_value_prop = str(brief_data.get("editorial_value_prop") or "").strip()
     if (
         not raw_value_prop
+        or raw_value_prop.casefold() == raw_tagline.casefold()
         or any(
             bw in raw_value_prop.lower()
             for bw in (
@@ -1237,6 +1301,7 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
         f'{trust_strip_html}'
         '  </div>\n'
         f'  {hero_media_html}\n'
+        f'  {rights_notice_html}\n'
         "</section>"
     )
 

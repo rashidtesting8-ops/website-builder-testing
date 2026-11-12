@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -121,6 +122,79 @@ def test_generator_outputs_per_section_files_and_section_hashes(tmp_path: Path) 
     for name in expected_sections:
         assert name in hashes
         assert len(hashes[name]) == 64
+
+
+def test_generator_drops_page_title_prefix_from_business_headline(tmp_path: Path) -> None:
+    project_root = _scaffold_project(tmp_path)
+    brief_path = project_root / "design" / "creative-brief.json"
+    brief = json.loads(brief_path.read_text(encoding="utf-8"))
+    brief["business_name"] = "Prices & services – Paws & Whiskers Salon"
+    brief["editorial_headline"] = (
+        "Prices & services – Paws & Whiskers Salon — Dog Grooming"
+    )
+    brief["editorial_tagline"] = "Grooming services for dogs."
+    brief["editorial_value_prop"] = "Grooming services for dogs."
+    brief_path.write_text(json.dumps(brief), encoding="utf-8")
+
+    generate_website(project_root)
+
+    index_html = (project_root / "website" / "index.html").read_text(encoding="utf-8")
+    hero_html = (
+        (project_root / "website" / "sections" / "hero.html").read_text(encoding="utf-8")
+    )
+    assert "<title>Paws &amp; Whiskers Salon</title>" in index_html
+    assert "Prices &amp; services" not in hero_html
+    assert "Paws &amp; Whiskers Salon — Dog Grooming" in hero_html
+    assert hero_html.count("Grooming services for dogs.") == 1
+
+
+def test_generator_warns_when_selected_assets_have_unconfirmed_rights(
+    tmp_path: Path,
+) -> None:
+    project_root = _scaffold_project(tmp_path)
+    asset_path = project_root / "assets" / "optimized" / "hero.jpg"
+    asset_path.parent.mkdir(parents=True)
+    asset_path.write_bytes(b"local test image")
+    asset_sha256 = hashlib.sha256(asset_path.read_bytes()).hexdigest()
+
+    (project_root / "research" / "asset-manifest.json").write_text(
+        json.dumps(
+            [
+                {
+                    "file": "assets/optimized/hero.jpg",
+                    "source_url": "https://example.test/hero.jpg",
+                    "sha256": asset_sha256,
+                    "captured_at": "2026-11-12T00:00:00Z",
+                    "rights_confirmed_for_preview": False,
+                },
+                {
+                    "file": "assets/optimized/hero.jpg",
+                    "source_url": "https://other.example.test/hero.jpg",
+                    "sha256": asset_sha256,
+                    "captured_at": "2026-11-12T00:00:00Z",
+                    "rights_confirmed_for_preview": True,
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (project_root / "design" / "image-selection.json").write_text(
+        json.dumps(
+            {
+                "hero_image": {
+                    "filename": "hero.jpg",
+                    "relative_path": "assets/optimized/hero.jpg",
+                },
+                "grooming_gallery": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    generate_website(project_root)
+
+    index_html = (project_root / "website" / "index.html").read_text(encoding="utf-8")
+    assert "Local preview only. Photo reuse rights have not been confirmed" in index_html
 
 
 def test_generator_renders_duplicate_verified_pricing_once(tmp_path: Path) -> None:

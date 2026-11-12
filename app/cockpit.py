@@ -8,6 +8,7 @@ surgical section revisions, and release freezing.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
 import json
 import mimetypes
@@ -19,9 +20,10 @@ from typing import Any
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.approval import (
+    HumanReviewAttestation,
     ReleaseApprovalGateError,
     approve_release,
     generate_review_summary,
@@ -81,9 +83,12 @@ class ConfirmRightsRequest(BaseModel):
 
 
 class ApproveReleaseRequest(BaseModel):
-    operator_name: str
-    notes: str
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    operator_name: str = Field(min_length=2)
+    notes: str = Field(min_length=10)
     version: str = Field(default="v1")
+    human_review: HumanReviewAttestation | None = None
 
 
 class ReviseSectionRequest(BaseModel):
@@ -96,42 +101,81 @@ def _render_dashboard_html(projects: list[dict[str, Any]]) -> str:
     raw_template = template_path.read_text(encoding="utf-8")
 
     cards = []
+    status_counts = {
+        "running": 0,
+        "awaiting_approval": 0,
+        "needs_review": 0,
+        "approved": 0,
+    }
     for p in projects:
         pid = html.escape(p["project_id"])
         name = html.escape(p.get("business_name") or pid)
-        status = html.escape(p.get("status") or "unknown")
-        url = html.escape(p.get("primary_url") or "#")
+        status_value = str(p.get("status") or "unknown").lower()
+        status = html.escape(status_value)
+        url_value = str(p.get("primary_url") or "").strip()
+        url = html.escape(url_value)
+        if status_value in status_counts:
+            status_counts[status_value] += 1
 
-        status_class = "badge-amber"
-        if status == "approved":
-            status_class = "badge-green"
-        elif status == "needs_review":
-            status_class = "badge-red"
-        elif status == "running":
-            status_class = "badge-blue"
+        status_classes = {
+            "approved": "badge-green",
+            "needs_review": "badge-red",
+            "awaiting_approval": "badge-amber",
+            "running": "badge-blue",
+        }
+        status_class = status_classes.get(status_value, "badge-neutral")
+        search_text = html.escape(f"{name} {pid} {url}".lower(), quote=True)
+        source_markup = (
+            f'<a href="{url}" target="_blank" rel="noopener noreferrer">{url}</a>'
+            if url_value
+            else "<span>Source URL not recorded</span>"
+        )
 
         card_snippet = (
-            '        <div class="project-card">\n'
-            '          <div class="card-header">\n'
-            f"            <h3>{name}</h3>\n"
-            f'            <span class="badge {status_class}">{status}</span>\n'
-            "          </div>\n"
-            f'          <p class="project-url">'
-            f'<a href="{url}" target="_blank" rel="noopener">{url}</a></p>\n'
-            '          <div class="card-footer">\n'
-            f'            <span class="pid-tag">ID: {pid}</span>\n'
-            f'            <a class="btn-primary" href="/review/{pid}">Open Cockpit &rarr;</a>\n'
-            "          </div>\n"
-            "        </div>"
+            f'<article class="project-card" data-project-card data-search="{search_text}">\n'
+            '  <div class="card-topline">\n'
+            '    <span class="card-kind">Website project</span>\n'
+            f'    <span class="status-badge {status_class}">{status.replace("_", " ")}</span>\n'
+            "  </div>\n"
+            f"  <h3>{name}</h3>\n"
+            f'  <p class="project-url">{source_markup}</p>\n'
+            '  <div class="card-divider"></div>\n'
+            '  <div class="card-footer">\n'
+            f'    <span class="pid-tag">ID · {pid}</span>\n'
+            f'    <a class="open-link" href="/review/{pid}">Open review '
+            '<span aria-hidden="true">&rarr;</span></a>\n'
+            "  </div>\n"
+            "</article>"
         )
         cards.append(card_snippet)
 
     cards_html = (
         "\n".join(cards)
         if cards
-        else "<p class='empty-msg'>No projects found in projects directory.</p>"
+        else (
+            '<div class="empty-state" id="no-projects">'
+            "<strong>No projects yet</strong>"
+            "Create a local project to begin the evidence-led workflow."
+            "</div>"
+        )
     )
-    return raw_template.replace("{{CARDS_HTML}}", cards_html)
+    if cards:
+        cards_html += (
+            '<div class="empty-state" id="search-empty" hidden>'
+            "<strong>No matching projects</strong>"
+            "Try a different project name, ID, or source URL."
+            "</div>"
+        )
+
+    rendered = raw_template.replace("{{CARDS_HTML}}", cards_html)
+    rendered = rendered.replace("{{PROJECT_COUNT}}", str(len(projects)))
+    rendered = rendered.replace("{{RUNNING_COUNT}}", str(status_counts["running"]))
+    rendered = rendered.replace(
+        "{{REVIEW_COUNT}}",
+        str(status_counts["awaiting_approval"] + status_counts["needs_review"]),
+    )
+    rendered = rendered.replace("{{APPROVED_COUNT}}", str(status_counts["approved"]))
+    return rendered
 
 
 def _render_review_cockpit_html(
@@ -146,6 +190,41 @@ def _render_review_cockpit_html(
     facts = project_data.get("facts", [])
     assets = summary.get("assets", [])
     status = html.escape(project_data.get("status", "unknown"))
+    fact_metrics = summary.get("fact_metrics", {})
+    verified_count = int(fact_metrics.get("verified_count", 0))
+    needs_review_count = int(fact_metrics.get("needs_review_count", 0))
+    confirmed_asset_count = sum(
+        bool(asset.get("rights_confirmed_for_preview")) for asset in assets
+    )
+    unconfirmed_asset_count = len(assets) - confirmed_asset_count
+    qa_passed = bool(summary.get("technical_qa_passed"))
+
+    if status == "approved":
+        guardrail_class = "notice-success"
+        guardrail_text = (
+            "This project is marked approved. Verify its frozen release manifest "
+            "before sharing deliverables."
+        )
+    elif unconfirmed_asset_count:
+        guardrail_class = "notice-warning"
+        guardrail_text = (
+            f"{unconfirmed_asset_count} asset(s) still need documented rights evidence. "
+            "Do not approve or publish until the evidence is confirmed."
+        )
+    elif needs_review_count:
+        guardrail_class = "notice-warning"
+        guardrail_text = (
+            f"{needs_review_count} factual claim(s) still need human review before release."
+        )
+    elif not qa_passed:
+        guardrail_class = "notice-warning"
+        guardrail_text = "Technical QA is not marked as passed. Keep this candidate in draft."
+    else:
+        guardrail_class = "notice-info"
+        guardrail_text = (
+            "Automated checks are recorded. Human review and explicit release approval "
+            "are still required."
+        )
 
     # Facts rows
     fact_rows = []
@@ -225,11 +304,12 @@ def _render_review_cockpit_html(
     for idx, w in enumerate(widths):
         active_cls = "active" if idx == 0 else ""
         tabs.append(
-            f'<button class="tab-btn {active_cls}" '
+            f'<button class="tab-btn {active_cls}" type="button" role="tab" '
+            f'aria-selected="{str(idx == 0).lower()}" aria-controls="vp-{w}" '
             f'onclick="openTab(event, \'vp-{w}\')">{w}px</button>'
         )
         panes.append(
-            f'        <div id="vp-{w}" class="tab-pane {active_cls}">\n'
+            f'        <div id="vp-{w}" class="tab-pane {active_cls}" role="tabpanel">\n'
             '          <div class="shot-wrapper">\n'
             f'            <img src="/screenshots/{pid}/{w}px.png" '
             f'alt="Viewport {w}px render" class="viewport-shot">\n'
@@ -239,6 +319,36 @@ def _render_review_cockpit_html(
 
     rendered = raw_template.replace("{{PID}}", pid)
     rendered = rendered.replace("{{STATUS}}", status)
+    candidate_sha256 = str(summary.get("candidate_sha256", ""))
+    rendered = rendered.replace("{{CANDIDATE_SHA256}}", html.escape(candidate_sha256))
+    approval_action = (
+        '<span class="badge badge-green">Release already frozen</span>'
+        if status == "approved"
+        else (
+            '<a class="btn-approve" href="#human-approval">Review and sign off '
+            '<span aria-hidden="true">&rarr;</span></a>'
+        )
+    )
+    rendered = rendered.replace("{{APPROVAL_ACTION}}", approval_action)
+    status_class = {
+        "approved": "badge-green",
+        "needs_review": "badge-red",
+        "awaiting_approval": "badge-amber",
+        "running": "badge-blue",
+    }.get(str(project_data.get("status", "unknown")).lower(), "badge-neutral")
+    rendered = rendered.replace("{{STATUS_CLASS}}", status_class)
+    rendered = rendered.replace("{{VERIFIED_COUNT}}", str(verified_count))
+    rendered = rendered.replace("{{NEEDS_REVIEW_COUNT}}", str(needs_review_count))
+    rendered = rendered.replace(
+        "{{CONFIRMED_ASSETS}}",
+        f"{confirmed_asset_count}<span> / {len(assets)}</span>",
+    )
+    rendered = rendered.replace("{{UNCONFIRMED_ASSETS}}", str(unconfirmed_asset_count))
+    rendered = rendered.replace(
+        "{{QA_STATUS}}", "Passed" if qa_passed else "Not passed"
+    )
+    rendered = rendered.replace("{{GUARDRAIL_CLASS}}", guardrail_class)
+    rendered = rendered.replace("{{GUARDRAIL_TEXT}}", html.escape(guardrail_text))
     rendered = rendered.replace("{{FACTS_HTML}}", facts_html)
     rendered = rendered.replace("{{ASSETS_HTML}}", assets_html)
     rendered = rendered.replace("{{TABS_HTML}}", "\n".join(tabs))
@@ -375,7 +485,24 @@ def create_cockpit_app(projects_dir: str | Path = "./projects") -> FastAPI:
 
     @app.post("/api/projects/{project_id}/approve")
     def approve_release_endpoint(project_id: str, req: ApproveReleaseRequest) -> dict[str, Any]:
+        if req.human_review is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Human review checklist is required before release approval",
+            )
         root = _resolve_project_root(project_id, resolved_projects_dir)
+        candidate_path = root / "release-candidate" / "standalone.html"
+        if not candidate_path.is_file():
+            raise HTTPException(status_code=409, detail="No staged release candidate to review")
+        current_candidate_sha = hashlib.sha256(candidate_path.read_bytes()).hexdigest()
+        if req.human_review.candidate_sha256 != current_candidate_sha:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Reviewed candidate is stale; reload the review page and inspect "
+                    "the current candidate"
+                ),
+            )
         try:
             manifest_sha = approve_release(
                 root,
@@ -384,6 +511,8 @@ def create_cockpit_app(projects_dir: str | Path = "./projects") -> FastAPI:
                 notes=req.notes,
                 projects_dir=resolved_projects_dir,
                 db_path=db_path,
+                acknowledge_open_issues=False,
+                review_attestation=req.human_review.model_dump(mode="json"),
             )
             return {
                 "status": "approved",

@@ -1140,43 +1140,109 @@ def _extract_candidates_from_page(
     return candidates
 
 
+def canonicalize_business_name(value: str) -> str:
+    """Collapse page-title prefixes like 'About us' and 'Book now' to the real brand name."""
+    cleaned = value.strip()
+    for page_token in (
+        "about us",
+        "book an appointment",
+        "book now",
+        "book appointment",
+        "privacy policy",
+        "prices & services",
+        "prices and services",
+        "services",
+        "services2",
+        "terms and conditions",
+        "work with us",
+        "our services",
+        "contact us",
+        "faqs",
+    ):
+        cleaned = re.sub(
+            rf"(?i)(?:^|\s|[-–—:|]){re.escape(page_token)}(?:\s*[-–—:|]\s*|\s+)",
+            " ",
+            cleaned,
+        )
+    cleaned = re.sub(r"[\-–—|:]+", " ", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned
+
+
+def _fact_conflict_key(fact: ExtractedFact) -> str:
+    value = fact.claim_value.strip()
+    if fact.category == "business_name":
+        value = canonicalize_business_name(value)
+    elif fact.category == "phone":
+        region = _detect_region(fact.source_url, fact.source_text_snippet)
+        value = _normalize_phone_number(value, region) or value
+        value = re.sub(r"\D", "", value)
+    elif fact.category == "address":
+        street_match = re.search(
+            r"\b\d+[a-z]?\s+(?:[\w.'’-]+\s+){0,4}"
+            r"(?:street|st|road|rd|lane|ln|avenue|ave|way|terrace|hill|close|court|"
+            r"square|drive|dr|deansgate|mill|walk|boulevard|blvd|place|pl)\b",
+            value,
+            re.I,
+        )
+        postcode_match = UK_POSTCODE_RE.search(value) or re.search(
+            r"\b\d{5}(?:-\d{4})?\b", value
+        )
+        if street_match and postcode_match:
+            street = re.sub(r"[^\w\d]", "", street_match.group(0).lower())
+            postcode = re.sub(r"\s+", "", postcode_match.group(0).lower())
+            return f"{street}:{postcode}"
+    return re.sub(r"[^\w\d]", "", value.lower())
+
+
+def _phone_location_key(fact: ExtractedFact) -> str | None:
+    match = re.search(
+        r"(?P<label>[\w\s'-]{1,40}?)\s+(?:phone|telephone|tel)\b",
+        fact.source_text_snippet,
+        re.I,
+    )
+    if not match:
+        return None
+    label = re.sub(
+        r"\b(?:contact|footer|main|old|new|phone|telephone|tel|call|office)\b",
+        " ",
+        match.group("label").lower(),
+    )
+    normalized = re.sub(r"[^\w\d]", "", label)
+    return normalized or None
+
+
 def _detect_conflicts_and_resolve_statuses(
     facts: list[ExtractedFact],
 ) -> list[ExtractedFact]:
-    """Requirement 4: Conflict detection: >=2 different normalized values for single-valued category
+    """Mark competing identity/contact claims for human review without changing their text."""
+    conflict_sensitive_categories = {"business_name", "phone", "address"}
 
-    (phone, address, name) => ALL candidates become needs_review with conflicts_with
-    listing competing fact_ids. Never pick by page order.
-    """
-    single_valued_categories = {"phone", "address", "business_name"}
-
-    for cat in single_valued_categories:
+    for cat in conflict_sensitive_categories:
         cat_facts = [f for f in facts if f.category == cat]
         if len(cat_facts) < 2:
             continue
+        if cat == "phone":
+            location_keys = [_phone_location_key(fact) for fact in cat_facts]
+            if all(location_keys) and len(set(location_keys)) == len(location_keys):
+                continue
 
-        # Group facts by normalized canonical token
         normalized_map: dict[str, list[ExtractedFact]] = {}
-        for f in cat_facts:
-            norm = re.sub(r"[^\w\d]", "", f.claim_value.lower())
-            if cat == "phone" and len(norm) >= 9:
-                norm = norm[-9:]
-            normalized_map.setdefault(norm, []).append(f)
+        for fact in cat_facts:
+            normalized_map.setdefault(_fact_conflict_key(fact), []).append(fact)
 
-        # If >= 2 distinct normalized values exist, a conflict is present
         if len(normalized_map) >= 2:
-            all_cat_fact_ids = [f.fact_id for f in cat_facts]
-            for f in cat_facts:
-                f.is_verified = False
-                f.status = "needs_review"
-                f.conflicts_with = [fid for fid in all_cat_fact_ids if fid != f.fact_id]
-                competing_vals = [
-                    other.claim_value
-                    for other in cat_facts
-                    if other.fact_id != f.fact_id and other.claim_value != f.claim_value
+            for norm, same_value_facts in normalized_map.items():
+                competing_fact_ids = [
+                    other.fact_id
+                    for other_norm, other_facts in normalized_map.items()
+                    if other_norm != norm
+                    for other in other_facts
                 ]
-                if competing_vals and "conflicts with" not in f.claim_value:
-                    f.claim_value = f"{f.claim_value} (conflicts with {', '.join(competing_vals)})"
+                for fact in same_value_facts:
+                    fact.is_verified = False
+                    fact.status = "needs_review"
+                    fact.conflicts_with = competing_fact_ids
 
     return facts
 

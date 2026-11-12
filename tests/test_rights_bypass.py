@@ -259,6 +259,17 @@ def test_cockpit_confirm_rights_and_approve_flow_with_audit_trail(tmp_path: Path
     project_root, hero_sha = _scaffold_bypass_test_project(
         projects_dir, "cockpit-legit-flow", include_used_asset=True
     )
+    candidate_sha = hashlib.sha256(
+        (project_root / "release-candidate" / "standalone.html").read_bytes()
+    ).hexdigest()
+    human_review = {
+        "candidate_sha256": candidate_sha,
+        "reviewed_preview": True,
+        "reviewed_facts": True,
+        "reviewed_assets": True,
+        "reviewed_qa": True,
+        "confirmed_release": True,
+    }
 
     with _ephemeral_cockpit_server(projects_dir) as base_url:
         pre_appr = requests.post(
@@ -299,6 +310,7 @@ def test_cockpit_confirm_rights_and_approve_flow_with_audit_trail(tmp_path: Path
                 "operator_name": "Auditor Bob",
                 "notes": "Approved with verified audit",
                 "version": "v1",
+                "human_review": human_review,
             },
             timeout=3.0,
         )
