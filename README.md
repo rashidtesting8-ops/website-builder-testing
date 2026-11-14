@@ -41,6 +41,7 @@
 18. [Milestones & Roadmap](#18-milestones--roadmap)
 19. [Contributing & Definition of Done](#19-contributing--definition-of-done)
 20. [License & Acknowledgments](#20-license--acknowledgments)
+21. [DoD Proof Run — Phase 0 Execution (Tracker)](#21-dod-proof-run--phase-0-execution-tracker)
 
 ---
 
@@ -956,3 +957,34 @@ All contributions must adhere strictly to [`AGENTS.md`](AGENTS.md) and [`docs/DE
 
 - **License**: Internal / Proprietary — Prototype and testing engine for **EditVista** (not licensed for unauthorized public distribution; see [`AGENTS.md`](AGENTS.md)).
 - **Acknowledgments**: Built with Python 3.12, [FastAPI](https://fastapi.tiangolo.com/), [Pydantic v2](https://docs.pydantic.dev/), [BeautifulSoup4](https://www.crummy.com/software/BeautifulSoup/), [phonenumbers](https://github.com/daviddrysdale/python-phonenumbers), [Pillow](https://python-pillow.org/), [Playwright](https://playwright.dev/python/), [gallery-dl](https://github.com/mikf/gallery-dl), [n8n](https://n8n.io/), and [uv](https://docs.astral.sh/uv/).
+
+---
+
+## 21. DoD Proof Run — Phase 0 Execution (Tracker)
+
+**Goal (from Developer Brief):** prove on **one real, permitted** business URL that a developer can enter a URL, resume a failed job, review source material, obtain a genuine bespoke functioning homepage, see critique + five-view QA results, request a precise revision, approve the result, and retrieve correct local + GHL files with no invented claims or broken/duplicated images, and respect storage limits with safe cleanup after verified backup. *(M5 = 5-business pilot is separate and not required for this DoD.)*
+
+**Current readiness (evidence-based):** pipeline/cockpit/QA/critique/revise/approval/export/cleanup **mechanisms are implemented and tested** (ruff/pyright clean, **264 tests pass**). What remains is a **single end-to-end proof run with evidence** (rights/permission + human review + resume demo + GHL publish/gate + cleanup proof).
+
+### Phase 0 — Prep (in progress)
+
+| Item | Status | Notes (low-token, quality) |
+|---|---|---|
+| Pick 1 real pet-grooming URL (usable gallery) + documented permission/rights basis | ☐ user action | Classify in `projects/<project-id>/input.json` (`demo` absent/false for real+permitted). `third_party_internal_demo` cannot be rights-confirmed/approved/exported. “Public” ≠ reuse rights. |
+| LLM provider config (Groq recommended now) | ☐ user action | **Groq is natively supported:** set `GROQ_API_KEY` (and optionally `GROQ_MODEL`) in local `.env` (gitignored). `get_default_adapter` priority is `ANTHROPIC_API_KEY` > `OPENAI_API_KEY` > `GEMINI_API_KEY` > `GROQ_API_KEY` — set only the intended key to avoid ambiguity. **OpenRouter is not currently wired** as a named provider in `src/engine/llm/adapter.py`; use Groq for Phase 0 or extend the adapter separately. Never commit keys. Budget/caps+cache already enforced. |
+| Run environment | ☐ verify | Docker (`docker compose up --build -d`, collector+cockpit healthy) or local `uv` + Playwright/Chromium for 5-view QA. |
+| n8n / GHL access | ☑ user confirmed | n8n runnable; GHL account available (publish + `scripts/ghl_live_gate.py` for live proof). |
+
+**Low-token tips:** reuse cache, one heavy build at a time, prefer a smaller/faster Groq model for first dry validation then rerun quality pass if needed; caps block runaway spend (pre-spend estimate enforced).
+
+### Execution plan (after Phase 0)
+
+1. **Run + Resume (prove):** start pipeline on the URL; intentionally trigger/recover a failure and `--resume` (or intake Resume) showing no duplicate completed work.
+2. **Review:** inspect facts/provenance/MVF, assets/rights in cockpit (`research/*`).
+3. **QA + Critique:** 5-view results/screenshots + visual critique.
+4. **Precise revision:** targeted section change; confirm siblings unchanged; re-QA if needed.
+5. **Rights + Approve:** confirm rights (basis/reviewer/evidence), approve (operator/notes/attestations, fresh QA/SHA) → frozen `delivery/`.
+6. **Retrieve files:** `delivery/approved-homepage.html`, `standalone.html`, `ghl-ready.html` + manifests (no invented claims, no broken/duplicated images). Optionally publish to GHL and run `scripts/ghl_live_gate.py`.
+7. **Cleanup:** verified archive/backup, then approval-gated prune removing only safe unneeded files (respect storage limits); record before/after.
+
+*This tracker will be updated as Phase 0/execution progresses; secrets and rights-bearing evidence remain local/private.*
