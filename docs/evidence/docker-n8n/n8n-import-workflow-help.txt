@@ -1,0 +1,22 @@
+﻿USAGE
+  $ n8n import:workflow
+
+FLAGS
+  -h, --help           Show CLI help
+  -i, --input <value>  Input file name or directory if --separate is used
+  --separate           Imports *.json files from directory provided by --input [default: false]
+  --userId <value>     The ID of the user to assign the imported workflows to
+  --projectId <value>  The ID of the project to assign the imported workflows to
+  --activeState        Whether to respect the JSON active field. "false" (default) deactivates all imported workflows. "fromJson" activates/deactivates each workflow based on its JSON active field. [default: false]
+
+DESCRIPTION
+  Import workflows
+
+EXAMPLES
+  $ n8n import:workflow --input=file.json
+  $ n8n import:workflow --separate --input=backups/latest/
+  $ n8n import:workflow --input=file.json --userId=1d64c3d2-85fe-4a83-a649-e446b07b3aae
+  $ n8n import:workflow --input=file.json --projectId=Ox8O54VQrmBrb4qL
+  $ n8n import:workflow --separate --input=backups/latest/ --userId=1d64c3d2-85fe-4a83-a649-e446b07b3aae
+  $ n8n import:workflow --input=file.json --activeState=fromJson
+

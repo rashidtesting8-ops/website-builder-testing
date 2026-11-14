@@ -1,0 +1,133 @@
+﻿name: website-builder-testing-main
+services:
+  cockpit:
+    restart: unless-stopped
+    command:
+      - python
+      - -m
+      - app.cockpit
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8888"
+      - --projects-dir
+      - /data/projects
+    environment:
+      PROJECTS_DIR: /data/projects
+    mem_limit: "536870912"
+    networks:
+      default: null
+    volumes:
+      - type: bind
+        source: C:\Users\CZ\Downloads\website-builder-testing-main\projects
+        target: /data/projects
+        bind: {}
+    build:
+      context: C:\Users\CZ\Downloads\website-builder-testing-main
+      dockerfile: Dockerfile
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8888/api/health',
+          timeout=3)
+      timeout: 5s
+      interval: 15s
+      retries: 5
+      start_period: 10s
+    ports:
+      - mode: ingress
+        host_ip: 127.0.0.1
+        target: 8888
+        published: "8888"
+        protocol: tcp
+  collector:
+    restart: unless-stopped
+    environment:
+      COCKPIT_BASE_URL: http://127.0.0.1:8888
+      PROJECTS_DIR: /data/projects
+      WORKER_DB_PATH: /var/lib/editvista/jobs.sqlite
+    mem_limit: "2147483648"
+    mem_reservation: "1073741824"
+    networks:
+      default: null
+    shm_size: "1073741824"
+    volumes:
+      - type: bind
+        source: C:\Users\CZ\Downloads\website-builder-testing-main\projects
+        target: /data/projects
+        bind: {}
+      - type: volume
+        source: worker_state
+        target: /var/lib/editvista
+        volume: {}
+    build:
+      context: C:\Users\CZ\Downloads\website-builder-testing-main
+      dockerfile: Dockerfile
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/health',
+          timeout=3)
+      timeout: 5s
+      interval: 15s
+      retries: 5
+      start_period: 30s
+    ports:
+      - mode: ingress
+        host_ip: 127.0.0.1
+        target: 8787
+        published: "8787"
+        protocol: tcp
+  n8n:
+    restart: unless-stopped
+    environment:
+      GENERIC_TIMEZONE: Asia/Karachi
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      N8N_RUNNERS_ENABLED: "false"
+      N8N_SECURE_COOKIE: "false"
+      TZ: Asia/Karachi
+    image: n8nio/n8n:2.47.3
+    mem_limit: "1073741824"
+    networks:
+      default: null
+    volumes:
+      - type: volume
+        source: n8n_data
+        target: /home/node/.n8n
+        volume: {}
+    depends_on:
+      cockpit:
+        condition: service_healthy
+        required: true
+      collector:
+        condition: service_healthy
+        required: true
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - 'require(''http'').get(''http://127.0.0.1:5678/healthz'', response => process.exit(response.statusCode
+          === 200 ? 0 : 1)).on(''error'', () => process.exit(1))'
+      timeout: 20s
+      interval: 15s
+      retries: 5
+      start_period: 2m0s
+    ports:
+      - mode: ingress
+        host_ip: 127.0.0.1
+        target: 5678
+        published: "5678"
+        protocol: tcp
+networks:
+  default:
+    name: website-builder-testing-main_default
+volumes:
+  n8n_data:
+    name: website-builder-testing-main_n8n_data
+  worker_state:
+    name: website-builder-testing-main_worker_state

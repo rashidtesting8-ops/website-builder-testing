@@ -49,3 +49,15 @@ def test_worker_job_database_uses_persistent_docker_volume() -> None:
     assert "worker_state:/var/lib/editvista" in compose
     assert "worker_state:" in compose
     assert 'os.environ.get(\n        "WORKER_DB_PATH"' in service
+
+
+def test_cockpit_intake_reaches_worker_across_containers() -> None:
+    """The cockpit container must call the collector by service name, not loopback.
+
+    Loopback (127.0.0.1:8787) inside the cockpit container is the cockpit container
+    itself, so the URL-paste intake would fail with 'worker unreachable' in Docker.
+    """
+    repo_root = Path(__file__).resolve().parent.parent
+    compose = (repo_root / "docker-compose.yml").read_text(encoding="utf-8")
+
+    assert "WORKER_BASE_URL=http://collector:8787" in compose

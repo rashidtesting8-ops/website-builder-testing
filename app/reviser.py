@@ -418,6 +418,14 @@ def run_critique_revision_loop(
             report = run_visual_critic(project_root, llm_adapter=llm_adapter)
         else:
             report = critic_fn(project_root)
+        if report.status == "critic_unavailable":
+            return CritiqueRevisionLoopResult(
+                project_id=project_id,
+                iterations_run=iterations,
+                final_status="review_needed",
+                escalated_to_human=True,
+                modified_sections_history=history,
+            )
         if report.status == "passed" or not report.defects:
             return CritiqueRevisionLoopResult(
                 project_id=project_id,

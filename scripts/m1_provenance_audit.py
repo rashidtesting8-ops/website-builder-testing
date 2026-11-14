@@ -9,7 +9,7 @@ import re
 import sys
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 SOCIAL_HOSTS = {
@@ -101,25 +101,55 @@ def _audit_asset(
         )
         return
 
+    client_supplied = row.get("source") == "client_supplied"
+    if row.get("status") == "client_supplied" and not client_supplied:
+        _add_violation(
+            violations,
+            artifact=artifact,
+            index=index,
+            code="client_source_missing",
+            message="A client-supplied asset must have source=client_supplied.",
+        )
+    if client_supplied:
+        if not _nonempty(row.get("original_filename")):
+            _add_violation(
+                violations,
+                artifact=artifact,
+                index=index,
+                code="client_original_filename_missing",
+                message="A client-supplied asset needs its original filename.",
+            )
+        if not _nonempty(row.get("supplied_by")):
+            _add_violation(
+                violations,
+                artifact=artifact,
+                index=index,
+                code="client_supplied_by_missing",
+                message="A client-supplied asset needs a supplied_by value.",
+            )
+
     source_url = _asset_url(row, "source_url", "url")
-    if not _http_url(source_url):
+    if not _asset_source_valid(row, source_url):
         _add_violation(
             violations,
             artifact=artifact,
             index=index,
             code="source_url_missing",
-            message="Asset needs a non-empty HTTP(S) source_url (or collector url alias).",
+            message=(
+                "Asset needs an HTTP(S) source_url or a matching client-supplied source URI "
+                "(or collector url alias)."
+            ),
         )
 
     originating_page = _asset_url(row, "originating_page", "source_page")
-    if not _http_url(originating_page):
+    if not _asset_source_valid(row, originating_page):
         _add_violation(
             violations,
             artifact=artifact,
             index=index,
             code="originating_page_missing",
             message=(
-                "Asset needs a non-empty HTTP(S) originating_page "
+                "Asset needs an HTTP(S) originating_page or a matching client-supplied source URI "
                 "(or collector source_page alias)."
             ),
         )
@@ -252,6 +282,31 @@ def _audit_asset(
         )
 
 
+def _is_client_source_reference(row: dict[str, Any], value: object) -> bool:
+    if row.get("source") != "client_supplied" or not _nonempty(value):
+        return False
+    expected_sha = row.get("sha256")
+    original_filename = row.get("original_filename")
+    parsed = urlparse(str(value))
+    path_parts = parsed.path.lstrip("/").split("/", 1)
+    return (
+        parsed.scheme == "client-supplied"
+        and parsed.netloc == "sha256"
+        and isinstance(expected_sha, str)
+        and SHA256_RE.fullmatch(expected_sha) is not None
+        and len(path_parts) == 2
+        and path_parts[0].lower() == expected_sha.lower()
+        and _nonempty(original_filename)
+        and unquote(path_parts[1]) == original_filename
+    )
+
+
+def _asset_source_valid(row: dict[str, Any], value: object) -> bool:
+    if row.get("source") == "client_supplied":
+        return _is_client_source_reference(row, value)
+    return _http_url(value)
+
+
 def _claim_value(row: dict[str, Any], canonical: str, alias: str) -> object:
     value = row.get(canonical)
     return value if _nonempty(value) else row.get(alias)
@@ -336,6 +391,8 @@ def audit_project(project_dir: str | Path) -> dict[str, Any]:
     """Audit project provenance without modifying any project files."""
     project_root = Path(project_dir).resolve()
     violations: list[dict[str, Any]] = []
+    uncollected: list[dict[str, Any]] = []
+    assets_checked = 0
     if not project_root.is_dir():
         _add_violation(
             violations,
@@ -385,6 +442,33 @@ def audit_project(project_dir: str | Path) -> dict[str, Any]:
             claims = []
 
         for index, asset in enumerate(assets):
+            if isinstance(asset, dict) and asset.get("status") in {
+                "blocked_by_robots",
+                "failed",
+            }:
+                status = str(asset["status"])
+                reason = asset.get("error")
+                if not _nonempty(reason):
+                    reason = (
+                        "robots.txt disallowed the URL or access could not be verified"
+                        if status == "blocked_by_robots"
+                        else "Media download failed without an error message"
+                    )
+                uncollected.append(
+                    {
+                        "index": index,
+                        "status": status,
+                        "source_url": _asset_url(asset, "source_url", "url"),
+                        "originating_page": _asset_url(
+                            asset,
+                            "originating_page",
+                            "source_page",
+                        ),
+                        "reason": reason,
+                    }
+                )
+                continue
+            assets_checked += 1
             _audit_asset(project_root, asset, index, violations)
         for index, claim in enumerate(claims):
             _audit_claim(claim, index, violations)
@@ -394,10 +478,12 @@ def audit_project(project_dir: str | Path) -> dict[str, Any]:
         "project_dir": str(project_root),
         "schema_aliases": SCHEMA_ALIASES,
         "summary": {
-            "assets_checked": len(assets),
+            "assets_checked": assets_checked,
+            "assets_uncollected": len(uncollected),
             "claims_checked": len(claims),
             "violations": len(violations),
         },
+        "uncollected": uncollected,
         "violations": violations,
     }
 
@@ -408,6 +494,7 @@ def _human_summary(report: dict[str, Any]) -> str:
     lines = [
         f"{'PASS' if passed else 'FAIL'} Milestone 1 provenance audit: {report['project_id']}",
         f"Assets checked: {summary['assets_checked']}",
+        f"Uncollected assets: {summary['assets_uncollected']}",
         f"Claims checked: {summary['claims_checked']}",
         f"Violations: {summary['violations']}",
     ]
@@ -416,6 +503,10 @@ def _human_summary(report: dict[str, Any]) -> str:
         if "index" in violation:
             location += f"[{violation['index']}]"
         lines.append(f"- {location} {violation['code']}: {violation['message']}")
+    for row in report["uncollected"]:
+        lines.append(
+            f"- asset-manifest.json[{row['index']}] {row['status']}: {row['reason']}"
+        )
     return "\n".join(lines)
 
 

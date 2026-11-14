@@ -9,7 +9,12 @@
 
 **An evidence-preserving, local-first engine for automated media collection, cryptographic fact verification, locale-aware normalization, visual curation, luxury editorial art direction, per-section code generation, surgical revision, 5-viewport QA, budget-capped LLM adaptation, Minimum Viable Facts (MVF) gating, human-in-the-loop operator cockpit review, enterprise n8n studio orchestration, and immutable release packaging with GoHighLevel (GHL) isolation for bespoke pet grooming websites.**
 
-> **Prototype status (last checked 2026-11-12):** This repository is not production-ready. In a clean Git checkout, Ruff and Pyright passed and pytest collected 220 tests: 218 passed and 2 optional local-reference checks were skipped because their Git-ignored project data was absent. With that local data available, all 220 tests passed. Demo fixtures are explicitly labeled, kept separate from real-business pilot counts, and never establish client approval or asset rights. These automated checks do not replace a live five-business pilot, client fact review, asset-rights clearance, human approval, or validation in an actual GoHighLevel account. Public availability is not permission to reuse media. Previews with unresolved claims or unconfirmed rights must remain unapproved local drafts; no real-business pilot has been completed.
+> **Prototype status (last checked 2026-11-14):** This repository is not production-ready. In the local working tree, `uv run ruff check .` and `uv run pyright` passed, and `uv run pytest` reported 264 passed. These automated checks do not replace a live five-business pilot, client fact review, asset-rights clearance, human approval, or validation in an actual GoHighLevel account. Demo fixtures are explicitly labeled, kept separate from real-business pilot counts, and never establish client approval or asset rights. Public availability is not permission to reuse media. Previews with unresolved claims or unconfirmed rights must remain unapproved local drafts; no real-business pilot or published-page GHL validation has been completed.
+
+### Owner and Developer Handoff
+- [Local Demo and Client Pilot SOP](docs/SOP_LOCAL_DEMO_AND_CLIENT_PILOT.md)
+- [Project Completion Report for Ahsan Bhai](docs/COMPLETION_REPORT_2026-11-12.md)
+- [Developer Handoff](docs/DEVELOPER_HANDOFF.md)
 
 ---
 
@@ -75,7 +80,7 @@ Traditional AI site generators suffer from critical production failure modes:
 
 | Domain | Module | Technical Capabilities & Invariants |
 | :--- | :--- | :--- |
-| **Resumable Master Orchestrator** | `app/pipeline.py` | Connects all pipeline stages with SQLite idempotency keys (`{project_id}_{stage_name}_{input_manifest_hash}`), `--resume` stage skipping, safe draft reset on clean runs (`resume=False`), `--new-draft` approval locking, and subcommands (`approve`, `confirm-rights`, `verify`, `prune`, `cockpit`, `pilot`). |
+| **Resumable Master Orchestrator** | `app/pipeline.py` | Connects all pipeline stages with SQLite idempotency keys (`{project_id}_{stage_name}_{input_manifest_hash}`), `--resume` stage skipping, safe draft reset on clean runs (`resume=False`), `--new-draft` approval locking, and subcommands (`approve`, `confirm-rights`, `import-client-assets`, `verify`, `prune`, `cockpit`, `pilot`). |
 | **Minimum Viable Facts Gate** | `app/mvf_gate.py` | Validates essential business facts (business name, contact path, animal/service model classification); writes `qa/mvf-report.json`; omits `#contact` CTAs when no contact path exists; blocks at `needs_review` unless `--acknowledge-gaps` is passed. |
 | **Auditable Rights Management** | `app/rights.py` | Human-driven asset rights confirmation (`confirm_asset_rights`, `check_used_assets_audit_signatures`); records immutable audit log in `research/rights-audit.jsonl` with legal basis (`client_provided`, `owner_permission`, `licensed`). |
 | **Demo Fixture Safety** | `src/engine/contracts/`, `app/pipeline.py`, `app/approval.py`, `app/rights.py`, exporters | Validates project-local demo metadata, adds a visible non-section banner to fixture HTML, freezes classification per project, records fixture release metadata, blocks third-party rights confirmation and export, and separates fixture runs from real-pilot counts. |
@@ -282,7 +287,7 @@ flowchart LR
 | **State Storage** | SQLite (`sqlite3`) | Standard Library (WAL) | Relational state machine, stage manifests, idempotency keys, LLM budget locks. |
 | **Operator Cockpit & API** | FastAPI, Uvicorn | `fastapi >= 0.115`, `uvicorn >= 0.32` | Interactive review cockpit UI (`127.0.0.1:8787`), scoped GHL exporter, and async job worker. |
 | **Workflow Automation** | n8n (Self-Hosted) | `n8nio/n8n:latest` | Enterprise 7-node branching graphs for webhook intake, live telemetry polling, and release sign-off. |
-| **Static Verification** | Ruff, Pyright, Pytest | `ruff >= 0.9`, `pyright >= 1.1`, `pytest >= 8.3` | Linting, strict type-checking, and 220-test suite across 36 test modules (latest local run). |
+| **Static Verification** | Ruff, Pyright, Pytest | `ruff >= 0.9`, `pyright >= 1.1`, `pytest >= 8.3` | Linting, strict type-checking, and 264-test suite across 40 test modules (latest local run on 2026-11-14). |
 
 ---
 
@@ -305,11 +310,15 @@ pet-gromming-agent-factory/
 │   ├── DEVELOPER_BRIEF.md                   # Full architectural specification, rules & milestone roadmaps
 │   ├── DEMO_MODE.md                          # Demo fixture input, banner, rights, export & pilot rules
 │   ├── AUDIT_AND_TESTS.md                   # Security audit logs and collector penetration test details
-│   └── BUDGET_AND_QUALITY.md                # Spend controls, storage limits, and QA threshold metrics
+│   ├── BUDGET_AND_QUALITY.md                # Spend controls, storage limits, and QA threshold metrics
+│   ├── GHL_LIVE_GATE.md                     # Human checklist for testing a published GHL page
+│   ├── DOCKER_N8N_RUN.md                    # Local Docker/n8n evidence and verification limitations
+│   └── M1_RUN_REPORT.md                     # Milestone 1 collection, provenance, and resilience report
 ├── examples/
 │   └── BUSINESS_INPUT_EXAMPLE.json          # Reference JSON schema for business intake workflows
 ├── scripts/
-│   └── freeze_site.py                       # Safe collector-based website freezer creating golden regression fixtures
+│   ├── freeze_site.py                       # Safe collector-based website freezer creating golden regression fixtures
+│   └── ghl_live_gate.py                     # Browser checks for a human-published page and approved GHL release
 ├── n8n/
 │   ├── 01-client-intake-and-website-build.json      # 7-node client intake & 9-stage build trigger workflow
 │   ├── 02-live-build-telemetry-and-cockpit-router.json # 7-node build telemetry & Cockpit review router workflow
@@ -374,6 +383,7 @@ pet-gromming-agent-factory/
     ├── test_pilot_milestone5.py             # 5 Five-business acceptance pilot runner & audit report tests
     ├── test_ghl_embed_live.py               # 4 Live GHL CDN URL rewriting, host isolation & simulation tests
     ├── test_ghl_export.py                   # 4 GHL CSS scoping, root variable isolation & JS leakage tests
+    ├── test_ghl_live_gate.py                # Local simulated-host tests for release, asset, script/style, and viewport checks
     ├── test_v2.py                           # 4 Domain spoofing, retention manifests & date cutoff regression tests
     ├── test_luxury_editorial_design.py      # 3 Luxury editorial typography, dotted-leader spa menu & archetype tests
     ├── test_critic_and_reviser.py           # 3 Actionable visual defects, sibling SHA-256 invariance & loop cap tests
@@ -518,6 +528,17 @@ pipeline run and add the `demo` object shown in [9.7 Demo Fixture Mode](#97-demo
 The directory name must match the resolved project ID. The CLI URL, name, and ID remain
 authoritative; demo metadata only classifies the project.
 
+Client-provided image originals can be imported into an existing project. Duplicate files
+are skipped by SHA-256; imported originals remain rights-unconfirmed until a human runs
+`confirm-rights`.
+
+```bash
+uv run python -m app.pipeline import-client-assets \
+  --project-id pup-palace \
+  --folder ./client-images \
+  --supplied-by "Client contact"
+```
+
 ### 9.2 Human Asset Rights Confirmation (`confirm-rights`)
 
 Before release approval, all visual assets used on the site must have an auditable legal confirmation recorded:
@@ -611,6 +632,28 @@ uv run python -m app.ghl_exporter \
   --project ./projects/pup-palace \
   --cdn-base-url https://cdn.editvista.com/pup-palace
 ```
+
+### Published-page GHL live gate
+
+After a human publishes the approved snippet, run the browser harness against the public
+HTTPS URL and the matching project release:
+
+```bash
+uv run python scripts/ghl_live_gate.py \
+  "https://published-page.example/" \
+  "./projects/<project-id>" \
+  --out qa/ghl-live
+```
+
+The harness records screenshots at 1440, 1024, 768, 390, and 360 pixels and writes
+`ghl-live-report.json`. It checks the release-manifest snippet hash, root mount, inline
+script/style survival, scoped interactions, computed styles, host-page style changes,
+asset URLs and responses, console/request errors, broken images, and horizontal overflow.
+Live runs reject local/private URLs; local HTTP is enabled only in the simulated-host tests.
+The report is browser evidence for the supplied URL, **not** proof of account-side approval
+or a general claim that GHL works. Follow the human steps in
+[`docs/GHL_LIVE_GATE.md`](docs/GHL_LIVE_GATE.md), and do not claim a GHL pass until the
+actual published page has been reviewed.
 
 ### 9.7 Demo Fixture Mode
 
@@ -713,9 +756,9 @@ The repository includes four production-grade, 7-node branching workflows (`n8n/
 
 | Workflow File | Enterprise Workflow Name | Trigger Type | Key Nodes & Topology |
 | :--- | :--- | :--- | :--- |
-| [`01-client-intake-and-website-build.json`](n8n/01-client-intake-and-website-build.json) | `01 - Client Intake & Luxury Website Build Trigger` | Webhook (`POST /webhook/intake`) | Webhook $\rightarrow$ Set Intake Payload $\rightarrow$ HTTP Engine Launch (`POST /pipeline/run`) $\rightarrow$ IF Success Gate $\rightarrow$ Set Job Token $\rightarrow$ Webhook Success Response (or Set Error + Failure Response). |
-| [`02-live-build-telemetry-and-cockpit-router.json`](n8n/02-live-build-telemetry-and-cockpit-router.json) | `02 - Live Build Telemetry & Cockpit Review Router` | Webhook (`GET /webhook/status`) | Webhook $\rightarrow$ Extract Job ID $\rightarrow$ Query Engine Build Telemetry (`GET /jobs/{id}`) $\rightarrow$ IF Completion Gate $\rightarrow$ Set Cockpit Review Dossier $\rightarrow$ Respond with Cockpit Link (or Set Progress Telemetry). |
-| [`03-approve-and-export-ghl.json`](n8n/03-approve-and-export-ghl.json) | `03 - Executive Release Sign-Off & Scoped GHL Exporter` | Webhook (`POST /webhook/approve`) | Webhook $\rightarrow$ Set Approval Metadata $\rightarrow$ HTTP Sign-Off & Freeze (`POST /pipeline/{id}/approve`) $\rightarrow$ IF Release Valid Gate $\rightarrow$ Set Signed Manifest Dossier $\rightarrow$ Webhook Approved Response (or Set Gate Error). |
+| [`01-client-intake-and-website-build.json`](n8n/01-client-intake-and-website-build.json) | `01 - Client Intake & Luxury Website Build Trigger` | Webhook (`POST /webhook/pet-grooming-research`) | Webhook $\rightarrow$ Set Intake Payload $\rightarrow$ HTTP Engine Launch (`POST /pipeline/run`) $\rightarrow$ IF Success Gate $\rightarrow$ Set Job Token $\rightarrow$ Webhook Success Response (or Set Error + Failure Response). |
+| [`02-live-build-telemetry-and-cockpit-router.json`](n8n/02-live-build-telemetry-and-cockpit-router.json) | `02 - Live Build Telemetry & Cockpit Review Router` | Webhook (`GET /webhook/pet-grooming-research-status`) | Webhook $\rightarrow$ Extract Job ID $\rightarrow$ Query Engine Build Telemetry (`GET /jobs/{id}`) $\rightarrow$ IF Completion Gate $\rightarrow$ Set Cockpit Review Dossier $\rightarrow$ Respond with Cockpit Link (or Set Progress Telemetry). |
+| [`03-approve-and-export-ghl.json`](n8n/03-approve-and-export-ghl.json) | `03 - Executive Release Sign-Off & Scoped GHL Exporter` | Webhook (`POST /webhook/pet-grooming-approve`) | Webhook $\rightarrow$ Set Approval Metadata $\rightarrow$ HTTP Sign-Off & Freeze (`POST /pipeline/{id}/approve`) $\rightarrow$ IF Release Valid Gate $\rightarrow$ Set Signed Manifest Dossier $\rightarrow$ Webhook Approved Response (or Set Gate Error). |
 | [`04-interactive-one-click-luxury-demo.json`](n8n/04-interactive-one-click-luxury-demo.json) | `04 - One-Click Interactive Luxury Website Studio Demo` | Manual (`On clicking 'Execute'`) | One-Click Trigger $\rightarrow$ Configure Client Brand Brief $\rightarrow$ Dispatch 9-Stage Engine $\rightarrow$ Await Engine Synthesis (5s delay) $\rightarrow$ Query Build Telemetry $\rightarrow$ Verify Completion Gate (polling loop) $\rightarrow$ Compile Executive Review Dossier with Cockpit URL. |
 
 ---
@@ -726,8 +769,10 @@ The repository includes four production-grade, 7-node branching workflows (`n8n/
 
 The Operator Cockpit runs on `127.0.0.1:8787` (or `:8888`) and provides side-by-side inspection, live claim provenance auditing, surgical section patching, release candidate approval, and GoHighLevel snippet generation:
 
-- `GET /` — Serves the interactive Operator Cockpit dashboard listing all projects and review statuses.
+- `GET /` — Serves the interactive Operator Cockpit dashboard listing all projects and review statuses, plus the URL-paste intake form for starting a pipeline run.
 - `GET /api/health` — Liveness probe returning `{"status": "ok"}`.
+- `POST /api/intake` — Thin client for the dashboard intake form: forwards `{url, business_name?, business_id?, resume}` to the worker's `POST /pipeline/run` (`WORKER_BASE_URL`, default `http://127.0.0.1:8787`; Docker sets `http://collector:8787`) and returns the worker's `{job_id, status}` (`202 Accepted`; `429` when the worker's single build slot is busy; `502` when the worker is unreachable).
+- `GET /api/jobs/{job_id}` — Proxies worker job telemetry for the dashboard's live status poller; malformed (non-32-hex) job ids are rejected with `404` before any worker call.
 - `GET /review/{project_id}` — Serves the side-by-side Operator Review Cockpit UI (`app/templates/review_cockpit.html`) with a sandboxed preview iframe (`sandbox="allow-scripts"`).
 - `GET /api/projects/{project_id}/summary` — Returns full project review summary JSON (`verified_claims_count`, `flagged_claims_count`, `curated_assets`, `screenshots`, `mvf_status`).
 - `POST /api/projects/{project_id}/confirm-rights` — Updates `rights_confirmed_for_preview` for a specified asset in `research/asset-manifest.json`.
@@ -770,7 +815,12 @@ make test        # uv run pytest
 
 ### Current Validation Snapshot
 
-Last locally verified on 2026-11-12: **218 passed, 2 skipped (220 collected) across 36 test modules** in a clean Git checkout. The two optional Lily reference-demo checks require project data that is Git-ignored; they skip with an explicit reason when that data is absent. With the local data available, all 220 tests passed. Ruff reported all checks passed, and Pyright reported 0 errors, warnings, or informations. These are automated local results, not evidence of a real-client pilot or published GHL acceptance. The table below highlights representative coverage areas; `tests/` is the authoritative inventory.
+Last locally verified on 2026-11-14: **264 passed across 40 test modules**. The commands
+`uv run ruff check .`, `uv run pyright`, and `uv run pytest` completed successfully in the
+local working tree; Pyright reported 0 errors, warnings, or informations. These are
+automated local results, not evidence of a real-client pilot, client approval, or published
+GHL acceptance. The table below highlights representative coverage areas; `tests/` is the
+authoritative inventory.
 
 ### Representative Test Coverage
 
@@ -796,6 +846,7 @@ Last locally verified on 2026-11-12: **218 passed, 2 skipped (220 collected) acr
 | `tests/test_pipeline_collect_failure.py` | Crawler failure handling: asserts pipeline cleanly halts on collect exceptions, prevents fabrication of synthetic `pages.json`, sets project status to `failed`, and logs actionable errors. |
 | `tests/test_ghl_embed_live.py` | Live GoHighLevel embed validation: relative asset URL rewriting to CDN base URLs and explicit asset maps, root container CSS encapsulation, IIFE JS isolation with `MutationObserver`, and simulation inside hostile host page templates. |
 | `tests/test_ghl_export.py` | GoHighLevel encapsulation: `#ghl-ev-engine-root-*` CSS scoping, `:root` variable rewriting, HTML body extraction, IIFE + `MutationObserver` JS encapsulation, and global `window.*` / `document.*` leakage rejection. |
+| `tests/test_ghl_live_gate.py` | Local-only simulated published-host checks: clean page, hostile styles, stripped scripts, missing assets, release hash mismatch, HTTPS enforcement, and mobile host-style bleed. |
 | `tests/test_v2.py` | Regression suite: prevents social media domain spoofing, validates leap-year date boundary cutoffs, enforces retention manifest path-traversal blocks, and verifies archive/prune workflows. |
 | `tests/test_luxury_editorial_design.py` | Luxury editorial design system: verifies bespoke serif/sans typography (`--ev-font-display`, `--ev-font-sans`), dotted-leader spa menu rows (`ev-menu-leader`), asymmetric bento portfolio grids (`ev-portfolio-bento`), verified brand logo rendering, `suggested_sections` ordering, and structurally distinct archetype heroes (`salon`, `mobile`, `multi-species`). |
 | `tests/test_critic_and_reviser.py` | Design quality: automated visual critic defect detection, rejection of vague feedback (`"make it better"`), byte-identical sibling section preservation, and 3-iteration revision loop ceiling. |
@@ -809,7 +860,7 @@ Last locally verified on 2026-11-12: **218 passed, 2 skipped (220 collected) acr
 | `tests/test_pipeline_e2e.py` | End-to-end integration: full pipeline execution against an ephemeral grooming salon HTTP server, verifying inquiry CTA fallbacks when pricing is unverified. |
 | `tests/test_pipeline_lifecycle.py` | Crash recovery and state lifecycle: simulated mid-run pipeline crashes, `--resume` stage skipping, and `--pause-for-approval` human approval gate execution. |
 
-| `tests/test_lilys_demo_confirmation.py` | Optional local reference-demo checks for review-only facts, unresolved contacts/rights, candidate QA hash, and no delivery release; skipped when Git-ignored project data is absent. |
+| Optional local reference-demo checks | Verify review-only facts, unresolved contacts/rights, candidate QA hash, and no delivery release; test data is Git-ignored. |
 ---
 
 ## 15. Deployment & Container Orchestration

@@ -443,16 +443,48 @@ def robots_allowed(
 
 def choose_srcset(srcset: str) -> str:
     picks: list[tuple[float, str]] = []
-    for item in srcset.split(","):
-        bits = item.strip().split()
-        if bits:
-            w = 1.0
-            if len(bits) > 1:
-                try:
-                    w = float(bits[1][:-1]) * (1000.0 if bits[1].endswith("x") else 1.0)
-                except ValueError:
-                    pass
-            picks.append((w, bits[0]))
+    pos = 0
+    while pos < len(srcset):
+        while pos < len(srcset) and (srcset[pos].isspace() or srcset[pos] == ","):
+            pos += 1
+        if pos >= len(srcset):
+            break
+
+        url_start = pos
+        while pos < len(srcset) and not srcset[pos].isspace():
+            pos += 1
+        url = srcset[url_start:pos]
+        if url.endswith(","):
+            url = url.rstrip(",")
+            if url:
+                picks.append((1.0, url))
+            continue
+
+        descriptor = ""
+        while pos < len(srcset):
+            while pos < len(srcset) and srcset[pos].isspace():
+                pos += 1
+            if pos >= len(srcset) or srcset[pos] == ",":
+                break
+            descriptor_start = pos
+            while pos < len(srcset) and not (
+                srcset[pos].isspace() or srcset[pos] == ","
+            ):
+                pos += 1
+            if not descriptor:
+                descriptor = srcset[descriptor_start:pos]
+
+        weight = 1.0
+        if descriptor.endswith(("w", "x")):
+            try:
+                weight = float(descriptor[:-1])
+                if descriptor.endswith("x"):
+                    weight *= 1000.0
+            except ValueError:
+                pass
+        picks.append((weight, url))
+        if pos < len(srcset) and srcset[pos] == ",":
+            pos += 1
     return max(picks, default=(0.0, ""))[1]
 
 
@@ -830,7 +862,24 @@ def collect(
         "assets_saved": sum(a["status"] == "downloaded" for a in assets),
         "asset_duplicates": sum(a["status"] == "duplicate" for a in assets),
         "website_media_bytes_this_run": total_bytes,
-        "issues": problems,
+        "issues": problems
+        + [
+            {
+                "url": asset.get("url"),
+                "source_page": asset.get("source_page"),
+                "status": asset["status"],
+                "reason": (
+                    asset.get("error")
+                    or (
+                        "robots.txt disallowed the URL or access could not be verified"
+                        if asset["status"] == "blocked_by_robots"
+                        else "Media download failed without an error message"
+                    )
+                ),
+            }
+            for asset in assets
+            if asset.get("status") in {"failed", "blocked_by_robots"}
+        ],
         "notes": [
             "Public website HTML only; JavaScript-injected content may need browser fallback.",
             (

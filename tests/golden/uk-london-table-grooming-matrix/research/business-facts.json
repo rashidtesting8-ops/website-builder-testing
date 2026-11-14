@@ -1,6 +1,6 @@
 {
   "project_id": "uk-london-table-grooming-matrix",
-  "extracted_at": "2026-11-12T09:20:39.799023Z",
+  "extracted_at": "2026-11-14T09:48:02.951142Z",
   "facts": [
     {
       "fact_id": "fact-0f6c7217fadb",
@@ -15,7 +15,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-12T09:20:39.799023Z",
+      "last_checked_at": "2026-11-14T09:48:02.951142Z",
       "source_text": "Marylebone Veterinary & Grooming Matrix",
       "verified": true
     },
@@ -32,7 +32,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-12T09:20:39.799023Z",
+      "last_checked_at": "2026-11-14T09:48:02.951142Z",
       "source_text": "Phone: 020 7224 3688",
       "verified": true
     },
@@ -49,7 +49,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-12T09:20:39.799023Z",
+      "last_checked_at": "2026-11-14T09:48:02.951142Z",
       "source_text": "Address: 221B Baker Street, Marylebone, London, NW1 6XE",
       "verified": true
     },
@@ -66,7 +66,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-12T09:20:39.799023Z",
+      "last_checked_at": "2026-11-14T09:48:02.951142Z",
       "source_text": "Marylebone Veterinary & Grooming Matrix • 221B Baker Street, London NW1 6XE",
       "verified": true
     },
@@ -83,7 +83,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-12T09:20:39.799023Z",
+      "last_checked_at": "2026-11-14T09:48:02.951142Z",
       "source_text": "Full Groom & Styling: £45.00",
       "verified": true
     },
@@ -100,7 +100,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-12T09:20:39.799023Z",
+      "last_checked_at": "2026-11-14T09:48:02.951142Z",
       "source_text": "Full Groom & Styling: £45.00",
       "verified": true
     },
@@ -117,7 +117,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-12T09:20:39.799023Z",
+      "last_checked_at": "2026-11-14T09:48:02.951142Z",
       "source_text": "Bath & De-shedding: £30.00",
       "verified": true
     },
@@ -134,7 +134,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-12T09:20:39.799023Z",
+      "last_checked_at": "2026-11-14T09:48:02.951142Z",
       "source_text": "Bath & De-shedding: £30.00",
       "verified": true
     },
@@ -151,7 +151,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-12T09:20:39.799023Z",
+      "last_checked_at": "2026-11-14T09:48:02.951142Z",
       "source_text": "Cancellation Policy: 24 hours advance notice required for all clinic appointments.",
       "verified": true
     },
@@ -168,7 +168,7 @@
       "structured_value": {},
       "is_verified": false,
       "status": "needs_review",
-      "last_checked_at": "2026-11-12T09:20:39.799023Z",
+      "last_checked_at": "2026-11-14T09:48:02.951142Z",
       "source_text": "Salon Hours (Partial week captured: missing monday, tuesday, wednesday, thursday, friday, saturday, sunday)",
       "verified": false
     }

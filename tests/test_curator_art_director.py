@@ -6,6 +6,7 @@ import json
 import re
 from pathlib import Path
 
+import pytest
 from app.art_director import generate_art_direction
 from app.curator import (
     CSS_PERCENT_RE,
@@ -13,6 +14,8 @@ from app.curator import (
     curate_project_images,
 )
 from PIL import Image, ImageDraw
+
+from engine.llm.adapter import BudgetExceeded
 
 CSS_COORD_PATTERN = re.compile(r"^\d{1,3}(?:\.\d+)?%\s+\d{1,3}(?:\.\d+)?%$")
 
@@ -329,3 +332,128 @@ def test_art_director_mobile_and_cat_dog_wireframes_and_brand_colors(tmp_path: P
     assert brief_salon.wireframe.segregated_dog_cat_pricing_tabs is True
     assert "dogs" in brief_salon.wireframe.pricing_tabs
     assert "cats" in brief_salon.wireframe.pricing_tabs
+
+
+def _create_art_direction_project(project_root: Path) -> None:
+    (project_root / "research").mkdir(parents=True, exist_ok=True)
+    (project_root / "design").mkdir(parents=True, exist_ok=True)
+    (project_root / "research" / "business-facts.json").write_text(
+        json.dumps(
+            {
+                "project_id": project_root.name,
+                "facts": [
+                    {
+                        "category": "business_name",
+                        "claim_value": "Paws and Polish",
+                        "is_verified": True,
+                        "status": "verified",
+                    },
+                    {
+                        "category": "services",
+                        "claim_value": "Dog grooming",
+                        "is_verified": True,
+                        "status": "verified",
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+class _RaisingCompletionAdapter:
+    def __init__(self, error: Exception) -> None:
+        self.error = error
+
+    def complete(self, **_kwargs: object) -> object:
+        raise self.error
+
+
+def test_art_director_propagates_budget_exceeded(tmp_path: Path) -> None:
+    project_root = tmp_path / "budget-limited-art-direction"
+    _create_art_direction_project(project_root)
+
+    with pytest.raises(BudgetExceeded, match="call cap"):
+        generate_art_direction(
+            project_root,
+            llm_adapter=_RaisingCompletionAdapter(BudgetExceeded("call cap reached")),
+        )
+
+
+def test_art_director_records_warning_on_provider_error_and_keeps_defaults(
+    tmp_path: Path,
+) -> None:
+    project_root = tmp_path / "provider-error-art-direction"
+    _create_art_direction_project(project_root)
+    adapter = _RaisingCompletionAdapter(RuntimeError("provider unavailable"))
+
+    _brand, brief = generate_art_direction(project_root, llm_adapter=adapter)
+    saved_brief = json.loads(
+        (project_root / "design" / "creative-brief.json").read_text(encoding="utf-8")
+    )
+
+    assert brief.editorial_headline == "Paws and Polish — Dog Grooming"
+    assert brief.llm_used is False
+    assert any("provider unavailable" in warning for warning in brief.warnings)
+    assert saved_brief["llm_used"] is False
+    assert saved_brief["warnings"] == brief.warnings
+
+
+def test_art_director_prefers_verified_business_name_over_title_variant(
+    tmp_path: Path,
+) -> None:
+    """The creative brief must use the verified business name, not a needs_review title variant.
+
+    Regression: _detect_taxonomy used to take the LAST business_name fact regardless of
+    status, so junk page-title variants ('Location | <name>') reached the brief/headline.
+    """
+    verified_fact = {
+        "fact_id": "fact-verified-name",
+        "project_id": "hachi-style",
+        "category": "business_name",
+        "claim_key": "business_name",
+        "claim_value": "Hachi & Co",
+        "source_url": "https://hachi.example.com/",
+        "source_text_snippet": "Hachi & Co",
+        "source_kind": "json_ld",
+        "is_verified": True,
+        "status": "verified",
+        "last_checked_at": "2026-11-05T12:00:00Z",
+    }
+    junk_fact = {
+        "fact_id": "fact-title-variant",
+        "project_id": "hachi-style",
+        "category": "business_name",
+        "claim_key": "business_name",
+        "claim_value": "Location | Hachi & Co",
+        "source_url": "https://hachi.example.com/location",
+        "source_text_snippet": "Location | Hachi & Co",
+        "source_kind": "regex",
+        "is_verified": False,
+        "status": "needs_review",
+        "last_checked_at": "2026-11-05T12:00:00Z",
+    }
+
+    for order_name, facts in (
+        ("verified-first", [verified_fact, junk_fact]),
+        ("verified-last", [junk_fact, verified_fact]),
+    ):
+        project_root = tmp_path / f"hachi-style-{order_name}"
+        (project_root / "research").mkdir(parents=True, exist_ok=True)
+        payload = {
+            "project_id": project_root.name,
+            "extracted_at": "2026-11-05T12:00:00Z",
+            "prompt_injection_warnings": [],
+            "facts": facts,
+        }
+        (project_root / "research" / "business-facts.json").write_text(
+            json.dumps(payload),
+            encoding="utf-8",
+        )
+
+        _brand, brief = generate_art_direction(project_root)
+
+        assert brief.business_name == "Hachi & Co", order_name
+        assert brief.editorial_headline is not None
+        assert brief.editorial_headline.startswith("Hachi & Co"), order_name
+        assert (project_root / "design" / "creative-brief.json").is_file()

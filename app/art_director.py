@@ -18,9 +18,10 @@ from pathlib import Path
 from typing import Any
 
 from PIL import Image
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from app.db import AssetProvenanceRecord
+from engine.llm.adapter import BudgetExceeded
 
 HEX_COLOR_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
@@ -203,7 +204,22 @@ class CreativeBrief(BaseModel):
     editorial_tagline: str | None = None
     editorial_value_prop: str | None = None
     suggested_sections: list[str] = Field(default_factory=list)
+    llm_used: bool = False
+    warnings: list[str] = Field(default_factory=list)
     generated_at: datetime = Field(default_factory=_utc_now)
+
+
+class EditorialBriefResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore", strict=True)
+
+    editorial_headline: str | None = None
+    headline: str | None = None
+    editorial_tagline: str | None = None
+    tagline: str | None = None
+    editorial_value_prop: str | None = None
+    value_proposition: str | None = None
+    suggested_sections: list[str] | None = None
+    suggested_section_order: list[str] | None = None
 
 
 def _detect_taxonomy(
@@ -211,6 +227,8 @@ def _detect_taxonomy(
     project_id: str,
 ) -> tuple[str, str | None, BusinessTaxonomy]:
     business_name = project_id
+    business_name_seen = False
+    business_name_verified = False
     phone: str | None = None
     corpus_parts: list[str] = [project_id.replace("-", " ")]
 
@@ -220,7 +238,16 @@ def _detect_taxonomy(
         val = str(fact.get("claim_value", ""))
         snippet = str(fact.get("source_text_snippet", ""))
         if category == "business_name" and val.strip():
-            business_name = val.strip()
+            raw_verified = fact.get("is_verified", fact.get("verified", False))
+            fact_verified = bool(raw_verified) and (
+                str(fact.get("status", "")).lower() == "verified"
+            )
+            # Prefer the first VERIFIED name regardless of list order; never let an
+            # unverified variant (e.g. a page-title suffix) overwrite a verified one.
+            if not business_name_seen or (fact_verified and not business_name_verified):
+                business_name = val.strip()
+                business_name_seen = True
+                business_name_verified = fact_verified
         if (category == "phone" or key == "phone") and val.strip() and phone is None:
             phone = val.strip()
         corpus_parts.extend([key, val, snippet])
@@ -439,6 +466,8 @@ def generate_art_direction(
     editorial_tagline: str | None = default_tagline
     editorial_value_prop: str | None = default_value_prop
     suggested_sections: list[str] = default_sections
+    llm_used = False
+    warnings: list[str] = []
 
     if llm_adapter is not None:
         facts_summary = "\n".join(
@@ -473,23 +502,26 @@ def generate_art_direction(
                 response_schema="editorial_brief_v1",
                 temperature=0.2,
             )
-            data = json.loads(resp.content)
+            data = EditorialBriefResponse.model_validate_json(resp.content)
             editorial_headline = (
-                data.get("editorial_headline") or data.get("headline") or default_headline
+                data.editorial_headline or data.headline or default_headline
             )
             editorial_tagline = (
-                data.get("editorial_tagline") or data.get("tagline") or default_tagline
+                data.editorial_tagline or data.tagline or default_tagline
             )
             editorial_value_prop = (
-                data.get("editorial_value_prop")
-                or data.get("value_proposition")
+                data.editorial_value_prop
+                or data.value_proposition
                 or default_value_prop
             )
-            sec_order = data.get("suggested_sections") or data.get("suggested_section_order")
-            if isinstance(sec_order, list) and sec_order:
-                suggested_sections = [str(s) for s in sec_order]
-        except Exception:
-            pass
+            sec_order = data.suggested_sections or data.suggested_section_order
+            if sec_order:
+                suggested_sections = sec_order
+            llm_used = True
+        except BudgetExceeded:
+            raise
+        except (RuntimeError, ValidationError) as exc:
+            warnings.append(f"Art direction LLM call failed: {exc}")
 
     brief = CreativeBrief(
         project_id=project_id,
@@ -507,6 +539,8 @@ def generate_art_direction(
         editorial_tagline=editorial_tagline,
         editorial_value_prop=editorial_value_prop,
         suggested_sections=suggested_sections,
+        llm_used=llm_used,
+        warnings=warnings,
     )
 
     brand_out = project_root / "design" / "brand.json"

@@ -1,0 +1,4 @@
+﻿CONTAINER ID   NAME                                       CPU %     MEM USAGE / LIMIT   MEM %     NET I/O           BLOCK I/O        PIDS
+296eeeb5c7db   website-builder-testing-main-collector-1   0.41%     40.55MiB / 2GiB     1.98%     914B / 126B       0B / 32.8kB      2
+624cdea98356   website-builder-testing-main-cockpit-1     0.15%     43.75MiB / 512MiB   8.54%     998B / 126B       831kB / 0B       2
+511cf8e9b9d5   website-builder-testing-main-n8n-1         1.01%     494MiB / 1GiB       48.24%    40.2kB / 24.3kB   303MB / 50.3MB   21

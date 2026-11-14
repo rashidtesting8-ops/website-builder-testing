@@ -118,6 +118,24 @@
     .step-number { width: 22px; height: 22px; display: grid; place-items: center; flex: 0 0 auto; border: 1px solid #dce5de; border-radius: 50%; color: var(--forest); background: #f4f8f4; font-size: 9px; font-weight: 700; }
     .pipeline-step:not(:last-child)::after { width: 18px; height: 1px; margin-left: auto; background: #dfe6e0; content: ""; }
     .footer-note { margin-top: 21px; color: #8a9690; font-size: 10px; }
+    .intake-panel { margin-top: 23px; padding: 21px 22px 19px; border: 1px solid var(--line); border-radius: 13px; background: var(--paper); box-shadow: var(--shadow); }
+    .intake-panel .section-heading { margin: 0 0 15px; }
+    .intake-form { display: flex; flex-wrap: wrap; gap: 13px; align-items: flex-end; }
+    .intake-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    .intake-field-url { flex: 2 1 320px; }
+    .intake-field-name { flex: 1 1 210px; }
+    .intake-field span { color: var(--muted); font-size: 11px; font-weight: 600; }
+    .intake-field em { color: var(--subtle); font-style: normal; font-weight: 500; }
+    .intake-field input { height: 40px; padding: 0 13px; border: 1px solid #dfe5df; border-radius: 8px; outline: none; color: var(--ink); background: #fff; font-size: 13px; }
+    .intake-field input:focus { border-color: #7da394; box-shadow: 0 0 0 3px rgba(64,112,91,.12); }
+    .intake-check { display: flex; align-items: center; gap: 8px; flex: 1 1 100%; color: var(--muted); font-size: 12px; }
+    .intake-submit { height: 40px; padding: 0 19px; border: 1px solid var(--forest); border-radius: 8px; color: #fff; background: var(--forest); font-size: 13px; font-weight: 650; cursor: pointer; }
+    .intake-submit:hover { background: var(--forest-dark); }
+    .intake-submit:disabled { opacity: .55; cursor: wait; }
+    .intake-status { display: flex; align-items: center; gap: 13px; flex-wrap: wrap; margin-top: 14px; padding: 11px 14px; border: 1px solid var(--line); border-radius: 9px; color: var(--muted); background: #fbfcfa; font-size: 12px; }
+    .intake-status[data-tone="error"] { border-color: #efd5d1; color: var(--red); background: var(--red-wash); }
+    .intake-status[data-tone="done"] { border-color: #d3e7d9; color: #34704d; background: #eff7f0; }
+    .intake-status a { color: var(--forest); font-weight: 700; }
     @media (max-width: 1050px) {
       .main { padding-right: 27px; padding-left: 27px; }
       .sidebar { width: 220px; }
@@ -140,6 +158,7 @@
       .pipeline-strip { grid-template-columns: 1fr; gap: 10px; }
       .pipeline-step:not(:last-child)::after { display: none; }
       .project-tools { align-items: flex-start; flex-direction: column; }
+      .intake-submit { width: 100%; }
     }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
@@ -187,6 +206,34 @@
           <article class="metric-card"><div class="metric-label">Approved releases</div><div class="metric-value">{{APPROVED_COUNT}}</div><div class="metric-hint">Frozen, versioned outputs</div></article>
         </section>
 
+        <section class="intake-panel" aria-labelledby="intake-heading">
+          <div class="section-heading">
+            <div>
+              <h2 id="intake-heading">Start a new build</h2>
+              <p>Paste a business URL — the worker runs collect, facts, curate, design, QA, and export staging. You stop only at the review gates.</p>
+            </div>
+          </div>
+          <form id="intake-form" class="intake-form" novalidate>
+            <label class="intake-field intake-field-url">
+              <span>Website URL</span>
+              <input id="intake-url" name="url" type="url" required placeholder="https://example-grooming-salon.com/" autocomplete="url">
+            </label>
+            <label class="intake-field intake-field-name">
+              <span>Business name <em>(optional, checked against site metadata)</em></span>
+              <input id="intake-business-name" name="business_name" type="text" placeholder="Verified before use" autocomplete="organization">
+            </label>
+            <button id="intake-submit" class="intake-submit" type="submit">Run pipeline</button>
+            <label class="intake-check">
+              <input id="intake-resume" name="resume" type="checkbox">
+              <span>Resume the existing project if it already exists</span>
+            </label>
+          </form>
+          <div id="intake-status" class="intake-status" role="status" aria-live="polite" hidden>
+            <span id="intake-status-text"></span>
+            <a id="intake-review-link" href="#" hidden>Open review cockpit</a>
+          </div>
+        </section>
+
         <section aria-labelledby="projects-heading">
           <div class="section-heading">
             <div><h2 id="projects-heading">Your projects</h2><p>Open a project to inspect its evidence, preview, and release checks.</p></div>
@@ -231,6 +278,88 @@
       if (empty) empty.hidden = visible !== 0;
     };
     projectSearch.addEventListener('input', updateProjectList);
+
+    const intakeForm = document.getElementById('intake-form');
+    const intakeStatus = document.getElementById('intake-status');
+    const intakeStatusText = document.getElementById('intake-status-text');
+    const intakeReviewLink = document.getElementById('intake-review-link');
+    const intakeSubmit = document.getElementById('intake-submit');
+    let intakePollTimer = null;
+
+    const showIntakeStatus = (message, tone) => {
+      intakeStatus.hidden = false;
+      intakeStatus.dataset.tone = tone || 'info';
+      intakeStatusText.textContent = message;
+    };
+
+    const pollIntakeJob = (jobId) => {
+      fetch(`/api/jobs/${jobId}`)
+        .then(r => r.json().then(body => ({ ok: r.ok, body })))
+        .then(({ ok, body }) => {
+          if (!ok) {
+            showIntakeStatus(`Status check failed: ${body.detail || 'unknown error'}`, 'error');
+            intakeSubmit.disabled = false;
+            return;
+          }
+          if (body.status === 'done') {
+            const projectId = body.result && body.result.project_id;
+            showIntakeStatus(projectId ? `Build finished for “${projectId}”.` : 'Build finished.', 'done');
+            if (projectId) {
+              intakeReviewLink.href = `/review/${projectId}`;
+              intakeReviewLink.hidden = false;
+            }
+            intakeSubmit.disabled = false;
+            return;
+          }
+          if (body.status === 'failed' || body.status === 'interrupted') {
+            showIntakeStatus(`Pipeline ${body.status}: ${body.error || 'see worker logs'}`, 'error');
+            intakeSubmit.disabled = false;
+            return;
+          }
+          showIntakeStatus(`Job ${jobId} ${body.status}…`, 'info');
+          intakePollTimer = setTimeout(() => pollIntakeJob(jobId), 2500);
+        })
+        .catch(() => {
+          showIntakeStatus('Status check failed: worker unreachable.', 'error');
+          intakeSubmit.disabled = false;
+        });
+    };
+
+    intakeForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      if (intakePollTimer) clearTimeout(intakePollTimer);
+      intakeReviewLink.hidden = true;
+      const payload = {
+        url: document.getElementById('intake-url').value.trim(),
+        business_name: document.getElementById('intake-business-name').value.trim() || null,
+        resume: document.getElementById('intake-resume').checked,
+      };
+      if (!payload.url) {
+        showIntakeStatus('Enter a website URL first.', 'error');
+        return;
+      }
+      intakeSubmit.disabled = true;
+      showIntakeStatus('Submitting to worker…', 'info');
+      fetch('/api/intake', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+        .then(r => r.json().then(body => ({ ok: r.ok, body })))
+        .then(({ ok, body }) => {
+          if (!ok || !body.job_id) {
+            showIntakeStatus(`Intake rejected: ${body.detail || 'unknown error'}`, 'error');
+            intakeSubmit.disabled = false;
+            return;
+          }
+          showIntakeStatus(`Job queued (${body.job_id}). Watching status…`, 'info');
+          pollIntakeJob(body.job_id);
+        })
+        .catch(() => {
+          showIntakeStatus('Intake failed: cockpit cannot reach the worker.', 'error');
+          intakeSubmit.disabled = false;
+        });
+    });
   </script>
 </body>
 </html>

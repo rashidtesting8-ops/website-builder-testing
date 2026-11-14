@@ -8,30 +8,39 @@ Frozen GHL Export & Release Archive -> Safe Cleanup.
 CLI Interface:
 1. Build / Resume:
    `python -m app.pipeline --url <URL> --name <NAME> [--resume]`
-2. Approve & Freeze Release:
+2. Import client images:
+   `python -m app.pipeline import-client-assets --project-id <ID> --folder <DIR>`
+3. Approve & Freeze Release:
    `python -m app.pipeline approve --project-id <ID> --operator "Dev" --notes "Verified"`
-3. Approval-Gated Cleanup:
+4. Approval-Gated Cleanup:
    `python -m app.pipeline prune --project-id <ID> [--execute]`
-4. Operator Cockpit Web Dashboard:
+5. Operator Cockpit Web Dashboard:
    `python -m app.pipeline cockpit [--port 8787] [--projects-dir ./projects]`
-5. Milestone 5 Acceptance Pilot:
+6. Milestone 5 Acceptance Pilot:
    `python -m app.pipeline pilot [--run-all]`
 """
 
 from __future__ import annotations
 
 import argparse
+import difflib
 import hashlib
 import json
 import os
+import re
 import shutil
 import sqlite3
 import sys
 import tempfile
+import unicodedata
 from collections.abc import Callable, Sequence
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote, urlsplit
 
+from bs4 import BeautifulSoup, Tag
+from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.approval import (
@@ -61,15 +70,44 @@ from app.db import (
     upsert_job_run,
     upsert_project,
 )
-from app.fact_extractor import extract_business_facts
+from app.fact_extractor import (
+    BusinessFactsReport,
+    ExtractedFact,
+    extract_business_facts,
+)
 from app.generator import generate_website
 from app.mvf_gate import enforce_mvf_gate
 from app.qa_engine import QADefectReport, run_qa_engine
 from app.reviser import MAX_REVISION_ITERATIONS, apply_targeted_revisions
 from app.visual_critic import run_visual_critic
+from engine.contact_sheet import make_sheet
 from engine.contracts import freeze_demo_metadata, read_demo_metadata
+from engine.social_collect import collect_social, scrub_sensitive_text
 
 QARunnerFn = Callable[..., QADefectReport]
+PIPELINE_STAGE_NAMES = (
+    "collect",
+    "extract",
+    "curate",
+    "art_director",
+    "generate",
+    "claims_lint",
+    "qa",
+    "critique",
+    "revise",
+    "ghl_exporter",
+)
+CLIENT_IMAGE_EXTENSIONS = {
+    ".avif",
+    ".bmp",
+    ".gif",
+    ".jpeg",
+    ".jpg",
+    ".png",
+    ".tif",
+    ".tiff",
+    ".webp",
+}
 
 
 def _atomic_write_text(target: Path, content: str) -> None:
@@ -109,6 +147,324 @@ def compute_input_manifest_hash(project_root: Path, input_rel_paths: Sequence[st
         else:
             hasher.update(f"{rel}:missing\n".encode())
     return hasher.hexdigest()[:16]
+
+
+def _normalized_business_name(value: str) -> str:
+    normalized = unicodedata.normalize("NFKC", value).casefold().replace("&", " and ")
+    return re.sub(r"[^\w]+", " ", normalized, flags=re.UNICODE).strip()
+
+
+def _business_name_comparison(
+    project_root: Path,
+    business_name: str,
+    facts_report: BusinessFactsReport,
+) -> dict[str, Any]:
+    pages_path = project_root / "research" / "pages.json"
+    pages: list[Any] = json.loads(pages_path.read_text(encoding="utf-8"))
+    candidates: list[dict[str, str]] = []
+    seen: set[tuple[str, str, str]] = set()
+
+    for page in pages:
+        if not isinstance(page, dict):
+            continue
+        source_url = page.get("url")
+        if not isinstance(source_url, str) or not source_url.strip():
+            continue
+
+        page_title = page.get("title")
+        if isinstance(page_title, str) and page_title.strip():
+            candidate = {
+                "source_field": "title",
+                "source_url": source_url,
+                "source_text": page_title.strip(),
+            }
+            key = (candidate["source_field"], source_url, candidate["source_text"])
+            if key not in seen:
+                seen.add(key)
+                candidates.append(candidate)
+
+        snapshot_hash = page.get("sha256")
+        if not isinstance(snapshot_hash, str) or not re.fullmatch(r"[0-9a-f]{64}", snapshot_hash):
+            continue
+        snapshot_path = project_root / "research" / "snapshots" / f"{snapshot_hash}.html"
+        if not snapshot_path.is_file():
+            continue
+        soup = BeautifulSoup(snapshot_path.read_text(encoding="utf-8"), "html.parser")
+        site_name_tag = soup.find("meta", attrs={"property": "og:site_name"})
+        site_name = (
+            site_name_tag.get("content")
+            if isinstance(site_name_tag, Tag)
+            else None
+        )
+        if isinstance(site_name, str) and site_name.strip():
+            candidate = {
+                "source_field": "og:site_name",
+                "source_url": source_url,
+                "source_text": site_name.strip(),
+            }
+            key = (candidate["source_field"], source_url, candidate["source_text"])
+            if key not in seen:
+                seen.add(key)
+                candidates.append(candidate)
+
+    normalized_operator_name = _normalized_business_name(business_name)
+    comparisons: list[dict[str, Any]] = []
+    matching_candidate: dict[str, str] | None = None
+    for candidate in candidates:
+        normalized_source = _normalized_business_name(candidate["source_text"])
+        matches = bool(normalized_operator_name) and (
+            normalized_operator_name == normalized_source
+        )
+        if matches and matching_candidate is None:
+            matching_candidate = candidate
+        diff = "\n".join(
+            difflib.unified_diff(
+                normalized_operator_name.split(),
+                normalized_source.split(),
+                fromfile="--name",
+                tofile=candidate["source_field"],
+                lineterm="",
+            )
+        )
+        comparisons.append(
+            {
+                **candidate,
+                "normalized_operator_name": normalized_operator_name,
+                "normalized_source_text": normalized_source,
+                "matches": matches,
+                "diff": diff,
+            }
+        )
+
+    for fact in facts_report.facts:
+        if fact.category == "business_name":
+            fact.is_verified = False
+            fact.status = "needs_review"
+            fact.last_checked_at = datetime.now(UTC)
+
+    if matching_candidate is not None:
+        matching_fact = next(
+            (
+                fact
+                for fact in facts_report.facts
+                if fact.category == "business_name"
+                and _normalized_business_name(fact.claim_value) == normalized_operator_name
+            ),
+            None,
+        )
+        if matching_fact is None:
+            digest = hashlib.sha256(
+                (
+                    f"{project_root.name}:business_name:business_name:"
+                    f"{business_name}:{matching_candidate['source_url']}"
+                ).encode()
+            ).hexdigest()[:12]
+            matching_fact = ExtractedFact(
+                fact_id=f"fact-{digest}",
+                project_id=project_root.name,
+                category="business_name",
+                claim_key="business_name",
+                claim_value=business_name,
+                source_url=matching_candidate["source_url"],
+                source_text_snippet=matching_candidate["source_text"],
+                source_kind="manual",
+                is_verified=True,
+                status="verified",
+            )
+            facts_report.facts.append(matching_fact)
+        else:
+            matching_fact.claim_value = business_name
+            matching_fact.source_url = matching_candidate["source_url"]
+            matching_fact.source_text_snippet = matching_candidate["source_text"]
+            matching_fact.source_kind = "manual"
+            matching_fact.is_verified = True
+            matching_fact.status = "verified"
+            matching_fact.last_checked_at = datetime.now(UTC)
+
+    report = {
+        "operator_name": business_name,
+        "normalized_operator_name": normalized_operator_name,
+        "status": "verified" if matching_candidate is not None else "needs_review",
+        "comparisons": comparisons,
+        "matched_source": matching_candidate,
+    }
+    payload = facts_report.model_dump(mode="json")
+    for fact in payload["facts"]:
+        fact["source_text"] = fact["source_text_snippet"]
+        fact["verified"] = fact["is_verified"]
+    _atomic_write_text(
+        project_root / "research" / "business-facts.json",
+        json.dumps(payload, indent=2, ensure_ascii=False),
+    )
+    _atomic_write_text(
+        project_root / "research" / "business-name-comparison.json",
+        json.dumps(report, indent=2, ensure_ascii=False),
+    )
+    return report
+
+
+def _normalized_social_url(value: str) -> str:
+    try:
+        parsed = urlsplit(value.strip())
+        return (
+            f"{parsed.scheme.lower()}://{(parsed.hostname or '').lower()}"
+            f"{parsed.path.rstrip('/').lower()}"
+        )
+    except ValueError:
+        return value.strip().casefold()
+
+
+def _project_input_sha256(project_root: Path) -> str | None:
+    input_path = project_root / "input.json"
+    if not input_path.is_file():
+        return None
+    return hashlib.sha256(input_path.read_bytes()).hexdigest()
+
+
+def _social_input_matches_last_collection(project_root: Path) -> bool:
+    report_path = project_root / "research" / "social-collection-report.json"
+    if not report_path.is_file():
+        return False
+    try:
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return False
+    return (
+        isinstance(report, dict)
+        and report.get("input_sha256") == _project_input_sha256(project_root)
+    )
+
+
+def _collect_configured_social(
+    project_root: Path,
+    warnings: list[str],
+) -> dict[str, Any]:
+    input_path = project_root / "input.json"
+    report_path = project_root / "research" / "social-collection-report.json"
+    result: dict[str, Any] = {
+        "input_sha256": _project_input_sha256(project_root),
+        "platforms": {},
+    }
+    if not input_path.is_file():
+        _atomic_write_text(report_path, json.dumps(result, indent=2))
+        return result
+
+    try:
+        input_data = json.loads(input_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        result.update(
+            status="review_needed",
+            reason="input_json_invalid",
+            error=str(exc),
+        )
+        warnings.append("Social URLs need review because input.json could not be read.")
+        _atomic_write_text(report_path, json.dumps(result, indent=2, ensure_ascii=False))
+        return result
+    if not isinstance(input_data, dict):
+        result.update(
+            status="review_needed",
+            reason="input_json_invalid",
+            error="input.json must contain a JSON object",
+        )
+        warnings.append("Social URLs need review because input.json is not an object.")
+        _atomic_write_text(report_path, json.dumps(result, indent=2, ensure_ascii=False))
+        return result
+
+    sources_path = project_root / "research" / "social-sources.json"
+    try:
+        source_data = (
+            json.loads(sources_path.read_text(encoding="utf-8"))
+            if sources_path.is_file()
+            else {}
+        )
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        source_data = {}
+    if not isinstance(source_data, dict):
+        source_data = {}
+
+    permission_confirmed = input_data.get("i_have_permission") is True
+    for platform in ("instagram", "facebook"):
+        field = f"{platform}_url"
+        supplied = input_data.get(field)
+        if supplied is None or supplied == "":
+            continue
+        website_urls_raw = source_data.get(platform, [])
+        if isinstance(website_urls_raw, str):
+            website_urls_raw = [website_urls_raw]
+        website_urls = (
+            [
+                value.strip()
+                for value in website_urls_raw
+                if isinstance(value, str) and value.strip()
+            ]
+            if isinstance(website_urls_raw, list)
+            else []
+        )
+        entry: dict[str, Any] = {
+            "supplied_url": supplied.strip() if isinstance(supplied, str) else None,
+            "website_urls": website_urls,
+        }
+        result["platforms"][platform] = entry
+        if not isinstance(supplied, str) or not supplied.strip():
+            entry.update(status="review_needed", reason="invalid_input_url")
+        elif website_urls and any(
+            _normalized_social_url(supplied) != _normalized_social_url(found)
+            for found in website_urls
+        ):
+            entry.update(
+                status="needs_review",
+                reason="input_url_differs_from_website",
+            )
+        elif not permission_confirmed:
+            entry.update(status="review_needed", reason="permission_required")
+        else:
+            try:
+                collector_result = collect_social(
+                    project_root,
+                    platform,
+                    supplied.strip(),
+                    max_files=40,
+                    days_limit=365,
+                    i_have_permission=True,
+                )
+            except Exception as exc:
+                entry.update(
+                    status="review_needed",
+                    reason="social_collector_error",
+                    error=scrub_sensitive_text(str(exc))[-500:],
+                )
+            else:
+                if not isinstance(collector_result, dict):
+                    entry.update(
+                        status="review_needed",
+                        reason="invalid_social_collector_result",
+                    )
+                else:
+                    collector_status = collector_result.get("status")
+                    entry["collector_status"] = collector_status
+                    entry["files_added"] = collector_result.get("files_added", 0)
+                    if collector_status in {"collected_needs_review", "review_needed"}:
+                        entry["status"] = collector_status
+                        reason = collector_result.get("reason")
+                        if isinstance(reason, str) and reason:
+                            entry["reason"] = scrub_sensitive_text(reason)
+                    else:
+                        entry.update(
+                            status="review_needed",
+                            reason="unexpected_social_collector_status",
+                        )
+
+        if entry.get("status") in {
+            "review_needed",
+            "needs_review",
+            "collected_needs_review",
+        }:
+            warnings.append(
+                f"Social {platform} needs review: {entry.get('reason', 'unknown reason')}."
+            )
+
+    _atomic_write_text(report_path, json.dumps(result, indent=2, ensure_ascii=False))
+    return result
 
 
 def _is_stage_completed_and_valid(
@@ -152,7 +508,12 @@ def _record_job_transition(
         idempotency_key=idempotency_key,
         error_message=error_message,
     )
-    return upsert_job_run(conn, record)
+    upsert_job_run(conn, record)
+    conn.execute(
+        "UPDATE job_runs SET idempotency_key = ? WHERE run_id = ?",
+        (idempotency_key, run_id),
+    )
+    return record
 
 
 def _stage_downloaded_assets_for_curator(
@@ -181,11 +542,11 @@ def _stage_downloaded_assets_for_curator(
         if third_party_demo and item.get("rights_confirmed_for_preview") is not False:
             item["rights_confirmed_for_preview"] = False
             manifest_changed = True
-        if item.get("status") != "downloaded":
+        if item.get("status") not in {"downloaded", "client_supplied"}:
             continue
         rel_file = str(item.get("file", ""))
         sha256 = str(item.get("sha256", ""))
-        src_url = str(item.get("url", ""))
+        src_url = str(item.get("source_url") or item.get("url") or "")
         if not rel_file or not sha256:
             continue
 
@@ -197,7 +558,7 @@ def _stage_downloaded_assets_for_curator(
         if not dest_path.is_file():
             shutil.copy2(src_path, dest_path)
 
-        # Mark downloaded first-party site assets as preview-confirmed for local review
+        # Preserve the manifest's rights decision in SQLite.
         rec = AssetProvenanceRecord(
             asset_id=f"{project_id}-asset-{idx}-{sha256[:10]}",
             project_id=project_id,
@@ -217,6 +578,151 @@ def _stage_downloaded_assets_for_curator(
         _atomic_write_text(manifest_path, json.dumps(items, indent=2))
 
     return provenance_records
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _copy_file_atomically(source: Path, destination: Path) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    fd, temp_name = tempfile.mkstemp(
+        prefix=f".{destination.name}.",
+        suffix=".tmp",
+        dir=str(destination.parent),
+    )
+    os.close(fd)
+    temp_path = Path(temp_name)
+    try:
+        shutil.copy2(source, temp_path)
+        os.replace(temp_path, destination)
+    except Exception:
+        temp_path.unlink(missing_ok=True)
+        raise
+
+
+def import_client_assets(
+    project_root: str | Path,
+    folder: str | Path,
+    *,
+    supplied_by: str = "not_specified",
+) -> dict[str, Any]:
+    """Copy client images into the website asset manifest with explicit provenance."""
+    root = Path(project_root).resolve()
+    source_root = Path(folder).resolve()
+    if not root.is_dir():
+        raise ValueError(f"Project folder does not exist: {root}")
+    if not source_root.is_dir():
+        raise ValueError(f"Client asset folder does not exist: {source_root}")
+    clean_supplier = supplied_by.strip()
+    if not clean_supplier:
+        raise ValueError("supplied_by must not be empty")
+
+    all_files = sorted(path for path in source_root.rglob("*") if path.is_file())
+    image_files = [
+        path for path in all_files if path.suffix.lower() in CLIENT_IMAGE_EXTENSIONS
+    ]
+    ignored_files = [
+        path.relative_to(source_root).as_posix()
+        for path in all_files
+        if path.suffix.lower() not in CLIENT_IMAGE_EXTENSIONS
+    ]
+    if not image_files:
+        raise ValueError(f"No supported client image files found in {source_root}")
+
+    prepared: list[dict[str, Any]] = []
+    for source in image_files:
+        if source.is_symlink() or not source.resolve().is_relative_to(source_root):
+            raise ValueError(
+                f"Client image must be a regular file inside the source folder: {source}"
+            )
+        try:
+            with Image.open(source) as image:
+                dimensions = [image.width, image.height]
+                image.verify()
+        except (UnidentifiedImageError, OSError, ValueError) as exc:
+            raise ValueError(f"Invalid client image {source.name}: {exc}") from exc
+        prepared.append(
+            {
+                "path": source,
+                "original_filename": source.name,
+                "sha256": _file_sha256(source),
+                "dimensions": dimensions,
+            }
+        )
+
+    manifest_path = root / "research" / "asset-manifest.json"
+    if manifest_path.is_file():
+        rows = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            raise ValueError(
+                f"Invalid asset manifest at {manifest_path}: expected a list of objects"
+            )
+    else:
+        rows = []
+
+    seen_hashes: set[str] = set()
+    for row in rows:
+        relative_file = row.get("file")
+        expected_sha = row.get("sha256")
+        if not isinstance(relative_file, str) or not isinstance(expected_sha, str):
+            continue
+        try:
+            existing_path = (root / relative_file).resolve()
+            existing_path.relative_to(root)
+        except (OSError, RuntimeError, ValueError):
+            continue
+        if (
+            existing_path.is_file()
+            and _file_sha256(existing_path) == expected_sha
+        ):
+            seen_hashes.add(expected_sha)
+
+    website_assets = root / "assets" / "website"
+    imported_rows: list[dict[str, Any]] = []
+    duplicates = 0
+    for item in prepared:
+        sha256 = str(item["sha256"])
+        if sha256 in seen_hashes:
+            duplicates += 1
+            continue
+        source = Path(item["path"])
+        filename = f"{slugify(source.stem)}-{sha256}{source.suffix.lower()}"
+        destination = website_assets / filename
+        _copy_file_atomically(source, destination)
+        source_ref = (
+            f"client-supplied://sha256/{sha256}/{quote(str(item['original_filename']), safe='')}"
+        )
+        row = {
+            "file": destination.relative_to(root).as_posix(),
+            "source": "client_supplied",
+            "source_url": source_ref,
+            "url": source_ref,
+            "source_page": source_ref,
+            "original_filename": item["original_filename"],
+            "sha256": sha256,
+            "dimensions": item["dimensions"],
+            "captured_at": datetime.now(UTC).isoformat(),
+            "supplied_by": clean_supplier,
+            "rights_confirmed_for_preview": False,
+            "status": "client_supplied",
+            "discovery": "client_import",
+        }
+        rows.append(row)
+        imported_rows.append(row)
+        seen_hashes.add(sha256)
+
+    _atomic_write_text(manifest_path, json.dumps(rows, indent=2, ensure_ascii=False))
+    return {
+        "assets_imported": len(imported_rows),
+        "duplicates": duplicates,
+        "ignored_files": ignored_files,
+        "assets": imported_rows,
+    }
 
 
 def _enforce_third_party_demo_rights(
@@ -299,6 +805,7 @@ class PipelineRunResult(BaseModel):
     status: str
     qa_passed: bool
     skipped_stages: list[str] = Field(default_factory=list)
+    stopped_after_stage: str | None = None
     review_summary: dict[str, Any] | None = None
     warnings: list[str] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
@@ -318,8 +825,13 @@ def run_pipeline(
     llm_adapter: Any = None,
     new_draft: bool = False,
     acknowledge_gaps: bool = False,
+    stop_after: str | None = None,
 ) -> PipelineRunResult:
     """Execute the EditVista lifecycle with SQLite idempotency, resumption, and approval gate."""
+    if stop_after is not None and stop_after not in PIPELINE_STAGE_NAMES:
+        raise ValueError(
+            f"Unknown stage {stop_after!r}; choose one of: {', '.join(PIPELINE_STAGE_NAMES)}"
+        )
     projects_root = Path(projects_dir).resolve()
     project_id = slugify(business_id or business_name)
     project_root = projects_root / project_id
@@ -372,19 +884,63 @@ def run_pipeline(
             ),
         )
 
+        def stop_if_requested(
+            stage_name: str,
+            *,
+            qa_passed: bool = False,
+        ) -> PipelineRunResult | None:
+            if stop_after != stage_name:
+                return None
+            upsert_project(
+                conn,
+                ProjectRecord(
+                    project_id=project_id,
+                    business_name=business_name,
+                    primary_url=url,
+                    status="stopped_after_stage",
+                ),
+            )
+            return PipelineRunResult(
+                project_id=project_id,
+                business_name=business_name,
+                primary_url=url,
+                project_folder=project_root,
+                status="stopped_after_stage",
+                qa_passed=qa_passed,
+                skipped_stages=skipped_stages,
+                stopped_after_stage=stage_name,
+                warnings=warnings,
+                errors=errors,
+            )
+
         # Step 2: Collect website pages & media candidates (stage: collect)
         url_hash = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
         collect_idemp = build_stage_idempotency_key(project_id, "collect", url_hash)
+        collect_record = conn.execute(
+            "SELECT status FROM job_runs WHERE project_id = ? AND module_name = ?",
+            (project_id, "collect"),
+        ).fetchone()
+        legacy_collected_project = (
+            collect_record is None
+            and (project_root / "research" / "pages.json").is_file()
+            and not (project_root / "input.json").is_file()
+        )
         if resume and (
-            _is_stage_completed_and_valid(
-                conn,
-                project_id=project_id,
-                stage_name="collect",
-                idempotency_key=collect_idemp,
-                project_root=project_root,
-                required_output_rel_paths=["research/pages.json"],
+            (
+                _is_stage_completed_and_valid(
+                    conn,
+                    project_id=project_id,
+                    stage_name="collect",
+                    idempotency_key=collect_idemp,
+                    project_root=project_root,
+                    required_output_rel_paths=[
+                        "research/pages.json",
+                        "research/social-collection-report.json",
+                    ],
+                )
+                and _social_input_matches_last_collection(project_root)
             )
-            or (project_root / "research" / "pages.json").is_file()
+            or legacy_collected_project
         ):
             skipped_stages.append("collect")
             provenance_records = list_assets_for_project(conn, project_id)
@@ -418,6 +974,7 @@ def run_pipeline(
                     else:
                         shutil.copy2(item_path, dest)
                 _enforce_third_party_demo_rights(conn, project_root, project_id)
+                _collect_configured_social(project_root, warnings)
                 shutil.rmtree(staging_collect_dir, ignore_errors=True)
                 _record_job_transition(
                     conn,
@@ -458,8 +1015,18 @@ def run_pipeline(
                 conn, project_root, project_id
             )
 
+        stopped = stop_if_requested("collect")
+        if stopped is not None:
+            return stopped
+
         # Step 3: Extract and verify business facts (stage: extract)
-        extract_hash = compute_input_manifest_hash(project_root, ["research/pages.json"])
+        extract_inputs_hash = compute_input_manifest_hash(
+            project_root,
+            ["research/pages.json"],
+        )
+        extract_hash = hashlib.sha256(
+            f"{extract_inputs_hash}:{_normalized_business_name(business_name)}".encode()
+        ).hexdigest()[:16]
         extract_idemp = build_stage_idempotency_key(project_id, "extract", extract_hash)
         if resume and _is_stage_completed_and_valid(
             conn,
@@ -467,7 +1034,10 @@ def run_pipeline(
             stage_name="extract",
             idempotency_key=extract_idemp,
             project_root=project_root,
-            required_output_rel_paths=["research/business-facts.json"],
+            required_output_rel_paths=[
+                "research/business-facts.json",
+                "research/business-name-comparison.json",
+            ],
         ):
             skipped_stages.append("extract")
         else:
@@ -481,6 +1051,16 @@ def run_pipeline(
             facts_report = extract_business_facts(
                 project_root, extract_classification=True
             )
+            name_comparison = _business_name_comparison(
+                project_root,
+                business_name,
+                facts_report,
+            )
+            if name_comparison["status"] != "verified":
+                warnings.append(
+                    "Operator business name needs review; see "
+                    "research/business-name-comparison.json for the source diff."
+                )
             for fact in facts_report.facts:
                 upsert_business_fact(
                     conn,
@@ -502,6 +1082,10 @@ def run_pipeline(
                 idempotency_key=extract_idemp,
                 status="completed",
             )
+
+        stopped = stop_if_requested("extract")
+        if stopped is not None:
+            return stopped
 
         # Zero-pages check: if 0 pages were crawled, stage failed immediately before model spend
         pages_file = project_root / "research" / "pages.json"
@@ -603,6 +1187,10 @@ def run_pipeline(
                 status="completed",
             )
 
+        stopped = stop_if_requested("curate")
+        if stopped is not None:
+            return stopped
+
         # Step 5: Art Direction & Brand Analysis (stage: art_director)
         art_hash = compute_input_manifest_hash(
             project_root,
@@ -638,6 +1226,10 @@ def run_pipeline(
                 idempotency_key=art_idemp,
                 status="completed",
             )
+
+        stopped = stop_if_requested("art_director")
+        if stopped is not None:
+            return stopped
 
         # Step 6: Generate semantic website code (stage: generate)
         gen_hash = compute_input_manifest_hash(
@@ -679,6 +1271,10 @@ def run_pipeline(
                 idempotency_key=gen_idemp,
                 status="completed",
             )
+
+        stopped = stop_if_requested("generate")
+        if stopped is not None:
+            return stopped
 
         # Stage: claims_lint (lint HTML claims against verified facts and UI allowlist)
         lint_hash = compute_input_manifest_hash(
@@ -740,6 +1336,10 @@ def run_pipeline(
             status="completed",
         )
 
+        stopped = stop_if_requested("claims_lint")
+        if stopped is not None:
+            return stopped
+
         # Step 7: Execute 5-viewport Playwright QA + Visual Critic + Targeted Revision Loop
         qa_hash = compute_input_manifest_hash(
             project_root,
@@ -772,6 +1372,21 @@ def run_pipeline(
         )
         stage_release_candidate(project_root)
         qa_report = run_qa()
+        _record_job_transition(
+            conn,
+            project_id=project_id,
+            module_name="qa",
+            idempotency_key=qa_idemp,
+            status="completed" if qa_report.passed else "failed",
+            error_message=(
+                None
+                if qa_report.passed
+                else "QA report detected critical viewport defects"
+            ),
+        )
+        stopped = stop_if_requested("qa", qa_passed=qa_report.passed)
+        if stopped is not None:
+            return stopped
 
         # Bounded Critique -> Revise -> QA loop (max 3 cycles)
         for _cycle in range(MAX_REVISION_ITERATIONS):
@@ -783,6 +1398,57 @@ def run_pipeline(
                 status="running",
             )
             critique_report = run_visual_critic(project_root, llm_adapter=llm_adapter)
+            if critique_report.status == "critic_unavailable":
+                critique_error = (
+                    "Visual critic unavailable; a successful critic run is required "
+                    "before the project can proceed."
+                )
+                warnings.extend(critique_report.warnings)
+                _record_job_transition(
+                    conn,
+                    project_id=project_id,
+                    module_name="critique",
+                    idempotency_key=critique_idemp,
+                    status="failed",
+                    error_message=critique_error,
+                )
+                if qa_report.passed:
+                    _record_job_transition(
+                        conn,
+                        project_id=project_id,
+                        module_name="qa",
+                        idempotency_key=qa_idemp,
+                        status="completed",
+                    )
+                else:
+                    _record_job_transition(
+                        conn,
+                        project_id=project_id,
+                        module_name="qa",
+                        idempotency_key=qa_idemp,
+                        status="failed",
+                        error_message="QA report detected critical viewport defects",
+                    )
+                upsert_project(
+                    conn,
+                    ProjectRecord(
+                        project_id=project_id,
+                        business_name=business_name,
+                        primary_url=url,
+                        status="needs_review",
+                    ),
+                )
+                return PipelineRunResult(
+                    project_id=project_id,
+                    business_name=business_name,
+                    primary_url=url,
+                    project_folder=project_root,
+                    status="needs_review",
+                    qa_passed=qa_report.passed,
+                    skipped_stages=skipped_stages,
+                    warnings=warnings,
+                    errors=[critique_error],
+                )
             _record_job_transition(
                 conn,
                 project_id=project_id,
@@ -790,6 +1456,9 @@ def run_pipeline(
                 idempotency_key=critique_idemp,
                 status="completed",
             )
+            stopped = stop_if_requested("critique", qa_passed=qa_report.passed)
+            if stopped is not None:
+                return stopped
 
             if critique_report.status == "passed" or not critique_report.defects:
                 _record_job_transition(
@@ -799,6 +1468,9 @@ def run_pipeline(
                     idempotency_key=revise_idemp,
                     status="completed",
                 )
+                stopped = stop_if_requested("revise", qa_passed=qa_report.passed)
+                if stopped is not None:
+                    return stopped
                 break
 
             _record_job_transition(
@@ -816,6 +1488,9 @@ def run_pipeline(
                 idempotency_key=revise_idemp,
                 status="completed",
             )
+            stopped = stop_if_requested("revise", qa_passed=qa_report.passed)
+            if stopped is not None:
+                return stopped
             stage_release_candidate(project_root)
             qa_report = run_qa()
 
@@ -913,6 +1588,9 @@ def run_pipeline(
             idempotency_key=export_idemp,
             status="completed",
         )
+        stopped = stop_if_requested("ghl_exporter", qa_passed=True)
+        if stopped is not None:
+            return stopped
 
         upsert_project(
             conn,
@@ -1067,6 +1745,59 @@ def _handle_confirm_rights_subcommand(argv: Sequence[str]) -> int:
     return 0
 
 
+def _handle_import_client_assets_subcommand(argv: Sequence[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="python -m app.pipeline import-client-assets",
+        description="Import client-provided image originals with provenance for local review.",
+    )
+    parser.add_argument("--project-id", required=True, help="Target project slug ID")
+    parser.add_argument("--folder", required=True, help="Folder containing client image files")
+    parser.add_argument(
+        "--supplied-by",
+        default="not_specified",
+        help="Client or operator who supplied the files (default: not_specified)",
+    )
+    parser.add_argument("--projects-dir", default="./projects", help="Root projects directory")
+    parser.add_argument("--db-path", default=None, help="Optional SQLite database path")
+    args = parser.parse_args(argv)
+
+    projects_root = Path(args.projects_dir).resolve()
+    project_root = (projects_root / args.project_id).resolve()
+    if not project_root.is_relative_to(projects_root):
+        parser.error("--project-id must identify a project under --projects-dir")
+    if not project_root.is_dir():
+        parser.error(f"Project folder does not exist: {project_root}")
+
+    resolved_db_path = (
+        Path(args.db_path).resolve()
+        if args.db_path
+        else projects_root / "editvista.sqlite3"
+    )
+    conn = connect_db(resolved_db_path)
+    try:
+        init_db(conn)
+        if get_project(conn, args.project_id) is None:
+            parser.error(
+                f"Project '{args.project_id}' is not registered in {resolved_db_path}"
+            )
+        result = import_client_assets(
+            project_root,
+            args.folder,
+            supplied_by=args.supplied_by,
+        )
+        provenance_records = _stage_downloaded_assets_for_curator(
+            conn,
+            project_root,
+            args.project_id,
+        )
+    finally:
+        conn.close()
+    result["optimized_assets"] = len(provenance_records)
+    result["contact_sheet"] = make_sheet(project_root)
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+    return 0
+
+
 def _handle_prune_subcommand(argv: Sequence[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m app.pipeline prune",
@@ -1160,6 +1891,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default=False,
         help="Acknowledge missing Minimum Viable Facts (MVF) and continue to awaiting_approval",
     )
+    parser.add_argument(
+        "--stop-after",
+        choices=PIPELINE_STAGE_NAMES,
+        default=None,
+        help="Stop after completing one pipeline stage",
+    )
     return parser
 
 
@@ -1173,6 +1910,8 @@ def main(
         return _handle_approve_subcommand(args_list[1:])
     if args_list and args_list[0] == "confirm-rights":
         return _handle_confirm_rights_subcommand(args_list[1:])
+    if args_list and args_list[0] == "import-client-assets":
+        return _handle_import_client_assets_subcommand(args_list[1:])
     if args_list and args_list[0] == "prune":
         return _handle_prune_subcommand(args_list[1:])
     if args_list and args_list[0] == "verify":
@@ -1201,8 +1940,15 @@ def main(
         qa_runner=qa_runner,
         new_draft=bool(args.new_draft),
         acknowledge_gaps=bool(args.acknowledge_gaps),
+        stop_after=args.stop_after,
     )
-    return 0 if result.status in ("completed", "awaiting_approval") else 1
+    if args.stop_after is not None:
+        print(result.model_dump_json())
+    return (
+        0
+        if result.status in ("completed", "awaiting_approval", "stopped_after_stage")
+        else 1
+    )
 
 
 if __name__ == "__main__":

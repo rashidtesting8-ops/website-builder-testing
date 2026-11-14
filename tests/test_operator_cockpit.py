@@ -19,7 +19,9 @@ import threading
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Any
 
 import requests
 import uvicorn
@@ -254,8 +256,14 @@ def _approval_payload(
 
 
 @contextmanager
-def _ephemeral_cockpit_server(projects_dir: Path) -> Iterator[str]:
-    app = create_cockpit_app(projects_dir=projects_dir)
+def _ephemeral_cockpit_server(
+    projects_dir: Path,
+    worker_base_url: str | None = None,
+) -> Iterator[str]:
+    app = create_cockpit_app(
+        projects_dir=projects_dir,
+        worker_base_url=worker_base_url,
+    )
     port = _get_free_port()
     config = uvicorn.Config(app=app, host="127.0.0.1", port=port, log_level="error")
     server = uvicorn.Server(config)
@@ -543,3 +551,178 @@ def test_cockpit_ghl_export_and_live_funnel_simulator(tmp_path: Path) -> None:
         assert "ghl-ev-engine-root-ghl-demo" in sim_resp.text
         assert "GoHighLevel Funnel Host Simulator" in sim_resp.text
         assert f"{base_url}/assets/ghl-demo/assets/optimized/dog.png" in sim_resp.text
+
+
+# --- URL-paste intake + live job status (thin client of the worker service) ---
+
+
+@contextmanager
+def _ephemeral_fake_worker(
+    run_response: tuple[int, dict[str, Any]],
+    job_records: dict[str, tuple[int, dict[str, Any]]],
+) -> Iterator[tuple[str, list[dict[str, Any]], list[str]]]:
+    """Serve canned worker responses; record received POST bodies and GET paths."""
+    received_posts: list[dict[str, Any]] = []
+    received_paths: list[str] = []
+
+    class _Handler(BaseHTTPRequestHandler):
+        def _respond(self, code: int, payload: dict[str, Any]) -> None:
+            body = json.dumps(payload).encode("utf-8")
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_POST(self) -> None:  # noqa: N802 - stdlib handler API
+            received_paths.append(self.path)
+            if self.path != "/pipeline/run":
+                self._respond(404, {"detail": "Not Found"})
+                return
+            length = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(length) if length else b"{}"
+            received_posts.append(json.loads(raw))
+            code, payload = run_response
+            self._respond(code, payload)
+
+        def do_GET(self) -> None:  # noqa: N802 - stdlib handler API
+            received_paths.append(self.path)
+            prefix = "/jobs/"
+            if not self.path.startswith(prefix):
+                self._respond(404, {"detail": "Not Found"})
+                return
+            job_id = self.path[len(prefix) :]
+            code, payload = job_records.get(job_id, (404, {"detail": "Unknown job"}))
+            self._respond(code, payload)
+
+        def log_message(self, format: str, *args: Any) -> None:
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield (
+            f"http://127.0.0.1:{server.server_address[1]}",
+            received_posts,
+            received_paths,
+        )
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2.0)
+
+
+def test_cockpit_intake_form_renders_on_dashboard(tmp_path: Path) -> None:
+    projects_dir = tmp_path / "projects"
+    projects_dir.mkdir(parents=True)
+
+    with _ephemeral_cockpit_server(projects_dir) as base_url:
+        resp = requests.get(f"{base_url}/", timeout=3.0)
+        assert resp.status_code == 200
+        assert 'id="intake-form"' in resp.text
+        assert 'id="intake-url"' in resp.text
+        assert 'id="intake-status"' in resp.text
+        assert "/api/intake" in resp.text
+        assert "/api/jobs/" in resp.text
+
+
+def test_cockpit_intake_proxies_pipeline_run_and_job_status(tmp_path: Path) -> None:
+    projects_dir = tmp_path / "projects"
+    projects_dir.mkdir(parents=True)
+    job_id = "ab" * 16
+    run_response = (202, {"job_id": job_id, "status": "queued"})
+    job_records = {
+        job_id: (
+            200,
+            {
+                "job_id": job_id,
+                "status": "done",
+                "result": {
+                    "project_id": "paws-spa",
+                    "pipeline_status": "awaiting_approval",
+                },
+            },
+        )
+    }
+
+    with _ephemeral_fake_worker(run_response, job_records) as (worker_url, posts, paths):
+        with _ephemeral_cockpit_server(
+            projects_dir, worker_base_url=worker_url
+        ) as base_url:
+            intake = requests.post(
+                f"{base_url}/api/intake",
+                json={
+                    "url": "https://paws.example.com/",
+                    "business_name": "Paws Spa",
+                    "business_id": "paws-spa",
+                    "resume": True,
+                },
+                timeout=5.0,
+            )
+            assert intake.status_code == 202
+            assert intake.json() == {"job_id": job_id, "status": "queued"}
+            assert posts == [
+                {
+                    "url": "https://paws.example.com/",
+                    "business_name": "Paws Spa",
+                    "business_id": "paws-spa",
+                    "resume": True,
+                }
+            ]
+
+            status = requests.get(f"{base_url}/api/jobs/{job_id}", timeout=5.0)
+            assert status.status_code == 200
+            assert status.json()["status"] == "done"
+            assert status.json()["result"]["project_id"] == "paws-spa"
+            assert f"/jobs/{job_id}" in paths
+
+
+def test_cockpit_intake_propagates_worker_busy(tmp_path: Path) -> None:
+    projects_dir = tmp_path / "projects"
+    projects_dir.mkdir(parents=True)
+    run_response = (429, {"detail": "Collector busy; retry later"})
+
+    with _ephemeral_fake_worker(run_response, {}) as (worker_url, _posts, _paths):
+        with _ephemeral_cockpit_server(
+            projects_dir, worker_base_url=worker_url
+        ) as base_url:
+            resp = requests.post(
+                f"{base_url}/api/intake",
+                json={"url": "https://paws.example.com/"},
+                timeout=5.0,
+            )
+            assert resp.status_code == 429
+            assert "busy" in str(resp.json()["detail"]).lower()
+
+
+def test_cockpit_intake_worker_unreachable_returns_502(tmp_path: Path) -> None:
+    projects_dir = tmp_path / "projects"
+    projects_dir.mkdir(parents=True)
+    # Port 1 never serves our worker: the connection is refused quickly.
+    with _ephemeral_cockpit_server(
+        projects_dir, worker_base_url="http://127.0.0.1:1"
+    ) as base_url:
+        resp = requests.post(
+            f"{base_url}/api/intake",
+            json={"url": "https://paws.example.com/"},
+            timeout=5.0,
+        )
+        assert resp.status_code == 502
+        assert "worker unreachable" in str(resp.json()["detail"]).lower()
+
+
+def test_cockpit_job_status_rejects_malformed_job_id(tmp_path: Path) -> None:
+    projects_dir = tmp_path / "projects"
+    projects_dir.mkdir(parents=True)
+
+    with _ephemeral_fake_worker(
+        (202, {"job_id": "x", "status": "queued"}), {}
+    ) as (worker_url, _posts, paths):
+        with _ephemeral_cockpit_server(
+            projects_dir, worker_base_url=worker_url
+        ) as base_url:
+            resp = requests.get(f"{base_url}/api/jobs/not-a-hex-job-id", timeout=5.0)
+            assert resp.status_code == 404
+            # Malformed ids are rejected before any worker call.
+            assert not any(p.startswith("/jobs/") for p in paths)

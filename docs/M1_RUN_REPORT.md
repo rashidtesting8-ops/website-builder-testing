@@ -148,3 +148,36 @@ Active pipeline wall time was not measured with a process timer. Artifact timest
 collection at `2026-11-13T09:20:22.593891Z` to final QA at
 `2026-11-13T09:29:28.583155Z` (about **9 minutes 6 seconds**, including the operator
 acknowledgement/wait between runs); that interval is not a valid single-run execution duration.
+
+## Pipeline controls and resilience follow-up — 2026-11-13
+
+The pipeline now accepts `--stop-after` for the ten database stage names shown by
+`uv run python -m app.pipeline --help`. Optional social inputs are read from a project's
+`input.json`; collection requires explicit `i_have_permission: true`, and website/profile URL
+mismatches are recorded as `needs_review` with both URL sets instead of silently choosing one.
+The operator-supplied business name is verified only when normalized page title or
+`og:site_name` matches; otherwise the comparison file records the mismatch and the claim remains
+`needs_review`.
+
+**Local fixture evidence (not a real business run):** a temporary HTTP fixture at
+`http://127.0.0.1:8765/` exposed a valid `good.jpg` and a deliberately unavailable
+`broken.jpg`. In `projects/resilience-interrupted/research/asset-manifest.json`, the good image
+is `downloaded` with a SHA-256 and dimensions `[1200, 800]`; the other row is `failed` with
+`404 Client Error: Not Found`. `research/run-summary.json` includes that failed row and reason
+under `issues`. The final SQLite `job_runs` query for `resilience-interrupted` shows all ten
+stages (`collect` through `ghl_exporter`) as `completed`; the same run-summary and working asset
+are present under `projects/resilience-proof`.
+
+The earlier interruption was performed by terminating process PID **8168** with
+`Stop-Process -Id 8168 -Force` while QA was running. The resume invocation was:
+
+```text
+uv run python -m app.pipeline --url http://127.0.0.1:8765/ --name "Resilience Test Grooming Salon" --business-id resilience-interrupted --projects-dir <TEMP>\editvista-pipeline-proof-20261113\projects --db-path <TEMP>\editvista-pipeline-proof-20261113\editvista.sqlite3 --allow-private --resume --stop-after qa
+```
+
+`<TEMP>` denotes `C:\Users\CZ\AppData\Local\Temp`. The invocation was repeated during this
+follow-up, but the tool execution was interrupted before its output was recorded. Therefore no
+exact `skipped_stages` transcript or before/after `job_runs` snapshot is claimed here; the
+available database only proves the final completed rows, not which stages were skipped on
+resume. The fixture server was reported stopped after the earlier resilience exercise. No
+external social profile or real-business collection was run as part of this follow-up.

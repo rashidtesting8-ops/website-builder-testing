@@ -14,7 +14,12 @@
 | Visual critique | Strong vision model + screenshots | Metered API; hard cap on revisions with human escalation |
 | Local preview | Double-click standalone HTML + optional Playwright | No external hosting required for local review |
 
-## Spend control (enforce in orchestrator later)
+## Spend control
+
+Per-job spend is already enforced by `src/engine/llm/adapter.py`: default
+`max_calls_per_job=30`, `max_tokens_per_job=150_000`, `max_cost_usd=10.0`, a pre-spend
+estimate that blocks calls over budget, retries counting toward the cap, and usage logged
+to `.cache/llm_usage.jsonl`. The items below are the remaining policy layer.
 
 1. Don't call a design model if fewer than the minimum verified assets/facts exist.
 2. Cache all collected content and images by hash and source URL.

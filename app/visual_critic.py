@@ -6,9 +6,10 @@ Inspects rendered screenshots from `projects/<business-id>/qa/screenshots/`,
 2. Repetitive card syndrome (flat beige boxes `#F5F5DC` or generic repetitive card styles).
 3. Section spacing rhythm, whitespace balance, and CTA prominence.
 
-Outputs `projects/<business-id>/qa/visual-critique.json` with `status: "passed" | "defects_found"`
-and specific, actionable defects per `target_section_id`. Vague instructions such as
-"make it better" are strictly prohibited by Pydantic schema validation.
+Outputs `projects/<business-id>/qa/visual-critique.json` with `status: "passed"`,
+`"defects_found"`, or `"critic_unavailable"` and specific, actionable defects per
+`target_section_id`. Vague instructions such as "make it better" are strictly prohibited by
+Pydantic schema validation.
 """
 
 from __future__ import annotations
@@ -23,9 +24,11 @@ from typing import Any, Literal
 
 from bs4 import BeautifulSoup, Tag
 from PIL import Image, ImageStat
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
-CritiqueStatus = Literal["passed", "defects_found"]
+from engine.llm.adapter import BudgetExceeded
+
+CritiqueStatus = Literal["passed", "defects_found", "critic_unavailable"]
 
 PROHIBITED_VAGUE_PHRASES: tuple[str, ...] = (
     "make it better",
@@ -117,7 +120,16 @@ class VisualCriticReport(BaseModel):
     status: CritiqueStatus
     inspected_screenshots: list[str] = Field(default_factory=list)
     defects: list[VisualDefect] = Field(default_factory=list)
+    llm_used: bool = False
+    warnings: list[str] = Field(default_factory=list)
     checked_at: datetime = Field(default_factory=_utc_now)
+
+
+class VisualCritiqueLLMResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["passed", "defects_found"]
+    defects: list[VisualDefect] = Field(default_factory=list)
 
 
 def _inspect_hero_screenshot_contrast(screenshot_file: Path) -> bool:
@@ -284,7 +296,13 @@ def run_visual_critic(
                 )
 
     # Multimodal LLM visual critique on rendered screenshots
-    if llm_adapter is not None and screenshot_files:
+    llm_used = False
+    llm_unavailable = False
+    warnings: list[str] = []
+    if llm_adapter is not None and not screenshot_files:
+        llm_unavailable = True
+        warnings.append("Visual critic LLM call skipped: no screenshots are available.")
+    elif llm_adapter is not None:
         critic_prompt = (
             f"Project: {project_id}\n"
             f"Primary Brand Color: {primary_color}\n"
@@ -314,28 +332,29 @@ def run_visual_critic(
                 response_schema="visual_critique_v1",
                 temperature=0.1,
             )
-            llm_data = json.loads(resp.content)
-            for raw_d in llm_data.get("defects", []):
-                try:
-                    defects.append(
-                        VisualDefect(
-                            target_section_id=str(raw_d.get("target_section_id", "hero")),
-                            screenshot_path=str(raw_d.get("screenshot_path", primary_shot_rel)),
-                            defect_type=str(raw_d.get("defect_type", "visual_layout")),
-                            actionable_instruction=str(raw_d.get("actionable_instruction", "")),
-                        )
-                    )
-                except Exception:
-                    pass
-        except Exception:
-            pass
+            llm_data = VisualCritiqueLLMResponse.model_validate_json(resp.content)
+            defects.extend(llm_data.defects)
+            llm_used = True
+        except BudgetExceeded:
+            raise
+        except (RuntimeError, ValidationError) as exc:
+            llm_unavailable = True
+            warnings.append(f"Visual critic LLM call failed: {exc}")
 
-    status: CritiqueStatus = "defects_found" if defects else "passed"
+    status: CritiqueStatus = (
+        "critic_unavailable"
+        if llm_unavailable
+        else "defects_found"
+        if defects
+        else "passed"
+    )
     report = VisualCriticReport(
         project_id=project_id,
         status=status,
         inspected_screenshots=inspected_rels,
         defects=defects,
+        llm_used=llm_used,
+        warnings=warnings,
     )
     out_path = project_root / "qa" / "visual-critique.json"
     _atomic_write_text(out_path, report.model_dump_json(indent=2))

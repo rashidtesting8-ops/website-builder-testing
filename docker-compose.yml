@@ -70,6 +70,7 @@ services:
       - "127.0.0.1:8888:8888"
     environment:
       - PROJECTS_DIR=/data/projects
+      - WORKER_BASE_URL=http://collector:8787
     volumes:
       - ./projects:/data/projects
     mem_limit: 512m

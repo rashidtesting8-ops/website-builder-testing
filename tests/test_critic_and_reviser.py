@@ -20,6 +20,8 @@ from app.visual_critic import (
 )
 from PIL import Image, ImageDraw
 
+from engine.llm.adapter import BudgetExceeded
+
 
 def _create_screenshot(
     path: Path,
@@ -154,6 +156,113 @@ def test_visual_critic_detects_actionable_defects_and_rejects_vague_feedback(
             defect_type="repetitive_card_syndrome",
             actionable_instruction="Please make it better",
         )
+
+
+class _RaisingCompletionAdapter:
+    def __init__(self, error: Exception) -> None:
+        self.error = error
+
+    def complete(self, **_kwargs: object) -> object:
+        raise self.error
+
+
+def test_critic_propagates_budget_exceeded(tmp_path: Path) -> None:
+    project_root = tmp_path / "budget-limited-critic"
+    _create_screenshot(project_root / "qa" / "screenshots" / "1440px.png")
+
+    with pytest.raises(BudgetExceeded, match="call cap"):
+        run_visual_critic(
+            project_root,
+            llm_adapter=_RaisingCompletionAdapter(BudgetExceeded("call cap reached")),
+        )
+
+
+def test_critic_unavailable_when_llm_fails_even_if_heuristics_clean(
+    tmp_path: Path,
+) -> None:
+    project_root = tmp_path / "unavailable-critic"
+    _create_screenshot(project_root / "qa" / "screenshots" / "1440px.png")
+
+    report = run_visual_critic(
+        project_root,
+        llm_adapter=_RaisingCompletionAdapter(RuntimeError("provider unavailable")),
+    )
+    saved_report = json.loads(
+        (project_root / "qa" / "visual-critique.json").read_text(encoding="utf-8")
+    )
+
+    assert report.defects == []
+    assert report.status == "critic_unavailable"
+    assert report.llm_used is False
+    assert any("provider unavailable" in warning for warning in report.warnings)
+    assert saved_report["llm_used"] is False
+    assert saved_report["warnings"] == report.warnings
+
+
+def test_critic_without_adapter_marks_llm_used_false(tmp_path: Path) -> None:
+    project_root = tmp_path / "deterministic-only-critic"
+    _create_screenshot(project_root / "qa" / "screenshots" / "1440px.png")
+
+    report = run_visual_critic(project_root)
+
+    assert report.status == "passed"
+    assert report.llm_used is False
+    assert report.warnings == []
+
+
+def test_revision_loop_escalates_when_critic_is_unavailable(tmp_path: Path) -> None:
+    report = VisualCriticReport(
+        project_id="unavailable-loop",
+        status="critic_unavailable",
+        llm_used=False,
+        warnings=["provider unavailable"],
+    )
+
+    result = run_critique_revision_loop(
+        tmp_path / "unavailable-loop",
+        critic_fn=lambda _project_folder: report,
+    )
+
+    assert result.final_status == "review_needed"
+    assert result.escalated_to_human is True
+    assert result.iterations_run == 1
+
+
+def test_pipeline_returns_needs_review_when_critic_is_unavailable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import app.pipeline as pipeline_module
+    from app.pipeline import run_pipeline
+    from tests.test_pipeline_e2e import _ephemeral_grooming_salon_server
+    from tests.test_pipeline_lifecycle import _fast_qa_runner
+
+    unavailable_report = VisualCriticReport(
+        project_id="unavailable-pipeline",
+        status="critic_unavailable",
+        llm_used=False,
+        warnings=["provider unavailable"],
+    )
+    monkeypatch.setattr(
+        pipeline_module,
+        "run_visual_critic",
+        lambda _project_folder, **_kwargs: unavailable_report,
+    )
+
+    with _ephemeral_grooming_salon_server() as target_url:
+        result = run_pipeline(
+            url=target_url,
+            business_name="Bark & Bliss Pet Grooming Salon",
+            business_id="unavailable-pipeline",
+            projects_dir=tmp_path / "projects",
+            db_path=tmp_path / "projects" / "editvista.sqlite3",
+            allow_private=True,
+            qa_runner=_fast_qa_runner,
+        )
+
+    assert result.status == "needs_review"
+    assert result.qa_passed is True
+    assert any("critic unavailable" in error.lower() for error in result.errors)
 
 
 def test_reviser_modifies_only_targeted_section_leaving_siblings_byte_identical(

@@ -122,8 +122,10 @@ It now covers:
 8. Invalid demo metadata fails closed before any network collection or filesystem
    mutation.
 
-Validation completed: `uv run ruff check .` passed; `uv run pyright` reported 0 errors,
-0 warnings, and 0 informations; `uv run pytest` reported 219 passed.
+Validation completed in a clean Git checkout: `uv run ruff check .` passed; `uv run pyright`
+reported 0 errors, 0 warnings, and 0 informations; `uv run pytest` collected 220 tests,
+with 218 passed and 2 optional local-reference checks skipped because their Git-ignored
+project data was absent. With that local data available, all 220 tests passed.
 
 ## Approved scope
 

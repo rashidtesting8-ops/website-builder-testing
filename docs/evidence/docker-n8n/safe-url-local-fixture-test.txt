@@ -1,0 +1,2 @@
+﻿http://127.0.0.1/ -> REJECTED: Non-public address blocked: 127.0.0.1
+http://127.0.0.1:8765/ -> REJECTED: Only standard HTTP/HTTPS ports (80/443) are allowed

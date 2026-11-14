@@ -107,7 +107,7 @@ def test_approved_project_rerun_refuses_with_project_locked_error(tmp_path: Path
         # 1. Initial pipeline execution
         res1 = run_pipeline(
             url=target_url,
-            business_name="Safety Paws Salon",
+            business_name="Bark & Bliss Pet Grooming Salon",
             business_id=biz_id,
             projects_dir=projects_dir,
             db_path=db_path,
@@ -172,7 +172,7 @@ def test_approved_project_rerun_refuses_with_project_locked_error(tmp_path: Path
         with pytest.raises(ProjectLockedError, match="approved and locked"):
             run_pipeline(
                 url=target_url,
-                business_name="Safety Paws Salon",
+                business_name="Bark & Bliss Pet Grooming Salon",
                 business_id=biz_id,
                 projects_dir=projects_dir,
                 db_path=db_path,
@@ -205,7 +205,7 @@ def test_approved_project_rerun_refuses_with_project_locked_error(tmp_path: Path
         # 5. Now re-run with new_draft=True
         res_new_draft = run_pipeline(
             url=target_url,
-            business_name="Safety Paws Salon",
+            business_name="Bark & Bliss Pet Grooming Salon",
             business_id=biz_id,
             projects_dir=projects_dir,
             db_path=db_path,
@@ -239,7 +239,7 @@ def test_cli_new_draft_flag_and_locked_error(tmp_path: Path) -> None:
                 "--url",
                 target_url,
                 "--name",
-                "CLI Salon",
+                "Bark & Bliss Pet Grooming Salon",
                 "--business-id",
                 biz_id,
                 "--projects-dir",
@@ -285,7 +285,7 @@ def test_cli_new_draft_flag_and_locked_error(tmp_path: Path) -> None:
                     "--url",
                     target_url,
                     "--name",
-                    "CLI Salon",
+                    "Bark & Bliss Pet Grooming Salon",
                     "--business-id",
                     biz_id,
                     "--projects-dir",
@@ -304,7 +304,7 @@ def test_cli_new_draft_flag_and_locked_error(tmp_path: Path) -> None:
                 "--url",
                 target_url,
                 "--name",
-                "CLI Salon",
+                "Bark & Bliss Pet Grooming Salon",
                 "--business-id",
                 biz_id,
                 "--projects-dir",

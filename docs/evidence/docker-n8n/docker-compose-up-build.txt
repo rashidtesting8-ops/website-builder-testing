@@ -1,0 +1,111 @@
+﻿docker :  Image website-builder-testing-main-collector Building 
+At line:2 char:90
++ ... \docs\evidence\docker-n8n'; docker compose up -d --build 2>&1 | Out-F ...
++                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ( Image website-...ector Building :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+ Image website-builder-testing-main-cockpit Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.14kB done
+#1 DONE 0.0s
+
+#2 [collector internal] load build definition from Dockerfile
+#2 transferring dockerfile: 465B 0.0s done
+#2 DONE 0.5s
+
+#3 [cockpit internal] load metadata for mcr.microsoft.com/playwright/python:v1.55.0-noble
+#3 DONE 1.1s
+
+#4 [collector internal] load .dockerignore
+#4 transferring context: 2B 0.0s done
+#4 DONE 0.2s
+
+#5 [cockpit internal] load build context
+#5 ...
+
+#6 [collector 1/7] FROM mcr.microsoft.com/playwright/python:v1.55.0-noble@sha256:640d578aae63cfb632461d1b0aecb01414e4e020864ac3dd45a868dc0eff3078
+#6 resolve mcr.microsoft.com/playwright/python:v1.55.0-noble@sha256:640d578aae63cfb632461d1b0aecb01414e4e020864ac3dd45a868dc0eff3078 0.6s done
+#6 DONE 0.6s
+
+#5 [cockpit internal] load build context
+#5 transferring context: 955.76kB 1.8s done
+#5 DONE 2.0s
+
+#7 [collector 3/7] COPY requirements.txt requirements-browser.txt ./
+#7 CACHED
+
+#8 [collector 2/7] WORKDIR /workspace
+#8 CACHED
+
+#9 [collector 4/7] RUN pip install --no-cache-dir -r requirements.txt -r requirements-browser.txt
+#9 CACHED
+
+#8 [cockpit 2/7] WORKDIR /workspace
+#8 CACHED
+
+#7 [cockpit 3/7] COPY requirements.txt requirements-browser.txt ./
+#7 CACHED
+
+#9 [cockpit 4/7] RUN pip install --no-cache-dir -r requirements.txt -r requirements-browser.txt
+#9 CACHED
+
+#10 [cockpit 5/7] COPY src ./src
+#10 DONE 0.3s
+
+#11 [cockpit 6/7] COPY app ./app
+#11 DONE 0.4s
+
+#12 [cockpit 7/7] COPY config ./config
+#12 DONE 0.3s
+
+#13 [cockpit] exporting to image
+#13 exporting layers
+#13 exporting layers 1.6s done
+#13 exporting manifest sha256:12edff8639c5eeed2f455f360fd4828b6bd349b017349e1f95a8208359534cba
+#13 exporting manifest sha256:12edff8639c5eeed2f455f360fd4828b6bd349b017349e1f95a8208359534cba 0.1s done
+#13 exporting config sha256:d0e454edcfaad3697b86f2849aa6ded37817e572897e24a348ac890ff61e9f26
+#13 exporting config sha256:d0e454edcfaad3697b86f2849aa6ded37817e572897e24a348ac890ff61e9f26 0.1s done
+#13 exporting attestation manifest sha256:1ad5abf2de70dcb554217405caa7e8e571c196426f2c299d90c40827b82f9e73
+#13 exporting attestation manifest sha256:1ad5abf2de70dcb554217405caa7e8e571c196426f2c299d90c40827b82f9e73 0.2s done
+#13 exporting manifest list sha256:5ea69c1e0d4017279c5667984c18ba798fb3caf2848247c64755ccec49ffa50f
+#13 exporting manifest list sha256:5ea69c1e0d4017279c5667984c18ba798fb3caf2848247c64755ccec49ffa50f 0.1s done
+#13 naming to docker.io/library/website-builder-testing-main-cockpit:latest
+#13 naming to docker.io/library/website-builder-testing-main-cockpit:latest 0.0s done
+#13 unpacking to docker.io/library/website-builder-testing-main-cockpit:latest
+#13 unpacking to docker.io/library/website-builder-testing-main-cockpit:latest 0.6s done
+#13 ...
+
+#14 [collector] exporting to image
+#14 exporting layers 1.7s done
+#14 exporting manifest sha256:7998876f559e149ae4eae26e91a6d17be563dee9c6f55afd15483c10bbd26a1e 0.1s done
+#14 exporting config sha256:06655c66ced4c3b9453d3925705c5c6fde3696e7922876d08f63ff33b1b8f2c7 0.2s done
+#14 exporting attestation manifest sha256:90d27859506fb36bc71285d6e48d1dfe131ff846c2c2346adc2de3bcf9194a5a 0.2s done
+#14 exporting manifest list sha256:76b0d92bab3773daf633a61dacb9d6aa1fea845911577d5aca0087a02e95d3d7 0.1s done
+#14 naming to docker.io/library/website-builder-testing-main-collector:latest 0.1s done
+#14 unpacking to docker.io/library/website-builder-testing-main-collector:latest 0.7s done
+#14 DONE 3.3s
+
+#13 [cockpit] exporting to image
+#13 DONE 3.3s
+
+#15 [collector] resolving provenance for metadata file
+#15 DONE 0.1s
+
+#16 [cockpit] resolving provenance for metadata file
+#16 DONE 0.1s
+ Image website-builder-testing-main-cockpit Built 
+ Image website-builder-testing-main-collector Built 
+ Container website-builder-testing-main-n8n-1 Running 
+ Container website-builder-testing-main-collector-1 Recreate 
+ Container website-builder-testing-main-cockpit-1 Recreate 
+ Container website-builder-testing-main-cockpit-1 Recreated 
+ Container website-builder-testing-main-collector-1 Recreated 
+ Container website-builder-testing-main-cockpit-1 Starting 
+ Container website-builder-testing-main-collector-1 Starting 
+ Container website-builder-testing-main-cockpit-1 Started 
+ Container website-builder-testing-main-collector-1 Started 
+ Container website-builder-testing-main-collector-1 Waiting 
+ Container website-builder-testing-main-cockpit-1 Waiting 
+ Container website-builder-testing-main-cockpit-1 Healthy 
+ Container website-builder-testing-main-collector-1 Healthy 

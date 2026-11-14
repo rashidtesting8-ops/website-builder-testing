@@ -1,0 +1,93 @@
+ Image website-builder-testing-main-collector Building 
+ Image website-builder-testing-main-cockpit Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.14kB done
+#1 DONE 0.0s
+
+#2 [cockpit internal] load build definition from Dockerfile
+#2 transferring dockerfile: 465B 0.1s done
+#2 DONE 0.1s
+
+#2 [collector internal] load build definition from Dockerfile
+#2 DONE 0.1s
+
+#3 [cockpit internal] load metadata for mcr.microsoft.com/playwright/python:v1.55.0-noble
+#3 DONE 0.6s
+
+#4 [cockpit internal] load .dockerignore
+#4 transferring context: 2B 0.0s done
+#4 DONE 0.0s
+
+#5 [collector internal] load build context
+#5 transferring context: 4.68kB 0.0s done
+#5 DONE 0.1s
+
+#6 [cockpit 1/7] FROM mcr.microsoft.com/playwright/python:v1.55.0-noble@sha256:640d578aae63cfb632461d1b0aecb01414e4e020864ac3dd45a868dc0eff3078
+#6 resolve mcr.microsoft.com/playwright/python:v1.55.0-noble@sha256:640d578aae63cfb632461d1b0aecb01414e4e020864ac3dd45a868dc0eff3078
+#6 resolve mcr.microsoft.com/playwright/python:v1.55.0-noble@sha256:640d578aae63cfb632461d1b0aecb01414e4e020864ac3dd45a868dc0eff3078 0.2s done
+#6 DONE 0.2s
+
+#5 [cockpit internal] load build context
+#5 DONE 0.1s
+
+#7 [cockpit 2/7] WORKDIR /workspace
+#7 CACHED
+
+#8 [cockpit 3/7] COPY requirements.txt requirements-browser.txt ./
+#8 CACHED
+
+#9 [cockpit 4/7] RUN pip install --no-cache-dir -r requirements.txt -r requirements-browser.txt
+#9 CACHED
+
+#10 [cockpit 6/7] COPY app ./app
+#10 CACHED
+
+#11 [cockpit 5/7] COPY src ./src
+#11 CACHED
+
+#12 [cockpit 7/7] COPY config ./config
+#12 CACHED
+
+#13 [collector] exporting to image
+#13 exporting layers 0.0s done
+#13 exporting manifest sha256:7998876f559e149ae4eae26e91a6d17be563dee9c6f55afd15483c10bbd26a1e
+#13 exporting manifest sha256:7998876f559e149ae4eae26e91a6d17be563dee9c6f55afd15483c10bbd26a1e 0.0s done
+#13 exporting config sha256:06655c66ced4c3b9453d3925705c5c6fde3696e7922876d08f63ff33b1b8f2c7 0.0s done
+#13 exporting attestation manifest sha256:56c99e8fda40f18e7499b392d29dbde4e0277c716aabd85d01f3f2eb063ed2a6
+#13 exporting attestation manifest sha256:56c99e8fda40f18e7499b392d29dbde4e0277c716aabd85d01f3f2eb063ed2a6 0.1s done
+#13 exporting manifest list sha256:b014fcf66e77e3a0e5340ebdf1573d52385958b989b080ce4f51d47a1a419546
+#13 ...
+
+#14 [cockpit] exporting to image
+#14 exporting layers 0.0s done
+#14 exporting manifest sha256:12edff8639c5eeed2f455f360fd4828b6bd349b017349e1f95a8208359534cba done
+#14 exporting config sha256:d0e454edcfaad3697b86f2849aa6ded37817e572897e24a348ac890ff61e9f26 0.0s done
+#14 exporting attestation manifest sha256:724a26ab7d0b02682ff07595d441ad489aae56c5833d0681bab7bd4335da6398 0.2s done
+#14 exporting manifest list sha256:e79300d1f7a845f2d799ab3b6842edb78d724480e044562e8d845199aad7c0c4 0.1s done
+#14 naming to docker.io/library/website-builder-testing-main-cockpit:latest 0.0s done
+#14 unpacking to docker.io/library/website-builder-testing-main-cockpit:latest 0.0s done
+#14 DONE 0.6s
+
+#13 [collector] exporting to image
+#13 exporting manifest list sha256:b014fcf66e77e3a0e5340ebdf1573d52385958b989b080ce4f51d47a1a419546 0.1s done
+#13 naming to docker.io/library/website-builder-testing-main-collector:latest 0.0s done
+#13 unpacking to docker.io/library/website-builder-testing-main-collector:latest 0.1s done
+#13 DONE 0.7s
+
+#15 [cockpit] resolving provenance for metadata file
+#15 ...
+
+#16 [collector] resolving provenance for metadata file
+#16 DONE 0.1s
+
+#15 [cockpit] resolving provenance for metadata file
+#15 DONE 0.1s
+ Image website-builder-testing-main-cockpit Built 
+ Image website-builder-testing-main-collector Built 
+ Container website-builder-testing-main-cockpit-1 Running 
+ Container website-builder-testing-main-n8n-1 Running 
+ Container website-builder-testing-main-collector-1 Running 
+ Container website-builder-testing-main-collector-1 Waiting 
+ Container website-builder-testing-main-cockpit-1 Waiting 
+ Container website-builder-testing-main-collector-1 Healthy 
+ Container website-builder-testing-main-cockpit-1 Healthy 

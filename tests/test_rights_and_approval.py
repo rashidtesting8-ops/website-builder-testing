@@ -421,3 +421,60 @@ def test_acknowledge_open_issues_stored_in_release_manifest(tmp_path: Path) -> N
     assert len(manifest_json["acknowledged_issues"]) >= 1
     assert any("Heading contrast" in str(issue) for issue in manifest_json["acknowledged_issues"])
 
+
+def test_approval_refuses_critic_unavailable(tmp_path: Path) -> None:
+    project_root = _scaffold_project_for_rights(tmp_path, "critic-unavailable-salon")
+    db_path = tmp_path / "editvista.sqlite3"
+
+    pipeline_cli_main(
+        [
+            "confirm-rights",
+            "--project-id",
+            "critic-unavailable-salon",
+            "--all",
+            "--basis",
+            "owner_permission",
+            "--operator",
+            "Release Reviewer",
+            "--evidence",
+            "Owner provided written preview permission",
+            "--projects-dir",
+            str(tmp_path),
+            "--db-path",
+            str(db_path),
+        ]
+    )
+    (project_root / "qa" / "visual-critique.json").write_text(
+        json.dumps(
+            {
+                "project_id": "critic-unavailable-salon",
+                "status": "critic_unavailable",
+                "defects": [],
+                "llm_used": False,
+                "warnings": ["LLM provider unavailable"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ReleaseApprovalGateError, match="critic unavailable"):
+        approve_release(
+            project_root,
+            operator_name="Release Reviewer",
+            notes="Reviewed the candidate",
+            version="v1",
+            projects_dir=tmp_path,
+            db_path=db_path,
+            acknowledge_open_issues=True,
+            review_attestation={
+                "candidate_sha256": hashlib.sha256(
+                    (project_root / "release-candidate" / "standalone.html").read_bytes()
+                ).hexdigest(),
+                "reviewed_preview": True,
+                "reviewed_facts": True,
+                "reviewed_assets": True,
+                "reviewed_qa": True,
+                "confirmed_release": True,
+            },
+        )
+

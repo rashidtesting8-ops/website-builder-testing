@@ -120,7 +120,7 @@ def test_pipeline_resumption_skips_completed_stages_after_curation(
         try:
             run_pipeline(
                 url=target_url,
-                business_name="Resume Paws Salon",
+                business_name="Bark & Bliss Pet Grooming Salon",
                 business_id=biz_id,
                 projects_dir=projects_dir,
                 db_path=db_path,
@@ -143,7 +143,7 @@ def test_pipeline_resumption_skips_completed_stages_after_curation(
                 "--url",
                 target_url,
                 "--name",
-                "Resume Paws Salon",
+                "Bark & Bliss Pet Grooming Salon",
                 "--business-id",
                 biz_id,
                 "--projects-dir",
@@ -183,7 +183,7 @@ def test_pipeline_pauses_at_approval_gate_and_unlocks_on_cli_approve_and_prune(
     with _ephemeral_grooming_salon_server() as target_url:
         res = run_pipeline(
             url=target_url,
-            business_name="Gated Pet Salon",
+            business_name="Bark & Bliss Pet Grooming Salon",
             business_id=biz_id,
             projects_dir=projects_dir,
             db_path=db_path,

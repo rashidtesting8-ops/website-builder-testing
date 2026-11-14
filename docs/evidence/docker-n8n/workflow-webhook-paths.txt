@@ -1,0 +1,46 @@
+﻿[
+  {
+    "file": "01-client-intake-and-website-build.json",
+    "name": "01 - Client Intake & Luxury Website Build Trigger",
+    "webhooks": [
+      {
+        "node": "Client Intake Webhook",
+        "method": "POST",
+        "path": "pet-grooming-research"
+      }
+    ],
+    "manual_triggers": []
+  },
+  {
+    "file": "02-live-build-telemetry-and-cockpit-router.json",
+    "name": "02 - Live Build Telemetry & Cockpit Review Router",
+    "webhooks": [
+      {
+        "node": "Build Telemetry Webhook",
+        "method": "GET",
+        "path": "pet-grooming-research-status"
+      }
+    ],
+    "manual_triggers": []
+  },
+  {
+    "file": "03-approve-and-export-ghl.json",
+    "name": "03 - Executive Release Sign-Off & Scoped GHL Exporter",
+    "webhooks": [
+      {
+        "node": "Executive Sign-Off Webhook",
+        "method": "POST",
+        "path": "pet-grooming-approve"
+      }
+    ],
+    "manual_triggers": []
+  },
+  {
+    "file": "04-interactive-one-click-luxury-demo.json",
+    "name": "04 - One-Click Interactive Luxury Website Studio Demo",
+    "webhooks": [],
+    "manual_triggers": [
+      "One-Click Studio Trigger"
+    ]
+  }
+]

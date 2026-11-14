@@ -12,6 +12,7 @@ from app.collector import (
     choose_srcset,
     collect,
     collect_page_text,
+    grab_media,
     same_site,
     sanitize_prompt_injection,
     slugify,
@@ -37,6 +38,66 @@ class CollectorTests(unittest.TestCase):
         self.assertEqual(choose_srcset("photo-300.jpg 300w, photo-900.jpg 900w"), "photo-900.jpg")
         self.assertTrue(same_site("https://www.example.com", "https://example.com/path"))
         self.assertEqual(slugify("Hello Dog & Cat!"), "hello-dog-cat")
+
+    def test_wix_srcset_fixture_preserves_full_media_urls(self) -> None:
+        fixture_path = Path(__file__).parent / "fixtures" / "wix_srcset.html"
+        fixture_html = fixture_path.read_text(encoding="utf-8")
+        soup = BeautifulSoup(fixture_html, "html.parser")
+
+        candidates = grab_media(soup, "https://www.hachiandco.com.au/services")
+        urls = {candidate["url"] for candidate in candidates}
+
+        assert (
+            "https://static.wixstatic.com/media/"
+            "cb175e457890ce6ed05c219ccb08c750.jpg/v1/fill/"
+            "w_248,h_248,al_c,q_80,usm_0.66_1.00_0.01,enc_avif,quality_auto/"
+            "cb175e457890ce6ed05c219ccb08c750.jpg"
+        ) in urls
+        assert (
+            "https://www.hachiandco.com.au/quality_auto/"
+            "cb175e457890ce6ed05c219ccb08c750.jpg"
+        ) not in urls
+
+    def test_media_failures_are_reported_in_run_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            web = root / "public"
+            web.mkdir()
+            (web / "robots.txt").write_text(
+                "User-agent: *\nDisallow: /blocked.png\n",
+                encoding="utf-8",
+            )
+            (web / "index.html").write_text(
+                '<html><body><img src="/missing.png" alt="missing">'
+                '<img src="/blocked.png" alt="blocked"></body></html>',
+                encoding="utf-8",
+            )
+            (web / "blocked.png").write_bytes(b"not fetched when robots disallows it")
+
+            class Handler(QuietHandler):
+                def __init__(self, *args: object, **kwargs: object) -> None:
+                    super().__init__(*args, directory=str(web), **kwargs)  # type: ignore[arg-type]
+
+            server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                port = server.server_address[1]
+                result = collect(
+                    f"http://127.0.0.1:{port}/",
+                    root / "projects",
+                    max_pages=1,
+                    allow_private=True,
+                )
+            finally:
+                server.shutdown()
+                server.server_close()
+
+        issues = result["issues"]
+        assert len(issues) == 2
+        by_status = {issue["status"]: issue for issue in issues}
+        assert "404" in by_status["failed"]["reason"]
+        assert by_status["blocked_by_robots"]["reason"]
 
     def test_website_collection_and_social_import(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

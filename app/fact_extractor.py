@@ -1212,10 +1212,22 @@ def _phone_location_key(fact: ExtractedFact) -> str | None:
     return normalized or None
 
 
+def _source_priority(fact: ExtractedFact) -> int:
+    """Rank claim sources: human manual > JSON-LD > href > regex/title heuristics."""
+    return {"manual": 4, "json_ld": 3, "href": 2}.get(fact.source_kind, 1)
+
+
 def _detect_conflicts_and_resolve_statuses(
     facts: list[ExtractedFact],
 ) -> list[ExtractedFact]:
-    """Mark competing identity/contact claims for human review without changing their text."""
+    """Mark competing identity/contact claims for human review without changing their text.
+
+    When competing values disagree, the documented source priority decides the winner:
+    if the best source kind (e.g. JSON-LD) agrees on a single value, lower-priority
+    variants such as raw page titles are demoted on their own instead of dragging the
+    authoritative claim down to needs_review with them. If the best source kind itself
+    disagrees, every candidate is demoted — genuine ambiguity still needs a human.
+    """
     conflict_sensitive_categories = {"business_name", "phone", "address"}
 
     for cat in conflict_sensitive_categories:
@@ -1232,6 +1244,13 @@ def _detect_conflicts_and_resolve_statuses(
             normalized_map.setdefault(_fact_conflict_key(fact), []).append(fact)
 
         if len(normalized_map) >= 2:
+            top_priority = max(_source_priority(f) for f in cat_facts)
+            top_keys = {
+                norm
+                for norm, group in normalized_map.items()
+                if any(_source_priority(f) == top_priority for f in group)
+            }
+            authoritative_agrees = len(top_keys) == 1
             for norm, same_value_facts in normalized_map.items():
                 competing_fact_ids = [
                     other.fact_id
@@ -1239,6 +1258,9 @@ def _detect_conflicts_and_resolve_statuses(
                     if other_norm != norm
                     for other in other_facts
                 ]
+                if authoritative_agrees and norm in top_keys:
+                    # Best-source consensus wins; keep it verified and undisputed.
+                    continue
                 for fact in same_value_facts:
                     fact.is_verified = False
                     fact.status = "needs_review"

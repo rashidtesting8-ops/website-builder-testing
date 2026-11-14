@@ -312,3 +312,69 @@ def test_expired_promotion_status(tmp_path: Path) -> None:
     report = extract_business_facts(proj)
     expired_facts = [f for f in report.facts if f.status == "expired"]
     assert len(expired_facts) >= 1, "Past promotion must be assigned status='expired'"
+
+
+def test_cross_priority_conflict_keeps_json_ld_name_verified(tmp_path: Path) -> None:
+    """Requirement 4 (source priority): a page-title variant must not demote the JSON-LD name.
+
+    Regression: 'Location | <name>' title candidates used to conflict with the JSON-LD
+    business name and demote EVERY business_name fact to needs_review, which failed the
+    MVF gate and let the junk title flow into the creative brief after acknowledgment.
+    """
+    proj = tmp_path / "proj-cross-priority"
+    research = proj / "research"
+    snaps = research / "snapshots"
+    snaps.mkdir(parents=True, exist_ok=True)
+
+    home_html = """<!DOCTYPE html>
+    <html>
+      <head>
+        <title>Hachi &amp; Co | Dog Grooming</title>
+        <script type="application/ld+json">
+        {"@context": "https://schema.org", "@type": "LocalBusiness", "name": "Hachi & Co"}
+        </script>
+      </head>
+      <body><h1>Hachi &amp; Co</h1></body>
+    </html>"""
+    location_html = """<!DOCTYPE html>
+    <html>
+      <head><title>Location | Hachi &amp; Co</title></head>
+      <body><h1>Location</h1></body>
+    </html>"""
+
+    (snaps / "home-sha.html").write_text(home_html, encoding="utf-8")
+    (snaps / "location-sha.html").write_text(location_html, encoding="utf-8")
+    pages = [
+        {
+            "url": "https://hachi.example.com/",
+            "sha256": "home-sha",
+            "title": "Hachi & Co | Dog Grooming",
+            "text": "Hachi & Co Dog Grooming",
+        },
+        {
+            "url": "https://hachi.example.com/location",
+            "sha256": "location-sha",
+            "title": "Location | Hachi & Co",
+            "text": "Location Hachi & Co",
+        },
+    ]
+    (research / "pages.json").write_text(json.dumps(pages), encoding="utf-8")
+
+    report = extract_business_facts(proj)
+
+    names = [f for f in report.facts if f.category == "business_name"]
+    json_ld_names = [f for f in names if f.source_kind == "json_ld"]
+    title_names = [f for f in names if f.source_kind == "regex"]
+    assert json_ld_names, "JSON-LD business name must be extracted"
+    assert title_names, "Page-title fallback candidate must be extracted"
+
+    # The authoritative JSON-LD name survives the conflict, undisputed.
+    for f in json_ld_names:
+        assert f.status == "verified" and f.is_verified
+        assert f.conflicts_with == []
+
+    # The title-suffix variant loses and points at the surviving JSON-LD facts.
+    json_ld_ids = {f.fact_id for f in json_ld_names}
+    for f in title_names:
+        assert f.status == "needs_review" and not f.is_verified
+        assert json_ld_ids & set(f.conflicts_with)

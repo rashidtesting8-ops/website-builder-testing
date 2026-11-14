@@ -293,7 +293,7 @@ def test_pipeline_e2e_with_llm_adapter_executes_orchestration(tmp_path: Path) ->
     with _ephemeral_grooming_salon_server() as base_url:
         result = run_pipeline(
             url=base_url,
-            business_name="Furry Tail Spa",
+            business_name="Bark & Bliss Pet Grooming Salon",
             projects_dir=tmp_path / "projects",
             db_path=tmp_path / "editvista.sqlite3",
             allow_private=True,
@@ -337,7 +337,7 @@ def test_pipeline_e2e_with_llm_adapter_executes_orchestration(tmp_path: Path) ->
     assert (result.project_folder / "delivery" / "release-manifest.json").is_file()
 
     # Verify editorial brief was persisted with LLM copy
-    brief_file = tmp_path / "projects" / "furry-tail-spa" / "design" / "creative-brief.json"
+    brief_file = result.project_folder / "design" / "creative-brief.json"
     assert brief_file.is_file()
     brief_data = json.loads(brief_file.read_text(encoding="utf-8"))
     assert brief_data["editorial_headline"] == "Holistic Spa & Gentle Grooming For Every Pup"

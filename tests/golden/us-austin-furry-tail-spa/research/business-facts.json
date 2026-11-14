@@ -1,6 +1,6 @@
 {
   "project_id": "us-austin-furry-tail-spa",
-  "extracted_at": "2026-11-12T09:20:40.314487Z",
+  "extracted_at": "2026-11-14T09:48:02.991239Z",
   "facts": [
     {
       "fact_id": "fact-69fdabb7ed36",
@@ -15,7 +15,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-12T09:20:40.313487Z",
+      "last_checked_at": "2026-11-14T09:48:02.991239Z",
       "source_text": "Furry Tail Spa",
       "verified": true
     },
@@ -32,7 +32,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-12T09:20:40.313487Z",
+      "last_checked_at": "2026-11-14T09:48:02.991239Z",
       "source_text": "Phone: (512) 555-0144",
       "verified": true
     },
@@ -49,7 +49,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-12T09:20:40.313487Z",
+      "last_checked_at": "2026-11-14T09:48:02.991239Z",
       "source_text": "Address: 742 Evergreen Terrace, Austin, TX 78701",
       "verified": true
     },
@@ -74,7 +74,7 @@
       },
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-12T09:20:40.313487Z",
+      "last_checked_at": "2026-11-14T09:48:02.991239Z",
       "source_text": "Hours: Mon - Sat 8:00 AM - 6:00 PM",
       "verified": true
     },
@@ -91,7 +91,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-12T09:20:40.313487Z",
+      "last_checked_at": "2026-11-14T09:48:02.991239Z",
       "source_text": "Full Dog Groom & Styling - $85.00",
       "verified": true
     },
@@ -108,7 +108,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-12T09:20:40.313487Z",
+      "last_checked_at": "2026-11-14T09:48:02.991239Z",
       "source_text": "Full Dog Groom & Styling - $85.00",
       "verified": true
     },
@@ -125,7 +125,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-12T09:20:40.314487Z",
+      "last_checked_at": "2026-11-14T09:48:02.991239Z",
       "source_text": "Luxury Bath & Deshedding - $55.00",
       "verified": true
     },
@@ -142,7 +142,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-12T09:20:40.314487Z",
+      "last_checked_at": "2026-11-14T09:48:02.991239Z",
       "source_text": "Luxury Bath & Deshedding - $55.00",
       "verified": true
     },
@@ -159,7 +159,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-12T09:20:40.314487Z",
+      "last_checked_at": "2026-11-14T09:48:02.991239Z",
       "source_text": "Puppy Intro Grooming Package - $45.00",
       "verified": true
     },
@@ -176,7 +176,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-12T09:20:40.314487Z",
+      "last_checked_at": "2026-11-14T09:48:02.991239Z",
       "source_text": "Puppy Intro Grooming Package - $45.00",
       "verified": true
     },
@@ -193,7 +193,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-12T09:20:40.314487Z",
+      "last_checked_at": "2026-11-14T09:48:02.991239Z",
       "source_text": "Feline Lion Cut & Cat Bath - $95.00",
       "verified": true
     },
@@ -210,7 +210,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-12T09:20:40.314487Z",
+      "last_checked_at": "2026-11-14T09:48:02.991239Z",
       "source_text": "Feline Lion Cut & Cat Bath - $95.00",
       "verified": true
     },
@@ -227,7 +227,7 @@
       "structured_value": null,
       "is_verified": true,
       "status": "verified",
-      "last_checked_at": "2026-11-12T09:20:40.314487Z",
+      "last_checked_at": "2026-11-14T09:48:02.991239Z",
       "source_text": "Cancellation Policy: Please provide 24 hours notice for any cancellation.",
       "verified": true
     }

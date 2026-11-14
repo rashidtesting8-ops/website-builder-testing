@@ -1,0 +1,4 @@
+﻿NAME                                       IMAGE                                    COMMAND                  SERVICE     CREATED         STATUS                   PORTS
+website-builder-testing-main-cockpit-1     website-builder-testing-main-cockpit     "python -m app.cockp…"   cockpit     7 minutes ago   Up 7 minutes (healthy)   127.0.0.1:8888->8888/tcp
+website-builder-testing-main-collector-1   website-builder-testing-main-collector   "uvicorn app.service…"   collector   7 minutes ago   Up 7 minutes (healthy)   127.0.0.1:8787->8787/tcp
+website-builder-testing-main-n8n-1         n8nio/n8n:2.47.3                         "tini -- /docker-ent…"   n8n         2 days ago      Up 9 minutes (healthy)   127.0.0.1:5678->5678/tcp

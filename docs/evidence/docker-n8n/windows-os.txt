@@ -1,0 +1,10 @@
+﻿
+
+Caption        : Microsoft Windows 10 Pro
+Version        : 10.0.19045
+BuildNumber    : 19045
+OSArchitecture : 64-bit
+
+
+
+

@@ -64,7 +64,7 @@ def _mock_successful_collect(
     pages = [
         {
             "url": url,
-            "title": "Healthy Paws Grooming",
+            "title": "Retry Salon",
             "text": "Full service dog grooming, baths, haircuts, nail trim. Phone: 555-123-4567.",
             "sha256": "a" * 64,
         }

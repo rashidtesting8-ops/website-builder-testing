@@ -495,19 +495,33 @@ def approve_release(
     if critique_path.is_file():
         try:
             crit_data = json.loads(critique_path.read_text(encoding="utf-8"))
-            critique_defects = crit_data.get("defects", [])
-            if crit_data.get("status") == "defects_found" or critique_defects:
-                for d in critique_defects:
-                    desc = (
-                        d.get("description") or d.get("actionable_instruction") or str(d)
-                        if isinstance(d, dict)
-                        else str(d)
-                    )
-                    open_issues.append(f"visual_critique_defect: {desc}")
-                if not critique_defects:
-                    open_issues.append("visual_critique_defect: report has no defect details")
-        except Exception:
-            pass
+        except json.JSONDecodeError as exc:
+            raise ReleaseApprovalGateError(
+                "Release blocked: visual critique report contains invalid JSON"
+            ) from exc
+        if not isinstance(crit_data, dict):
+            raise ReleaseApprovalGateError(
+                "Release blocked: visual critique report must be a JSON object"
+            )
+        if crit_data.get("status") == "critic_unavailable":
+            raise ReleaseApprovalGateError(
+                "Release blocked: visual critic unavailable; complete a critic run before approval"
+            )
+        critique_defects = crit_data.get("defects", [])
+        if not isinstance(critique_defects, list):
+            raise ReleaseApprovalGateError(
+                "Release blocked: visual critique defects must be a JSON list"
+            )
+        if crit_data.get("status") == "defects_found" or critique_defects:
+            for d in critique_defects:
+                desc = (
+                    d.get("description") or d.get("actionable_instruction") or str(d)
+                    if isinstance(d, dict)
+                    else str(d)
+                )
+                open_issues.append(f"visual_critique_defect: {desc}")
+            if not critique_defects:
+                open_issues.append("visual_critique_defect: report has no defect details")
 
     facts_path = project_root / "research" / "business-facts.json"
     if facts_path.is_file():

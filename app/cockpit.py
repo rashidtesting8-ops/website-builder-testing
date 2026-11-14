@@ -13,10 +13,12 @@ import html
 import json
 import mimetypes
 import os
+import re
 import tempfile
 from pathlib import Path
 from typing import Any
 
+import requests
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse
@@ -94,6 +96,45 @@ class ApproveReleaseRequest(BaseModel):
 class ReviseSectionRequest(BaseModel):
     section_name: str
     new_html: str
+
+
+class IntakeRequest(BaseModel):
+    """URL-paste intake payload forwarded verbatim to the worker service."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    url: str = Field(min_length=1)
+    business_name: str | None = None
+    business_id: str | None = None
+    resume: bool = False
+
+
+_JOB_ID_RE = re.compile(r"[0-9a-f]{32}")
+
+
+def _worker_detail(resp: requests.Response) -> str:
+    """Extract a FastAPI-style 'detail' message from a worker error response."""
+    try:
+        payload = resp.json()
+    except ValueError:
+        payload = None
+    if isinstance(payload, dict):
+        detail = payload.get("detail")
+        if isinstance(detail, str) and detail.strip():
+            return detail
+    text = (resp.text or "").strip()
+    return text[:300] if text else "Worker request failed"
+
+
+def _worker_json(resp: requests.Response) -> dict[str, Any]:
+    """Parse a worker success body, failing closed on non-object JSON."""
+    try:
+        payload = resp.json()
+    except ValueError as exc:
+        raise HTTPException(502, "Worker returned a non-JSON response") from exc
+    if not isinstance(payload, dict):
+        raise HTTPException(502, "Worker returned an unexpected response")
+    return payload
 
 
 def _render_dashboard_html(projects: list[dict[str, Any]]) -> str:
@@ -356,11 +397,18 @@ def _render_review_cockpit_html(
     return rendered
 
 
-def create_cockpit_app(projects_dir: str | Path = "./projects") -> FastAPI:
+def create_cockpit_app(
+    projects_dir: str | Path = "./projects",
+    worker_base_url: str | None = None,
+) -> FastAPI:
     """Factory creating the Operator Cockpit FastAPI instance bound to a projects root."""
     resolved_projects_dir = Path(projects_dir).resolve()
     resolved_projects_dir.mkdir(parents=True, exist_ok=True)
     db_path = resolved_projects_dir / "editvista.sqlite3"
+    resolved_worker_url = (
+        worker_base_url
+        or os.environ.get("WORKER_BASE_URL", "http://127.0.0.1:8787")
+    ).rstrip("/")
 
     app = FastAPI(title="EditVista Operator Cockpit", docs_url="/api/docs")
 
@@ -430,6 +478,45 @@ def create_cockpit_app(projects_dir: str | Path = "./projects") -> FastAPI:
     def project_summary_api(project_id: str) -> dict[str, Any]:
         _resolve_project_root(project_id, resolved_projects_dir)
         return generate_review_summary(project_id, projects_dir=resolved_projects_dir)
+
+    @app.post("/api/intake", status_code=202)
+    def intake_endpoint(req: IntakeRequest) -> dict[str, Any]:
+        """Start a full pipeline run on the worker (the single heavy-build slot lives there)."""
+        payload: dict[str, Any] = {
+            "url": req.url,
+            "business_name": req.business_name,
+            "business_id": req.business_id,
+            "resume": req.resume,
+        }
+        try:
+            resp = requests.post(
+                f"{resolved_worker_url}/pipeline/run",
+                json=payload,
+                timeout=15.0,
+            )
+        except requests.RequestException as exc:
+            raise HTTPException(
+                502,
+                f"Worker unreachable at {resolved_worker_url}: {type(exc).__name__}",
+            ) from exc
+        if resp.status_code != 202:
+            raise HTTPException(resp.status_code, _worker_detail(resp))
+        return _worker_json(resp)
+
+    @app.get("/api/jobs/{job_id}")
+    def job_status_endpoint(job_id: str) -> dict[str, Any]:
+        if _JOB_ID_RE.fullmatch(job_id) is None:
+            raise HTTPException(404, "Unknown job")
+        try:
+            resp = requests.get(f"{resolved_worker_url}/jobs/{job_id}", timeout=10.0)
+        except requests.RequestException as exc:
+            raise HTTPException(
+                502,
+                f"Worker unreachable at {resolved_worker_url}: {type(exc).__name__}",
+            ) from exc
+        if resp.status_code != 200:
+            raise HTTPException(resp.status_code, _worker_detail(resp))
+        return _worker_json(resp)
 
     @app.post("/api/projects/{project_id}/confirm-rights")
     def confirm_asset_rights_endpoint(
