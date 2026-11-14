@@ -966,14 +966,19 @@ All contributions must adhere strictly to [`AGENTS.md`](AGENTS.md) and [`docs/DE
 
 **Current readiness (evidence-based):** pipeline/cockpit/QA/critique/revise/approval/export/cleanup **mechanisms are implemented and tested** (ruff/pyright clean, **264 tests pass**). What remains is a **single end-to-end proof run with evidence** (rights/permission + human review + resume demo + GHL publish/gate + cleanup proof).
 
-### Phase 0 — Prep (in progress)
+### Phase 0 — Prep (completed for Option B rehearsal)
 
-| Item | Status | Notes (low-token, quality) |
+| Item | Status | Notes |
 |---|---|---|
-| Pick 1 real pet-grooming URL (usable gallery) + documented permission/rights basis | ☐ user action | Classify in `projects/<project-id>/input.json` (`demo` absent/false for real+permitted). `third_party_internal_demo` cannot be rights-confirmed/approved/exported. “Public” ≠ reuse rights. |
-| LLM provider config (Groq recommended now) | ☐ user action | **Groq is natively supported:** set `GROQ_API_KEY` (and optionally `GROQ_MODEL`) in local `.env` (gitignored). `get_default_adapter` priority is `ANTHROPIC_API_KEY` > `OPENAI_API_KEY` > `GEMINI_API_KEY` > `GROQ_API_KEY` — set only the intended key to avoid ambiguity. **OpenRouter is not currently wired** as a named provider in `src/engine/llm/adapter.py`; use Groq for Phase 0 or extend the adapter separately. Never commit keys. Budget/caps+cache already enforced. |
-| Run environment | ☐ verify | Docker (`docker compose up --build -d`, collector+cockpit healthy) or local `uv` + Playwright/Chromium for 5-view QA. |
-| n8n / GHL access | ☑ user confirmed | n8n runnable; GHL account available (publish + `scripts/ghl_live_gate.py` for live proof). |
+| Target (Option B rehearsal) | ☑ | `https://www.lilys-club.co.uk/` + FB/IG provided; `project_id=lilys-club-dod-rehearsal` (`Lilys Club Dog Grooming`). Classified `demo.is_fixture=true`, `kind=third_party_internal_demo` (frozen) — **no documented reuse rights: rights/approval/standalone+GHL export blocked by policy** (technical rehearsal, not full DoD). |
+| LLM provider config (Groq) | ☑ (local) | `.env` gitignored, `GROQ_API_KEY` + `GROQ_MODEL=llama-3.3-70b-versatile` set locally (keys not committed; rotate keys exposed in chat). |
+| Run environment | ☑ | Docker stack healthy (`collector`/`cockpit`/`n8n` Up). |
+| n8n / GHL access | ☑ (partial) | n8n workflows 01–03 published and executed (webhook proof: 01→202 intake, 02→200 telemetry, 03→500 expected approve-block/error). 04 manual (CLI execute conflicted with running server). GHL publish not possible without approval in Option B. |
+
+### Rehearsal progress (evidence)
+- **Resume demonstrated:** job `aff2cc68` failed (`input.json` UTF-8 BOM) → fixed → resubmitted with `resume=true` (`b07d3c2`, `status=done`, `pipeline_status=needs_review`, MVF `business_name` gap). n8n-triggered job `26ec223c` on same project completed with `skipped_stages=["collect","extract"]`.
+- **Source material collected:** snapshots/facts/assets/manifests generated for `lilys-club-dod-rehearsal` (stopped at MVF before design/QA in first pass).
+- **In progress:** resumed with `--acknowledge-gaps` to exercise downstream design/QA/critique/revision mechanics (acknowledgment recorded; final approve/export still blocked by third-party demo policy).
 
 **Low-token tips:** reuse cache, one heavy build at a time, prefer a smaller/faster Groq model for first dry validation then rerun quality pass if needed; caps block runaway spend (pre-spend estimate enforced).
 
