@@ -590,3 +590,55 @@ def test_resume_rechecks_name_when_operator_input_changes(
     )
 
     assert next_resume.skipped_stages == ["collect", "extract"]
+
+
+def test_business_name_comparison_accepts_extracted_structured_fact(tmp_path: Path) -> None:
+    """A JSON-LD/structured business name must verify even when page titles carry prefixes."""
+    from app.fact_extractor import BusinessFactsReport, ExtractedFact
+    from app.pipeline import _business_name_comparison
+
+    project = tmp_path / "jsonld-name"
+    research = project / "research"
+    snapshots = research / "snapshots"
+    snapshots.mkdir(parents=True, exist_ok=True)
+    html = (
+        "<html><head><title>Welcome to Vanity Fur - Vanity Fur Dog Grooming</title></head>"
+        "<body></body></html>"
+    )
+    page_hash = hashlib.sha256(html.encode("utf-8")).hexdigest()
+    (snapshots / f"{page_hash}.html").write_text(html, encoding="utf-8")
+    (research / "pages.json").write_text(
+        json.dumps(
+            [
+                {
+                    "url": "https://vanity.example/",
+                    "title": "Welcome to Vanity Fur - Vanity Fur Dog Grooming",
+                    "sha256": page_hash,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    report = BusinessFactsReport(
+        project_id="jsonld-name",
+        facts=[
+            ExtractedFact(
+                fact_id="fact-jsonld-name",
+                project_id="jsonld-name",
+                category="business_name",
+                claim_key="business_name",
+                claim_value="Vanity Fur Dog Grooming",
+                source_url="https://vanity.example/",
+                source_text_snippet="Vanity Fur Dog Grooming",
+                source_kind="json_ld",
+                is_verified=True,
+                status="verified",
+            )
+        ],
+    )
+
+    result = _business_name_comparison(project, "Vanity Fur Dog Grooming", report)
+
+    assert result["status"] == "verified"
+    assert result["matched_source"] is not None

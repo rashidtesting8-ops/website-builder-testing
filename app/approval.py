@@ -601,6 +601,24 @@ def approve_release(
             shutil.copy2(src_f, delivery_dir / fname)
             shutil.copy2(src_f, version_dir / fname)
 
+    # Copy brief-listed research/design/QA artifacts into delivery/ for a self-contained release
+    _delivery_artifact_sources = [
+        ("research/asset-manifest.json", "delivery/asset-manifest.json"),
+        ("research/business-facts.json", "delivery/business-facts.json"),
+        ("design/creative-brief.json", "delivery/design-decisions.json"),
+        ("qa/qa-report.json", "delivery/qa-report.json"),
+        ("design/change-log.md", "delivery/change-log.md"),
+    ]
+    for src_rel, dst_rel in _delivery_artifact_sources:
+        src_f = project_root / src_rel
+        if src_f.is_file():
+            dst_f = project_root / dst_rel
+            _make_writable(dst_f)
+            shutil.copy2(src_f, dst_f)
+            version_copy = version_dir / Path(dst_rel).name
+            _make_writable(version_copy)
+            shutil.copy2(src_f, version_copy)
+
     _make_writable(delivery_dir / "retained-assets.json")
     shutil.copy2(delivery_dir / "retained-assets.json", version_dir / "retained-assets.json")
 

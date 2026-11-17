@@ -84,6 +84,7 @@ class PipelineRequest(BaseModel):
     business_name: str | None = None
     business_id: str | None = None
     resume: bool = False
+    new_draft: bool = False
 
 
 class ApprovePipelineRequest(BaseModel):
@@ -113,19 +114,44 @@ def _run_full_pipeline_sync(
     business_name: str | None,
     business_id: str | None,
     resume: bool,
+    new_draft: bool = False,
 ) -> dict[str, Any]:
     from app.pipeline import run_pipeline
 
+    from engine.llm.adapter import get_default_adapter, get_env_api_key
+
     resolved_name = _infer_business_name(url, explicit_name=business_name)
     resolved_id = slugify(business_id or resolved_name)
+    # Optional new-draft mode: rebuild only the draft workspace of an approved project,
+    # leaving the frozen delivery/ and versions/ untouched (brief immutability rule).
+    # Wire the configured LLM (one adapter, per-job budget/cap) when a vision-capable
+    # provider is present. Text-only providers (Groq) fall back to heuristic critique
+    # to preserve the visual-critic gate semantics (escalate on LLM failure).
+    llm_adapter = None
+    if (
+        get_env_api_key("ANTHROPIC_API_KEY")
+        or get_env_api_key("OPENAI_API_KEY")
+        or get_env_api_key("GEMINI_API_KEY")
+        or get_env_api_key("OPENROUTER_API_KEY")
+    ):
+        try:
+            llm_adapter = get_default_adapter(resolved_id)
+            # Groq is text-only: do not pass it (critic needs vision).
+            from engine.llm.adapter import GroqProvider
+            if isinstance(llm_adapter.provider, GroqProvider):
+                llm_adapter = None
+        except Exception:
+            llm_adapter = None
     res = run_pipeline(
         url=url,
         business_name=resolved_name,
         business_id=resolved_id,
         projects_dir=DATA_DIR,
         resume=resume,
+        new_draft=new_draft,
         pause_for_approval=True,
         qa_runner=_container_safe_qa_runner,
+        llm_adapter=llm_adapter,
     )
     return {
         "project_id": res.project_id,
@@ -168,6 +194,7 @@ def work_pipeline(job_id: str, req: PipelineRequest) -> None:
             business_name=req.business_name,
             business_id=req.business_id,
             resume=req.resume,
+            new_draft=req.new_draft,
         )
         store({"job_id": job_id, "status": "done", "result": result})
     except Exception as exc:

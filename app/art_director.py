@@ -253,9 +253,13 @@ def _detect_taxonomy(
         corpus_parts.extend([key, val, snippet])
 
     corpus = " ".join(corpus_parts).lower()
-    is_mobile = any(kw in corpus for kw in MOBILE_KEYWORDS)
-    serves_cats = any(kw in corpus for kw in CAT_KEYWORDS)
-    serves_dogs = any(kw in corpus for kw in DOG_KEYWORDS) or not serves_cats
+
+    def _mentions(keyword: str) -> bool:
+        return re.search(rf"\b{re.escape(keyword)}\b", corpus) is not None
+
+    is_mobile = any(_mentions(kw) for kw in MOBILE_KEYWORDS)
+    serves_cats = any(_mentions(kw) for kw in CAT_KEYWORDS)
+    serves_dogs = any(_mentions(kw) for kw in DOG_KEYWORDS) or not serves_cats
 
     taxonomy = BusinessTaxonomy(
         is_mobile_groomer=is_mobile,

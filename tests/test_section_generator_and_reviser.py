@@ -87,6 +87,20 @@ def _scaffold_project(tmp_path: Path) -> Path:
     return project_root
 
 
+def test_repeated_revisions_do_not_double_escape_title(tmp_path: Path) -> None:
+    """Rebuilding from sections preserves an escaped title on every surgical revision."""
+    project_root = _scaffold_project(tmp_path)
+    generate_website(project_root)
+    hero_path = project_root / "website" / "sections" / "hero.html"
+
+    for _ in range(3):
+        revise_section("hero", hero_path.read_text(encoding="utf-8"), project_root)
+
+    index_html = (project_root / "website" / "index.html").read_text(encoding="utf-8")
+    assert "<title>Paws &amp; Whiskers Salon</title>" in index_html
+    assert "&amp;amp;" not in index_html
+
+
 def test_generator_outputs_per_section_files_and_section_hashes(tmp_path: Path) -> None:
     project_root = _scaffold_project(tmp_path)
     bundle = generate_website(project_root)

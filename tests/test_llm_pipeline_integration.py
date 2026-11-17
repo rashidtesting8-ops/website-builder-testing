@@ -242,6 +242,8 @@ def test_get_default_adapter_resolves_provider_from_env(monkeypatch, tmp_path: P
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("LLM_PROVIDER", raising=False)
     adapter = get_default_adapter(config=BudgetConfig(cache_dir=tmp_path / ".cache" / "llm"))
     assert isinstance(adapter.provider, FakeProvider)
 

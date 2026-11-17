@@ -310,6 +310,72 @@ def test_cockpit_dashboard_lists_projects(tmp_path: Path) -> None:
         assert 'id="project-search"' in resp.text
         assert "workspace-shell" in resp.text
         assert "data-project-card" in resp.text
+        # Live build timeline is present so non-technical viewers see execution steps
+        assert "Live build timeline" in resp.text
+        assert 'id="timeline-project"' in resp.text
+        assert "/api/projects/" in resp.text
+        assert "project-alpha" in resp.text
+
+
+def test_cockpit_stage_timeline_api_shows_ordered_stage_statuses(tmp_path: Path) -> None:
+    """Cockpit exposes per-stage run status so a non-technical viewer sees progress."""
+    from app.db import JobRunRecord, upsert_job_run
+
+    projects_dir = tmp_path / "projects"
+    projects_dir.mkdir(parents=True)
+    _scaffold_cockpit_project(projects_dir, "timeline-demo", rights_confirmed=True)
+
+    db_path = projects_dir / "editvista.sqlite3"
+    conn = connect_db(db_path)
+    try:
+        init_db(conn)
+    finally:
+        conn.close()
+    stages = [
+        "collect", "extract", "curate", "art_director",
+        "generate", "claims_lint", "qa", "ghl_exporter",
+    ]
+    conn = connect_db(db_path)
+    try:
+        for i, stage in enumerate(stages):
+            upsert_job_run(
+                conn,
+                JobRunRecord(
+                    run_id=f"timeline-demo:{stage}",
+                    project_id="timeline-demo",
+                    module_name=stage,
+                    status="completed",
+                    idempotency_key=f"idem-{i}",
+                ),
+            )
+        # mark one stage running to simulate live execution
+        upsert_job_run(
+            conn,
+            JobRunRecord(
+                run_id="timeline-demo:critique",
+                project_id="timeline-demo",
+                module_name="critique",
+                status="running",
+                idempotency_key="idem-critique",
+            ),
+        )
+    finally:
+        conn.close()
+
+    with _ephemeral_cockpit_server(projects_dir) as base_url:
+        resp = requests.get(f"{base_url}/api/projects/timeline-demo/stages", timeout=3.0)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["project_id"] == "timeline-demo"
+        names = [s["name"] for s in data["stages"]]
+        assert names[:6] == [
+            "collect", "extract", "curate", "art_director", "generate", "claims_lint",
+        ]
+        by_name = {s["name"]: s for s in data["stages"]}
+        assert by_name["collect"]["status"] == "completed"
+        assert by_name["critique"]["status"] == "running"
+        assert by_name["collect"]["label"]  # human-friendly label present
+        assert data["completed_count"] == 8
 
 
 def test_cockpit_review_page_serves_facts_and_viewports(tmp_path: Path) -> None:

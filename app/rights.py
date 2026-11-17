@@ -153,6 +153,9 @@ def confirm_asset_rights(
 
     for item in manifest_items:
         rel_file = str(item.get("file") or "")
+        if all_assets and not rel_file:
+            # Blocked/failed candidates are provenance entries, not local assets to approve.
+            continue
         item_sha = str(item.get("sha256") or "")
         file_name = Path(rel_file).name
 

@@ -40,6 +40,65 @@ from app.ghl_exporter import (
 
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 
+# Ordered, human-friendly stage labels for the live execution timeline.
+STAGE_LABELS: dict[str, str] = {
+    "collect": "Visit the website & save photos",
+    "extract": "Find and verify business facts",
+    "social": "Collect authorized social media",
+    "curate": "Pick the best genuine photos",
+    "art_director": "Decide the look and layout",
+    "generate": "Build the web page",
+    "claims_lint": "Check every claim is backed by evidence",
+    "qa": "Test on screen sizes",
+    "critique": "Review how it actually looks",
+    "revise": "Fix only the flagged sections",
+    "ghl_exporter": "Prepare the GHL snippet",
+}
+STAGE_ORDER = list(STAGE_LABELS)
+
+
+def _stage_timeline(db_path: Path, project_id: str) -> dict[str, Any]:
+    """Return an ordered, human-readable view of pipeline stage progress."""
+    conn = connect_db(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT module_name,status,error_message,created_at,updated_at "
+            "FROM job_runs WHERE project_id=?",
+            (project_id,),
+        ).fetchall()
+    finally:
+        conn.close()
+    latest: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        latest[row[0]] = {
+            "status": row[1],
+            "error": row[2],
+            "started_at": row[3],
+            "updated_at": row[4],
+        }
+    stages: list[dict[str, Any]] = []
+    for name in STAGE_ORDER:
+        if name not in latest:
+            continue
+        rec = latest[name]
+        stages.append(
+            {
+                "name": name,
+                "label": STAGE_LABELS[name],
+                "status": rec["status"],
+                "error": rec["error"],
+                "started_at": rec["started_at"],
+                "updated_at": rec["updated_at"],
+            }
+        )
+    return {
+        "project_id": project_id,
+        "stages": stages,
+        "completed_count": sum(1 for s in stages if s["status"] == "completed"),
+        "running_count": sum(1 for s in stages if s["status"] == "running"),
+        "failed_count": sum(1 for s in stages if s["status"] in ("failed", "interrupted")),
+    }
+
 
 def _atomic_write_text(target: Path, content: str) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -142,6 +201,7 @@ def _render_dashboard_html(projects: list[dict[str, Any]]) -> str:
     raw_template = template_path.read_text(encoding="utf-8")
 
     cards = []
+    timeline_options = []
     status_counts = {
         "running": 0,
         "awaiting_approval": 0,
@@ -166,6 +226,7 @@ def _render_dashboard_html(projects: list[dict[str, Any]]) -> str:
         }
         status_class = status_classes.get(status_value, "badge-neutral")
         search_text = html.escape(f"{name} {pid} {url}".lower(), quote=True)
+        timeline_options.append(f'<option value="{pid}">{name}</option>')
         source_markup = (
             f'<a href="{url}" target="_blank" rel="noopener noreferrer">{url}</a>'
             if url_value
@@ -209,6 +270,7 @@ def _render_dashboard_html(projects: list[dict[str, Any]]) -> str:
         )
 
     rendered = raw_template.replace("{{CARDS_HTML}}", cards_html)
+    rendered = rendered.replace("{{TIMELINE_OPTIONS}}", "\n".join(timeline_options))
     rendered = rendered.replace("{{PROJECT_COUNT}}", str(len(projects)))
     rendered = rendered.replace("{{RUNNING_COUNT}}", str(status_counts["running"]))
     rendered = rendered.replace(
@@ -478,6 +540,12 @@ def create_cockpit_app(
     def project_summary_api(project_id: str) -> dict[str, Any]:
         _resolve_project_root(project_id, resolved_projects_dir)
         return generate_review_summary(project_id, projects_dir=resolved_projects_dir)
+
+    @app.get("/api/projects/{project_id}/stages")
+    def project_stages_api(project_id: str) -> dict[str, Any]:
+        """Per-stage execution timeline (plain-language, ordered) for the live build view."""
+        _resolve_project_root(project_id, resolved_projects_dir)
+        return _stage_timeline(db_path, project_id)
 
     @app.post("/api/intake", status_code=202)
     def intake_endpoint(req: IntakeRequest) -> dict[str, Any]:

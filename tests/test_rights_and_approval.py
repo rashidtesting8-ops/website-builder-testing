@@ -146,6 +146,41 @@ def _scaffold_project_for_rights(tmp_path: Path, project_id: str = "luxe-rights-
     return project_root
 
 
+def test_confirm_rights_all_skips_failed_download_entries(tmp_path: Path) -> None:
+    """Robots-blocked candidates without local files must not fail --all or gain rights."""
+    from app.rights import confirm_asset_rights
+
+    project_root = _scaffold_project_for_rights(tmp_path, "blocked-candidates")
+    db_path = tmp_path / "editvista.sqlite3"
+    manifest_path = project_root / "research" / "asset-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest.append(
+        {
+            "file": None,
+            "sha256": None,
+            "url": "https://tracking.example/pixel",
+            "status": "blocked_by_robots",
+            "rights_confirmed_for_preview": False,
+        }
+    )
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    entries = confirm_asset_rights(
+        project_root,
+        all_assets=True,
+        basis="owner_permission",
+        operator="Owner",
+        evidence="Owner-approved local asset; blocked candidates are unused.",
+        projects_dir=tmp_path,
+        db_path=db_path,
+    )
+
+    assert len(entries) == 1
+    updated = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert updated[0]["rights_confirmed_for_preview"] is True
+    assert updated[1]["rights_confirmed_for_preview"] is False
+
+
 def test_unconfirmed_asset_blocks_approval(tmp_path: Path) -> None:
     """An unconfirmed asset without an audit entry blocks release approval."""
     project_root = _scaffold_project_for_rights(tmp_path, "unconfirmed-salon")

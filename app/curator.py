@@ -271,7 +271,7 @@ def curate_project_images(
     adapter = lvm_adapter or default_lvm_heuristic_adapter
 
     optimized_dir = project_root / "assets" / "optimized"
-    contact_sheet_file = project_root / "assets" / "thumbnails" / "contact-sheet.jpg"
+    contact_sheet_file = project_root / "qa" / "contact-sheet.jpg"
 
     contact_sheet_inspected = False
     contact_sheet_rel: str | None = None
@@ -390,6 +390,7 @@ def curate_project_images(
             and not c.low_res_for_hero
             and not c.has_embedded_text
             and c.pet_visible
+            and "logo" not in c.filename.lower()
         ),
         key=lambda item: (
             1 if "hero" in item.filename.lower() else 0,

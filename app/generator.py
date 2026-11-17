@@ -122,7 +122,12 @@ def rebuild_index_from_sections(
         if index_path.is_file():
             m = re.search(r"<title>(.*?)</title>", index_path.read_text(encoding="utf-8"), re.I)
             if m:
-                title = m.group(1).strip()
+                title = str(m.group(1)).strip()
+                for _ in range(10):
+                    unescaped = html.unescape(title)
+                    if unescaped == title:
+                        break
+                    title = unescaped
         if not title:
             parent = wdir.parent
             for rel in ("design/creative-brief.json", "design/brand.json"):
@@ -1441,4 +1446,24 @@ def revise_section(
 
     hashes_path = website_dir / "section-hashes.json"
     _atomic_write_text(hashes_path, json.dumps(section_hashes, indent=2))
+
+    # Append a surgical-revision entry to design/change-log.md (best effort)
+    try:
+        changelog_path = website_dir.parent / "design" / "change-log.md"
+        changelog_path.parent.mkdir(parents=True, exist_ok=True)
+        # Read previous hash from a sidecar if present
+        existing = changelog_path.read_text(encoding="utf-8") if changelog_path.is_file() else ""
+        if not existing:
+            existing = "# EditVista Targeted Revision Change Log\n\n"
+        from datetime import UTC, datetime
+        stamp = datetime.now(UTC).isoformat()
+        entry = (
+            f"## Revision — {stamp}\n"
+            f"- **Section `{name}`**: surgically revised via `revise_section`.\n"
+            f"  - new hash: `{section_hashes.get(name, '')[:12]}`\n\n"
+        )
+        _atomic_write_text(changelog_path, existing + entry)
+    except Exception:
+        pass
+
     return section_hashes

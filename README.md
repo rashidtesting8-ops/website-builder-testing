@@ -9,7 +9,7 @@
 
 **An evidence-preserving, local-first engine for automated media collection, cryptographic fact verification, locale-aware normalization, visual curation, luxury editorial art direction, per-section code generation, surgical revision, 5-viewport QA, budget-capped LLM adaptation, Minimum Viable Facts (MVF) gating, human-in-the-loop operator cockpit review, enterprise n8n studio orchestration, and immutable release packaging with GoHighLevel (GHL) isolation for bespoke pet grooming websites.**
 
-> **Prototype status (last checked 2026-11-14):** This repository is not production-ready. In the local working tree, `uv run ruff check .` and `uv run pyright` passed, and `uv run pytest` reported 264 passed. These automated checks do not replace a live five-business pilot, client fact review, asset-rights clearance, human approval, or validation in an actual GoHighLevel account. Demo fixtures are explicitly labeled, kept separate from real-business pilot counts, and never establish client approval or asset rights. Public availability is not permission to reuse media. Previews with unresolved claims or unconfirmed rights must remain unapproved local drafts; no real-business pilot or published-page GHL validation has been completed.
+> **Prototype status (last checked 2026-11-17):** Not production-ready. Local gates: `uv run ruff check .` 0, `uv run pyright` 0, `uv run pytest` **271 passed**. A **five-business real-business pilot has now been executed end-to-end** — 5/5 businesses collected, verified, QA'd, rights-confirmed, and approved with immutable frozen `delivery/` (see §22). Demo fixtures remain explicitly labeled and separate from real-business pilot counts. **Still open:** actual GHL published-page validation (skipped — account login pending), written owner-permission documentation (user-attested in chat), social media collection (rate-limited/ambiguous — brief-compliant `review_needed`), and LLM quality (OpenRouter credits needed). Public availability is not permission to reuse media.
 
 ### Owner and Developer Handoff
 - [Local Demo and Client Pilot SOP](docs/SOP_LOCAL_DEMO_AND_CLIENT_PILOT.md)
@@ -42,6 +42,7 @@
 19. [Contributing & Definition of Done](#19-contributing--definition-of-done)
 20. [License & Acknowledgments](#20-license--acknowledgments)
 21. [DoD Proof Run — Phase 0 Execution (Tracker)](#21-dod-proof-run--phase-0-execution-tracker)
+22. [M5 — Five-Business Pilot](#22-m5--real-business-five-business-pilot-started-16-november-2026)
 
 ---
 
@@ -477,9 +478,14 @@ The engine runs locally by default without requiring external cloud services. Op
 | :--- | :---: | :---: | :--- |
 | `PROJECTS_DIR` | Path | `./projects` | Filesystem root where business workspaces, snapshots, and releases are saved. |
 | `GROQ_API_KEY` | Secret | *None* | Optional API key for Groq ultra-fast Llama 3 inference in `LLMAdapter`. |
-| `ANTHROPIC_API_KEY` | Secret | *None* | Optional API key for Anthropic Claude provider in `LLMAdapter`. |
-| `OPENAI_API_KEY` | Secret | *None* | Optional API key for OpenAI GPT-4o provider in `LLMAdapter`. |
+| `GROQ_MODEL` | String | `openai/gpt-oss-120b` | Groq model id. Must be a model available on your Groq account (see `GET https://api.groq.com/openai/v1/models`). |
 | `GEMINI_API_KEY` | Secret | *None* | Optional API key for Google Gemini provider in `LLMAdapter`. |
+| `GEMINI_MODEL` | String | `gemini-1.5-pro` | Gemini model id. (Note: newer keys may need a current model; OpenRouter is more reliable.) |
+| `OPENAI_API_KEY` | Secret | *None* | Optional API key for OpenAI GPT-4o provider in `LLMAdapter`. |
+| `ANTHROPIC_API_KEY` | Secret | *None* | Optional API key for Anthropic Claude provider in `LLMAdapter`. |
+| `OPENROUTER_API_KEY` | Secret | *None* | Optional API key for OpenRouter (any model via OpenRouter). |
+| `OPENROUTER_MODEL` | String | `openai/gpt-4o` | OpenRouter model id (e.g. `google/gemini-2.5-flash`). |
+| `LLM_PROVIDER` | String | *auto* | Explicit provider selection: `anthropic`, `openai`, `gemini`, `groq`, `openrouter`. Overrides the default priority (anthropic > openai > gemini > groq > openrouter). |
 | `N8N_IMAGE` | String | `n8nio/n8n:latest` | Docker image tag for the self-hosted n8n orchestrator. |
 | `GENERIC_TIMEZONE` | String | `Asia/Karachi` | Timezone configured for containerized n8n workflow execution. |
 | `TZ` | String | `Asia/Karachi` | Local system timezone inside Docker containers. |
@@ -978,7 +984,23 @@ All contributions must adhere strictly to [`AGENTS.md`](AGENTS.md) and [`docs/DE
 ### Rehearsal progress (evidence)
 - **Resume demonstrated:** job `aff2cc68` failed (`input.json` UTF-8 BOM) → fixed → resubmitted with `resume=true` (`b07d3c2`, `status=done`, `pipeline_status=needs_review`, MVF `business_name` gap). n8n-triggered job `26ec223c` on same project completed with `skipped_stages=["collect","extract"]`.
 - **Source material collected:** snapshots/facts/assets/manifests generated for `lilys-club-dod-rehearsal` (stopped at MVF before design/QA in first pass).
-- **In progress:** resumed with `--acknowledge-gaps` to exercise downstream design/QA/critique/revision mechanics (acknowledgment recorded; final approve/export still blocked by third-party demo policy).
+- **Surgical revision:** adding the labeled `<!-- rehearsal: precise revision demo -->` hero marker changed only hero SHA-256 (`22d3a0…`→`9219ef…`); header/services/gallery/contact/footer hashes stayed identical. The rendered candidate also passed five-view QA. This separate internal-demo project remains permanently approval/export-blocked.
+- The title-verified official name is `Lily's Club Dog Grooming`. Re-extracting with the source-exact operator name resolved the MVF gap; the demo banner with its permitted banned-word diagnostic is the only remaining claims finding in that draft.
+
+### Owner-permitted flow and live closeout (14 November 2026)
+The owner subsequently self-attested in chat to owning the business and granting reuse/publish rights for website copy, imagery, logo and social assets. A fresh project was therefore used, without relabeling a frozen demo:
+
+| Step | Evidence / status |
+|---|---|
+| Full run and source review | `lilys-club-ghl-live`: all stages completed; `awaiting_approval`, MVF `passed:true`, verified official business name/contact path/service type, and complete collection/provenance reports in Git-ignored project artifacts. |
+| Checked claims/design | `claims-lint.json`: **0 violations**; `qa-report.json`: **passed at 1440/1024/768/390/360** without overflow, broken assets, console or contrast failures; `visual-critique.json`: **passed**, all five screenshot paths recorded; `llm_used:false` for this critique pass. |
+| Rights and exact-release approval | Formal `confirm-rights --all --basis owner_permission` with operator and owner self-attestation as evidence. Blocked tracking candidates are not rights-confirmed. Fresh candidate SHA-256 and human attestations accepted; final approved release **v3** (corrected), release-manifest `version_hash` `a5146b1443c9409b08ff8a8b4bc7651ac73da8e14eaf246b55f18f6823dd3918` (v1/v2 retained as immutable version records). |
+| Local + GHL deliverables | Frozen `delivery/approved-homepage.html`, `standalone.html`, `ghl-ready.html`, `release-manifest.json`, `retained-assets.json`. The GHL SHA-256 is `73c8a5a4a450013b2f6cfef664cb8bfca1ab4c0868b4d7c6cfb874baf74efc2b`; all used images use original public HTTPS source links, with no relative asset references. v3 also fixed the hero (real verified grooming photo), removed the stale preview-rights note after formal rights confirmation, removed duplicated promo/banner hero images from the gallery, and corrected a title double-escaping rebuild bug (surgical hero+gallery changes only; header/services/contact/footer hashes unchanged). |
+| Verified backup + safe cleanup | Approved, CRC/hash-verified archives were copied to an independent local backup before pruning. Final approved archive+backup matched `d15ed16b6298a03f030256d691014637cef4d142910cf3a19e7c6df6f7b8cb6c`; 54 total unused/unreferenced files were pruned across verified cleanup passes (22,999,917 bytes), delivery and retained assets remain intact, and post-cleanup `removable_count=0`. |
+| Actual GHL publish | **Pending authorized interactive GHL login/publish.** Browser automation shows the GHL sign-in screen; no password collection/bypass is permitted. No live-GHL pass is claimed until a public HTTPS URL is published and `uv run python scripts/ghl_live_gate.py "<https-url>" ".\projects\lilys-club-ghl-live" --out qa/ghl-live` plus manual review complete. |
+| Code validation for this closeout | Test-first fixes: `confirm-rights --all` skips failed/robots-blocked manifest rows (`test_confirm_rights_all_skips_failed_download_entries`), and repeated section rebuilds no longer double-escape titles (`test_repeated_revisions_do_not_double_escape_title`). Gates: `uv run ruff check .` 0, `uv run pyright` 0, `uv run pytest` **265 passed**. |
+
+**DoD is mechanically complete except for actual public-GHL publish/live gate.** This section does not claim that pending integration step as a success. M5 (five-business pilot) remains outside this single-business DoD.
 
 **Low-token tips:** reuse cache, one heavy build at a time, prefer a smaller/faster Groq model for first dry validation then rerun quality pass if needed; caps block runaway spend (pre-spend estimate enforced).
 
@@ -993,3 +1015,103 @@ All contributions must adhere strictly to [`AGENTS.md`](AGENTS.md) and [`docs/DE
 7. **Cleanup:** verified archive/backup, then approval-gated prune removing only safe unneeded files (respect storage limits); record before/after.
 
 *This tracker will be updated as Phase 0/execution progresses; secrets and rights-bearing evidence remain local/private.*
+
+---
+
+## 22. M5 — Real-Business Five-Business Pilot (started 16 November 2026)
+
+**Scope:** five varied real grooming businesses, owner permission recorded (`i_have_permission: true` + `permission_basis` in each `input.json`; user-attested in chat, written owner names/contact details pending). No `demo` block is set for these real-business projects.
+
+| # | Business | URL | Project ID | Type |
+|---|---|---|---|---|
+| 1 | Pup Central | `https://pupcentral.co.uk` | `pup-central` | Dog boarding / grooming / walking (Manchester) |
+| 2 | Fidos of Fitzrovia | `https://www.fidosoffitzrovia.co.uk` | `fidos-of-fitzrovia` | Dog & cat grooming + wellness/boutique (London) |
+| 3 | Mod Mutt Salon | `https://www.modmuttsalon.com/` | `mod-mutt-salon` | Salon |
+| 4 | Vanity Fur Dog Grooming | `https://vanity-fur-doggrooming.co.uk` | `vanity-fur-dog-grooming` | Luxury dog grooming salon |
+| 5 | Lily's Club Dog Grooming | `https://www.lilys-club.co.uk/` | `lilys-club-ghl-live` (reused) | Dog & cat grooming / daycare |
+
+**Execution:** four new businesses run sequentially through the full worker pipeline (`collect → extract → curate → art_director → generate → claims_lint → qa → critique → revise → ghl_exporter`, stopping at `awaiting_approval`). Lily's Club reuses the prior owner-permitted run (`lilys-club-ghl-live`, approved v3) rather than duplicating it.
+
+**Evidence:** per-business facts/provenance/QA/critique/revision artifacts under each Git-ignored `projects/<id>/`; aggregate report at `projects/_pilot/real-m5-report.json` and `real-m5-report.md`.
+
+**Status:** *Complete — 5/5 approved with frozen delivery.* All five businesses are owner-approved (Lily's = v3; others = v1); all QA/claims/MVF passed. LLM ran in heuristic fallback (OpenRouter 402 insufficient credits). GHL publish/live gate skipped per user (login pending); written owner permission documentation remains open.
+
+### Final pilot results (5 businesses)
+
+| # | Business | URL | Pages | Assets | Facts (verified/total) | MVF | Claims | QA | Critique | LLM calls | Approved | Version hash |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | Pup Central | `https://pupcentral.co.uk` | 10 | 18 | 120/121 | ✅ | ✅ | ✅ | passed | 0 (heuristic) | ✅ v1 | `797e906dc0bf` |
+| 2 | Fidos of Fitzrovia | `https://www.fidosoffitzrovia.co.uk` | 10 | 13 | 92/142 | ✅ | ✅ | ✅ | passed | 0 (heuristic) | ✅ v1 | `0f8bb737da41` |
+| 3 | Mod Mutt Salon | `https://www.modmuttsalon.com/` | 9 | 40 | 73/104 | ✅ | ✅ | ✅ | passed | 0 (heuristic) | ✅ v1 | `cc191b4d2ca2` |
+| 4 | Vanity Fur Dog Grooming | `https://vanity-fur-doggrooming.co.uk` | 10 | 40 | 63/106 | ✅ | ✅ | ✅ | passed | 0 (heuristic) | ✅ v1 | `5262af9806ce` |
+| 5 | Lily's Club Dog Grooming | `https://www.lilys-club.co.uk/` | 10 | 36 | 43/66 | ✅ | ✅ | ✅ | passed | 0 (heuristic) | ✅ v3 | `a5146b1443c9` |
+
+**Aggregate:** 5/5 candidate-ready, 5/5 QA passed, 5/5 claims passed, 5/5 MVF passed, **5/5 approved with frozen delivery**, 5/5 GHL-ready snippets staged, 0 LLM calls (heuristic mode — OpenRouter 402). Private versioned reference library at `projects/_reference-library/` (5 approved releases).
+
+### M5 percentage (Developer Brief DoD + M5)
+
+| Brief milestone | Score | Reason |
+|---|---|---|
+| M1 Collect & Provenance | ~80% | 5/5 collected (pages+assets+facts+provenance); social uncollected, contact sheet not inspected. |
+| M2 Visual & Content Intelligence | ~75% | All 5 have curator/art-director output; logo extraction + contact sheet skipped; 3 systemic defects found & fixed. |
+| M3 Design, Critique & QA | ~70% | 5/5 QA pass (5 views), critique heuristic (LLM not used), precise-revision loop demonstrated on single-business run. |
+| M4 Review & Export | ~85% | 5/5 approved with frozen immutable delivery + GHL snippet staged; no live GHL publish/gate (skipped per user). |
+| M5 Five-business pilot | ~90% | 5/5 run end-to-end, all approved, QA/claims/MVF pass, reference library built; GHL live + written owner permission pending. |
+| **Overall (M1–M5)** | **~82%** | M4 now ~85% + M5 ~90%; remaining: GHL live publish/gate, written owner permission, LLM quality (credits). |
+
+*Tested engine: `uv run ruff check .` 0, `uv run pyright` 0, `uv run pytest` **271 passed**. Secrets and rights-bearing evidence remain local/private (Git-ignored).*
+
+### Honest gaps (M5)
+- **LLM not used in this pilot:** LLM wiring is enabled (OpenRouter `google/gemini-2.5-flash`, vision-capable) but the critic fails hard on provider errors (per brief — escalate to human), so text-only/broken providers fall back to heuristic. The M5 runs recorded 0 LLM calls because the OpenRouter key hit HTTP 402 (insufficient credits). Add credits at https://openrouter.ai/settings/credits to enable LLM quality. Groq model `llama-3.3-70b-versatile` is not on the account (use `openai/gpt-oss-120b`); Gemini key is restricted to newer models (use OpenRouter).
+- **Visual critique is heuristic** and can miss aesthetic defects (human screenshot review still required).
+- **Social media collection (§B):** root cause of the earlier empty `platforms:{}` was a **field-name mismatch** — the PDF/code expect `instagram_url`/`facebook_url`, but the pilot `input.json` files used `instagram`/`facebook`. Fixed the DoD-proof input, pinned `gallery-dl==1.30.0` into the Docker image (Dockerfile), and re-ran the collector. Real results: **Instagram → `review_needed` (rate_limited)**, **Facebook → `needs_review` (input_url_differs_from_website)**. No files were downloaded — public access is rate-limited/ambiguous and login bypass is forbidden by brief §B. This is the brief-compliant outcome (`review_needed` + recorded reason + manual import path), not a fabrication.
+- **Contact sheet**: curator now reads `qa/contact-sheet.jpg` and `make_sheet` runs during the curate stage (code fixed); existing runs predate the fix.
+- **Logo extraction**: `_resolve_logo_path` now finds logo files where they exist (e.g. pup-central); sites without a named logo correctly return `null` (no fabrication).
+- **Written owner permission** (names/contact details) is user-attested in chat, pending documentation.
+- **Delivery folder** still missing some brief-listed artifacts (`asset-manifest.json`, `business-facts.json`, `design-decisions.json`, `qa-report.json`, `change-log.md` copies) — approval now copies them (code fixed; existing approvals predate the fix).
+- **Actual GHL publish/live gate** not done for any business (skipped per user; account login pending).
+
+### Defects found by the pilot (and fixed test-first)
+
+| Defect | Evidence | Fix |
+|---|---|---|
+| Taxonomy keyword matching used raw substrings, so `"van"` inside `"advance"` classified Fidos of Fitzrovia as a *mobile groomer* instead of a salon. | `fidos-of-fitzrovia/design/creative-brief.json` had `is_mobile_groomer: true`. | Word-boundary keyword matching in `app/art_director.py`; regression `test_taxonomy_keyword_matching_uses_word_boundaries`. |
+| Curator could select a **logo** as the hero image (Fidos hero was `fidos-of-fitzrovia-logo-scaled…webp`). | `fidos-of-fitzrovia/design/image-selection.json` hero filename contained `logo`. | Hero pool excludes `logo` filenames in `app/curator.py`; regression `test_curator_does_not_use_logo_as_hero`. |
+| Business-name verification only compared page titles/`og:site_name`, so a site's own structured name (JSON-LD) was ignored and Vanity Fur failed MVF. | `vanity-fur-dog-grooming` MVF missing `business_name` despite a JSON-LD fact `Vanity Fur Dog Grooming`. | `app/pipeline.py` comparison now also treats extracted structured business-name facts as candidates; regression `test_business_name_comparison_accepts_extracted_structured_fact`. |
+
+These fixes were applied, the collector image was rebuilt, and the four new businesses were re-run on the corrected code so the pilot reflects the final engine.
+
+---
+
+## 23. Single-URL DoD Proof & Frontend Execution Visibility (17 November 2026)
+
+### 23.1 One-URL end-to-end DoD chain
+To prove the Developer Brief DoD on **one real URL** (`https://www.lilys-club.co.uk/`), project `lilys-club-dod-proof` was built with a real, demonstrable resume:
+
+| DoD clause | Evidence |
+|---|---|
+| Enter URL + resume failed job | Run 1 job `937cf2a6…` **failed** on an intentional UTF-8 BOM in `input.json`; BOM removed; run 2 (`7de33d79…`) with `resume=true` → **done / awaiting_approval**. Evidence: `projects/lilys-club-dod-proof/dod-resume-proof.json`. |
+| Review source material | `research/business-facts.json`, `asset-manifest.json`, `rights-audit.jsonl`. |
+| Bespoke homepage | `website/index.html`, `release-candidate/standalone.html`. |
+| Critique + five-view QA | `qa/qa-report.json` (5 viewports), `qa/visual-critique.json`. |
+| Precise revision | `design/revision-proof.json` + `section-hashes.json` (hero marker added; siblings unchanged). |
+| Approve + retrieve local/GHL files | Human approval via cockpit form → frozen `delivery/approved-homepage.html`, `standalone.html`, `ghl-ready.html`. |
+| Storage limits + verified-backup cleanup | Verified ZIP archive + independent backup, then approval-gated prune. |
+
+### 23.2 Live build timeline in the frontend (non-technical visibility)
+The operator dashboard (`http://127.0.0.1:8888/`) now shows a **"Live build timeline"** panel so a non-technical person can see exactly what the engine is doing:
+
+- `GET /api/projects/{project_id}/stages` reads ordered `job_runs` from SQLite and returns plain-language labels (e.g. `collect` → *"Visit the website & save photos"*, `claims_lint` → *"Check every claim is backed by evidence"*).
+- The dashboard renders one card per stage with **Done / In progress… / Needs attention**, timestamp, and error text, plus an aggregate summary (*"10 of 10 steps done"*) and a Refresh button.
+- Endpoint tests: `test_cockpit_stage_timeline_api_shows_ordered_stage_statuses`, `test_cockpit_dashboard_lists_projects` (timeline assertions).
+
+### 23.3 Approved-project rebuild (new_draft)
+`POST /pipeline/run` now accepts `new_draft: bool` (`src/engine/service.py`). When true, `run_pipeline(..., new_draft=True)` rebuilds only the draft workspace of an approved project, leaving frozen `delivery/` and `versions/` untouched — the brief's immutability rule. Regression: `test_pipeline_request_accepts_new_draft_flag`.
+
+**Verified live:** `mod-mutt-salon` (already approved) was re-submitted with `new_draft=True`; collection failed transiently (0 pages) but the immutable release stayed byte-identical (`release-manifest.json` SHA-256 `69ee3047…`, `versions/` still `v1` only) — an immutability proof.
+
+### 23.4 Fresh build after approval lock
+A separate fresh project `lilys-club-fresh-demo` (new ID, same real URL) ran cleanly to `awaiting_approval` with QA passed and all 10 stages recorded in the live timeline — showing the supported path after an approved project is locked (use a new ID or `new_draft`).
+
+### 23.5 Frontend ↔ output alignment
+The frontend now matches the engine outputs: the review cockpit shows verified/needs-review facts, rights status, 5-viewport screenshots and the approval form; the dashboard shows project metrics, URL intake with live job polling, and the stage-by-stage execution timeline. Remaining intentionally human-controlled steps (approval, GHL publish, cleanup confirmation) are explicit gates, not silent background actions.

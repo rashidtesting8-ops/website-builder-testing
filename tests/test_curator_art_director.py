@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 
 import pytest
-from app.art_director import generate_art_direction
+from app.art_director import _detect_taxonomy, generate_art_direction
 from app.curator import (
     CSS_PERCENT_RE,
     CuratorHeuristicObservation,
@@ -55,6 +55,57 @@ def _create_image(
 
     img.save(path, format="JPEG", quality=92)
     return path
+
+
+def test_taxonomy_keyword_matching_uses_word_boundaries() -> None:
+    """Substrings such as 'van' inside 'advance' must not classify a salon as mobile."""
+    facts = [
+        {
+            "category": "business_name",
+            "claim_value": "Advance Dog Grooming",
+            "is_verified": True,
+            "status": "verified",
+        },
+        {
+            "category": "services",
+            "claim_value": "Changes must be made at least 48 business hours in advance",
+            "is_verified": True,
+            "status": "verified",
+        },
+    ]
+    _name, _phone, taxonomy = _detect_taxonomy(facts, "advance-dog")
+    assert taxonomy.is_mobile_groomer is False
+    assert taxonomy.is_salon is True
+
+    mobile_facts = [
+        {
+            "category": "services",
+            "claim_value": "Mobile grooming van comes to your driveway",
+            "is_verified": True,
+            "status": "verified",
+        },
+    ]
+    _n2, _p2, mobile_taxonomy = _detect_taxonomy(mobile_facts, "mobile-van")
+    assert mobile_taxonomy.is_mobile_groomer is True
+
+
+def test_curator_does_not_use_logo_as_hero(tmp_path: Path) -> None:
+    """A high-resolution logo file must not be selected as the hero image."""
+    project_root = tmp_path / "projects" / "logo-hero"
+    opt_dir = project_root / "assets" / "optimized"
+    _create_image(opt_dir / "brand-logo.png", width=2400, height=900)
+    for idx in range(4):
+        _create_image(
+            opt_dir / f"dog_{idx}.jpg",
+            width=1200,
+            height=900,
+            subject_box=(250, 150, 900, 700),
+        )
+
+    selection = curate_project_images(project_root)
+
+    assert selection.hero_image is not None
+    assert "logo" not in selection.hero_image.filename.lower()
 
 
 def test_curator_excludes_low_res_and_baked_in_text_hero_candidates(tmp_path: Path) -> None:

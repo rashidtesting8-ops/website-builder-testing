@@ -59,6 +59,45 @@ def _fake_qa_pass(project_folder: str | Path, **kwargs: Any) -> QADefectReport:
     return report
 
 
+def test_pipeline_request_accepts_new_draft_flag() -> None:
+    """An approved project can be rebuilt as a fresh draft via the worker API."""
+    import engine.service as srv
+
+    req = srv.PipelineRequest(
+        url="https://example.com",
+        business_name="Example",
+        business_id="example",
+        new_draft=True,
+    )
+    assert req.new_draft is True
+    captured: dict[str, bool] = {}
+
+    def fake_run(**kwargs: object) -> dict[str, object]:
+        captured["new_draft"] = bool(kwargs.get("new_draft"))
+        return {
+            "project_id": "example", "business_name": "Example",
+            "site_url": "https://example.com", "pipeline_status": "awaiting_approval",
+            "qa_passed": True, "project_folder": "/tmp/example",
+            "cockpit_review_url": "http://x/review/example",
+            "skipped_stages": [], "warnings": [], "errors": [],
+        }
+
+    original = srv._run_full_pipeline_sync
+    srv._run_full_pipeline_sync = fake_run  # type: ignore[assignment]
+    try:
+        job = srv.create_pipeline_job(req)
+        rec: dict[str, object] = {}
+        for _ in range(40):
+            rec = srv.get_job(job["job_id"])
+            if rec.get("status") in ("done", "failed"):
+                break
+            time.sleep(0.05)
+        assert rec.get("status") == "done", rec
+        assert captured.get("new_draft") is True
+    finally:
+        srv._run_full_pipeline_sync = original  # type: ignore[assignment]
+
+
 def test_service_pipeline_run_and_approval_endpoints(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
@@ -136,6 +175,15 @@ def test_service_pipeline_run_and_approval_endpoints(
 
     monkeypatch.setattr(pipe_mod, "collect", _mock_collect)
     monkeypatch.setattr(pipe_mod, "run_qa_engine", _fake_qa_pass)
+    for _key in (
+        "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
+        "GEMINI_API_KEY",
+        "GROQ_API_KEY",
+        "OPENROUTER_API_KEY",
+        "LLM_PROVIDER",
+    ):
+        monkeypatch.delenv(_key, raising=False)
 
     # 1. Trigger full 9-stage pipeline via srv.create_pipeline_job
     req = srv.PipelineRequest(

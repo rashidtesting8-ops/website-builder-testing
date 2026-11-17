@@ -207,6 +207,21 @@ def _business_name_comparison(
                 seen.add(key)
                 candidates.append(candidate)
 
+    # Structured/extracted business-name facts (e.g. JSON-LD) are authoritative candidates
+    # even when page titles/og:site_name carry marketing prefixes or suffixes.
+    for fact in facts_report.facts:
+        if fact.category != "business_name" or not fact.claim_value.strip():
+            continue
+        candidate = {
+            "source_field": f"fact:{fact.source_kind}",
+            "source_url": fact.source_url,
+            "source_text": fact.claim_value.strip(),
+        }
+        key = (candidate["source_field"], candidate["source_url"], candidate["source_text"])
+        if key not in seen:
+            seen.add(key)
+            candidates.append(candidate)
+
     normalized_operator_name = _normalized_business_name(business_name)
     comparisons: list[dict[str, Any]] = []
     matching_candidate: dict[str, str] | None = None
@@ -243,6 +258,17 @@ def _business_name_comparison(
             fact.last_checked_at = datetime.now(UTC)
 
     if matching_candidate is not None:
+        for fact in facts_report.facts:
+            if (
+                fact.category == "business_name"
+                and _normalized_business_name(fact.claim_value) == normalized_operator_name
+            ):
+                fact.source_url = matching_candidate["source_url"]
+                fact.source_text_snippet = matching_candidate["source_text"]
+                fact.source_kind = "manual"
+                fact.is_verified = True
+                fact.status = "verified"
+                fact.last_checked_at = datetime.now(UTC)
         matching_fact = next(
             (
                 fact
@@ -1179,6 +1205,10 @@ def run_pipeline(
             )
             curate_res = curate_project_images(project_root)
             warnings.extend(curate_res.warnings)
+            try:
+                make_sheet(project_root)
+            except Exception as exc:  # pragma: no cover - best effort
+                warnings.append(f"Contact sheet generation failed: {exc}")
             _record_job_transition(
                 conn,
                 project_id=project_id,
