@@ -410,6 +410,34 @@ def test_groq_provider_builds_openai_payload_and_parses_response(
     ]
 
 
+def test_default_max_tokens_is_free_tier_safe(tmp_path: Path) -> None:
+    """Default max_tokens must stay under common free-tier OTPM limits (e.g. Groq 1000)."""
+    from collections.abc import Sequence
+
+    from engine.llm.adapter import LLMAdapter
+
+    class CapturingProvider(FakeProvider):
+        def __init__(self) -> None:
+            super().__init__(default_response="ok")
+            self.seen_max_tokens = 0
+
+        def complete(
+            self,
+            prompt: str,
+            images: Sequence[bytes | Path] = (),
+            model: str | None = None,
+            **kwargs: object,
+        ) -> LLMResponse:
+            raw = kwargs.get("max_tokens")
+            self.seen_max_tokens = int(raw) if isinstance(raw, int | str) else 0
+            return super().complete(prompt, images, model, **kwargs)
+
+    provider = CapturingProvider()
+    adapter = LLMAdapter(provider=provider, config=BudgetConfig(cache_dir=tmp_path / "cache"))
+    adapter.complete("prompt", project_id="p", stage="s")
+    assert 0 < provider.seen_max_tokens <= 1000
+
+
 def test_get_default_adapter_selects_groq_when_configured(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

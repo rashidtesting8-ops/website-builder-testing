@@ -592,6 +592,35 @@ def test_resume_rechecks_name_when_operator_input_changes(
     assert next_resume.skipped_stages == ["collect", "extract"]
 
 
+def test_social_url_matches_when_one_website_url_matches_exactly(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One matching site social URL is enough; extra site links are not a conflict."""
+    from app.pipeline import _collect_configured_social
+
+    project = tmp_path / "social-match"
+    (project / "research").mkdir(parents=True, exist_ok=True)
+    supplied = "https://www.facebook.com/people/Lilys-club-Dog-Grooming/61564648418385/"
+    (project / "input.json").write_text(
+        json.dumps({"facebook_url": supplied, "i_have_permission": True}),
+        encoding="utf-8",
+    )
+    (project / "research/social-sources.json").write_text(
+        json.dumps({"facebook": [supplied, "https://www.facebook.com/"]}),
+        encoding="utf-8",
+    )
+    # Avoid real network: stub the collector so the URL-match branch is what is tested.
+    monkeypatch.setattr(
+        pipeline_module,
+        "collect_social",
+        lambda *_a, **_kw: {"status": "collected_needs_review", "files_added": 0},
+    )
+    out = _collect_configured_social(project, [])
+    entry = out["platforms"]["facebook"]
+    assert entry["status"] != "needs_review"
+    assert entry.get("reason") != "input_url_differs_from_website"
+
+
 def test_business_name_comparison_accepts_extracted_structured_fact(tmp_path: Path) -> None:
     """A JSON-LD/structured business name must verify even when page titles carry prefixes."""
     from app.fact_extractor import BusinessFactsReport, ExtractedFact

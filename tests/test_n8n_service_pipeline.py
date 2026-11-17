@@ -59,6 +59,52 @@ def _fake_qa_pass(project_folder: str | Path, **kwargs: Any) -> QADefectReport:
     return report
 
 
+def test_hybrid_llm_wiring_passes_text_adapter_but_no_critic_adapter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Groq (text-only) drives art direction; visual critic stays heuristic by design."""
+    import engine.llm.adapter as adapter_mod
+    import engine.service as srv
+
+    captured: dict[str, object] = {}
+
+    def fake_run(**kwargs: object) -> dict[str, object]:
+        captured["llm"] = kwargs.get("llm_adapter")
+        captured["critic"] = kwargs.get("critic_llm_adapter")
+        return {
+            "project_id": "example", "business_name": "Example",
+            "site_url": "https://example.com", "pipeline_status": "awaiting_approval",
+            "qa_passed": True, "project_folder": "/tmp/example",
+            "cockpit_review_url": "http://x/review/example",
+            "skipped_stages": [], "warnings": [], "errors": [],
+        }
+
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key-not-a-secret")
+    monkeypatch.setenv("LLM_PROVIDER", "groq")
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    import app.pipeline as pipe_mod
+
+    original = pipe_mod.run_pipeline
+    pipe_mod.run_pipeline = fake_run  # type: ignore[assignment]
+    try:
+        job = srv.create_pipeline_job(srv.PipelineRequest(
+            url="https://example.com", business_name="Example", business_id="example",
+        ))
+        for _ in range(40):
+            if srv.get_job(job["job_id"]).get("status") in ("done", "failed"):
+                break
+            time.sleep(0.05)
+        llm = captured.get("llm")
+        assert llm is not None
+        assert isinstance(getattr(llm, "provider", None), adapter_mod.GroqProvider)
+        assert captured.get("critic") is None
+    finally:
+        pipe_mod.run_pipeline = original  # type: ignore[assignment]
+
+
 def test_pipeline_request_accepts_new_draft_flag() -> None:
     """An approved project can be rebuilt as a fresh draft via the worker API."""
     import engine.service as srv

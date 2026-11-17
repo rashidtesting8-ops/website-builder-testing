@@ -433,8 +433,8 @@ def _collect_configured_social(
         result["platforms"][platform] = entry
         if not isinstance(supplied, str) or not supplied.strip():
             entry.update(status="review_needed", reason="invalid_input_url")
-        elif website_urls and any(
-            _normalized_social_url(supplied) != _normalized_social_url(found)
+        elif website_urls and not any(
+            _normalized_social_url(supplied) == _normalized_social_url(found)
             for found in website_urls
         ):
             entry.update(
@@ -849,6 +849,7 @@ def run_pipeline(
     pause_for_approval: bool = False,
     qa_runner: QARunnerFn | None = None,
     llm_adapter: Any = None,
+    critic_llm_adapter: Any = None,
     new_draft: bool = False,
     acknowledge_gaps: bool = False,
     stop_after: str | None = None,
@@ -1427,7 +1428,7 @@ def run_pipeline(
                 idempotency_key=critique_idemp,
                 status="running",
             )
-            critique_report = run_visual_critic(project_root, llm_adapter=llm_adapter)
+            critique_report = run_visual_critic(project_root, llm_adapter=critic_llm_adapter)
             if critique_report.status == "critic_unavailable":
                 critique_error = (
                     "Visual critic unavailable; a successful critic run is required "

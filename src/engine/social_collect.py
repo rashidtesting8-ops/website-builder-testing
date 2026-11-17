@@ -70,6 +70,13 @@ _RATE_LIMIT_PATTERNS = (
     "try again later",
 )
 
+_NOT_FOUND_PATTERNS = (
+    "notfounderror",
+    "requested user could not be found",
+    "profile not found",
+    "404 not found",
+)
+
 _EXTRACTOR_BROKEN_PATTERNS = (
     "extractorerror",
     "unable to extract",
@@ -141,6 +148,8 @@ def classify_social_failure(exit_code: int, output: str) -> str:
         return "login_required"
     if any(token in lowered for token in _RATE_LIMIT_PATTERNS):
         return "rate_limited"
+    if any(token in lowered for token in _NOT_FOUND_PATTERNS):
+        return "source_not_found"
     if any(token in lowered for token in _EXTRACTOR_BROKEN_PATTERNS):
         return "extractor_broken"
     _ = exit_code

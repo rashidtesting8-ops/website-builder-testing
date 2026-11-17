@@ -849,7 +849,8 @@ class LLMAdapter:
             or getattr(self.provider, "default_model", None)
             or "default-model"
         )
-        effective_max_tokens = max_tokens if max_tokens is not None else 1024
+        # 1024 would exceed Groq free-tier OTPM (1000) on common text models.
+        effective_max_tokens = max_tokens if max_tokens is not None else 800
         cache_key = self.compute_cache_key(
             prompt,
             images,

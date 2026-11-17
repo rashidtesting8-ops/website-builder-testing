@@ -124,22 +124,25 @@ def _run_full_pipeline_sync(
     resolved_id = slugify(business_id or resolved_name)
     # Optional new-draft mode: rebuild only the draft workspace of an approved project,
     # leaving the frozen delivery/ and versions/ untouched (brief immutability rule).
-    # Wire the configured LLM (one adapter, per-job budget/cap) when a vision-capable
-    # provider is present. Text-only providers (Groq) fall back to heuristic critique
-    # to preserve the visual-critic gate semantics (escalate on LLM failure).
+    # Hybrid LLM wiring: art direction can use any configured text-capable provider;
+    # the visual critic only gets a vision-capable adapter, otherwise it stays heuristic
+    # (brief: escalate on LLM failure, never silently degrade design quality).
     llm_adapter = None
+    critic_llm_adapter = None
     if (
         get_env_api_key("ANTHROPIC_API_KEY")
         or get_env_api_key("OPENAI_API_KEY")
         or get_env_api_key("GEMINI_API_KEY")
+        or get_env_api_key("GROQ_API_KEY")
         or get_env_api_key("OPENROUTER_API_KEY")
     ):
         try:
             llm_adapter = get_default_adapter(resolved_id)
-            # Groq is text-only: do not pass it (critic needs vision).
             from engine.llm.adapter import GroqProvider
             if isinstance(llm_adapter.provider, GroqProvider):
-                llm_adapter = None
+                critic_llm_adapter = None  # text-only -> heuristic visual critique
+            else:
+                critic_llm_adapter = llm_adapter
         except Exception:
             llm_adapter = None
     res = run_pipeline(
@@ -152,6 +155,7 @@ def _run_full_pipeline_sync(
         pause_for_approval=True,
         qa_runner=_container_safe_qa_runner,
         llm_adapter=llm_adapter,
+        critic_llm_adapter=critic_llm_adapter,
     )
     return {
         "project_id": res.project_id,

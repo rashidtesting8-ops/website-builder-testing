@@ -321,6 +321,10 @@ def test_classify_social_failure_unit() -> None:
     assert classify_social_failure(1, RECORDED_RATE_LIMIT_OUTPUT) == "rate_limited"
     assert classify_social_failure(1, RECORDED_EXTRACTOR_BROKEN_OUTPUT) == "extractor_broken"
     assert classify_social_failure(1, "something unexpected") == "unknown"
+    # A "user could not be found" message with a numeric 404 in the URL must not be
+    # misclassified as rate limiting (which would mislead the human reviewer).
+    not_found_log = "instagram [error] NotFoundError: Requested user could not be found at https://x/404"
+    assert classify_social_failure(4, not_found_log) == "source_not_found"
 
 
 def test_strip_image_metadata_helper(tmp_path: Path) -> None:
