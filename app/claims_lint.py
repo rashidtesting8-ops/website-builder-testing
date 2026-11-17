@@ -19,7 +19,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from bs4 import BeautifulSoup, NavigableString, Tag
+from bs4 import BeautifulSoup, Comment, NavigableString, Tag
 from pydantic import BaseModel, ConfigDict, Field
 
 BANNED_WORDS = (
@@ -249,6 +249,8 @@ def lint_html_claims(
         # Check direct text children
         for child in element.children:
             if isinstance(child, NavigableString) and not isinstance(child, Tag):
+                if isinstance(child, Comment):
+                    continue  # HTML comments are metadata, not displayed claims
                 clean = _normalize_text(str(child))
                 if not clean or clean in ("&copy;", "©", "|", "•"):
                     continue

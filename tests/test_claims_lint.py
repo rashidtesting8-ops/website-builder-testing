@@ -164,6 +164,27 @@ def test_claims_linter_digits_and_currency_must_match_fact_exactly() -> None:
     assert not any("Full Groom: $85.00" == t for t in violation_texts)
 
 
+def test_claims_lint_ignores_html_comments_not_visible_claims() -> None:
+    """HTML comments are metadata, not presented claims, and must be skipped."""
+    html = """
+    <html><body>
+      <!-- rehearsal: precise revision marker with unverified words 12345 -->
+      <section id="hero" data-dod-proof="precise-revision"><h1>Real Business</h1></section>
+    </body></html>
+    """
+    facts = [
+        {
+            "claim_key": "business_name",
+            "claim_value": "Real Business",
+            "is_verified": True,
+            "status": "verified",
+        }
+    ]
+    result = lint_html_claims(html_content=html, verified_facts=facts)
+    assert result.passed is True
+    assert result.violations == []
+
+
 def test_claims_linter_passes_on_fact_backed_and_allowlisted_content() -> None:
     """Requirement 2 & 3: Clean, fact-backed HTML with neutral alts passes linter."""
     html = """<!DOCTYPE html>

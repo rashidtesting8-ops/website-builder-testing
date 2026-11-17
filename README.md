@@ -9,7 +9,7 @@
 
 **An evidence-preserving, local-first engine for automated media collection, cryptographic fact verification, locale-aware normalization, visual curation, luxury editorial art direction, per-section code generation, surgical revision, 5-viewport QA, budget-capped LLM adaptation, Minimum Viable Facts (MVF) gating, human-in-the-loop operator cockpit review, enterprise n8n studio orchestration, and immutable release packaging with GoHighLevel (GHL) isolation for bespoke pet grooming websites.**
 
-> **Prototype status (last checked 2026-11-17):** Not production-ready. Local gates: `uv run ruff check .` 0, `uv run pyright` 0, `uv run pytest` **271 passed**. A **five-business real-business pilot has now been executed end-to-end** — 5/5 businesses collected, verified, QA'd, rights-confirmed, and approved with immutable frozen `delivery/` (see §22). Demo fixtures remain explicitly labeled and separate from real-business pilot counts. **Still open:** actual GHL published-page validation (skipped — account login pending), written owner-permission documentation (user-attested in chat), social media collection (rate-limited/ambiguous — brief-compliant `review_needed`), and LLM quality (OpenRouter credits needed). Public availability is not permission to reuse media.
+> **Prototype status (last checked 2026-11-17):** Not production-ready. Local gates: `uv run ruff check .` 0, `uv run pyright` 0, `uv run pytest` **272 passed**. A **five-business real-business pilot has now been executed end-to-end** — 5/5 businesses collected, verified, QA'd, rights-confirmed, and approved with immutable frozen `delivery/` (see §22). Demo fixtures remain explicitly labeled and separate from real-business pilot counts. **Still open:** actual GHL published-page validation (skipped — account login pending), written owner-permission documentation (user-attested in chat), social media collection (rate-limited/ambiguous — brief-compliant `review_needed`), and LLM quality (OpenRouter credits needed). Public availability is not permission to reuse media.
 
 ### Owner and Developer Handoff
 - [Local Demo and Client Pilot SOP](docs/SOP_LOCAL_DEMO_AND_CLIENT_PILOT.md)
@@ -1059,7 +1059,7 @@ The owner subsequently self-attested in chat to owning the business and granting
 | M5 Five-business pilot | ~90% | 5/5 run end-to-end, all approved, QA/claims/MVF pass, reference library built; GHL live + written owner permission pending. |
 | **Overall (M1–M5)** | **~82%** | M4 now ~85% + M5 ~90%; remaining: GHL live publish/gate, written owner permission, LLM quality (credits). |
 
-*Tested engine: `uv run ruff check .` 0, `uv run pyright` 0, `uv run pytest` **271 passed**. Secrets and rights-bearing evidence remain local/private (Git-ignored).*
+*Tested engine: `uv run ruff check .` 0, `uv run pyright` 0, `uv run pytest` **272 passed**. Secrets and rights-bearing evidence remain local/private (Git-ignored).*
 
 ### Honest gaps (M5)
 - **LLM not used in this pilot:** LLM wiring is enabled (OpenRouter `google/gemini-2.5-flash`, vision-capable) but the critic fails hard on provider errors (per brief — escalate to human), so text-only/broken providers fall back to heuristic. The M5 runs recorded 0 LLM calls because the OpenRouter key hit HTTP 402 (insufficient credits). Add credits at https://openrouter.ai/settings/credits to enable LLM quality. Groq model `llama-3.3-70b-versatile` is not on the account (use `openai/gpt-oss-120b`); Gemini key is restricted to newer models (use OpenRouter).
@@ -1078,6 +1078,7 @@ The owner subsequently self-attested in chat to owning the business and granting
 | Taxonomy keyword matching used raw substrings, so `"van"` inside `"advance"` classified Fidos of Fitzrovia as a *mobile groomer* instead of a salon. | `fidos-of-fitzrovia/design/creative-brief.json` had `is_mobile_groomer: true`. | Word-boundary keyword matching in `app/art_director.py`; regression `test_taxonomy_keyword_matching_uses_word_boundaries`. |
 | Curator could select a **logo** as the hero image (Fidos hero was `fidos-of-fitzrovia-logo-scaled…webp`). | `fidos-of-fitzrovia/design/image-selection.json` hero filename contained `logo`. | Hero pool excludes `logo` filenames in `app/curator.py`; regression `test_curator_does_not_use_logo_as_hero`. |
 | Business-name verification only compared page titles/`og:site_name`, so a site's own structured name (JSON-LD) was ignored and Vanity Fur failed MVF. | `vanity-fur-dog-grooming` MVF missing `business_name` despite a JSON-LD fact `Vanity Fur Dog Grooming`. | `app/pipeline.py` comparison now also treats extracted structured business-name facts as candidates; regression `test_business_name_comparison_accepts_extracted_structured_fact`. |
+| Claims lint treated HTML comments as displayed text, so a precise-revision marker comment caused 2 false violations. | `lilys-club-dod-proof/qa/claims-lint.json` flagged `<!-- dod-proof: precise revision evidence -->`. | `app/claims_lint.py` skips `bs4.Comment` nodes; regression `test_claims_lint_ignores_html_comments_not_visible_claims`. |
 
 These fixes were applied, the collector image was rebuilt, and the four new businesses were re-run on the corrected code so the pilot reflects the final engine.
 
@@ -1112,6 +1113,24 @@ The operator dashboard (`http://127.0.0.1:8888/`) now shows a **"Live build time
 
 ### 23.4 Fresh build after approval lock
 A separate fresh project `lilys-club-fresh-demo` (new ID, same real URL) ran cleanly to `awaiting_approval` with QA passed and all 10 stages recorded in the live timeline — showing the supported path after an approved project is locked (use a new ID or `new_draft`).
+
+### 23.6 Expert verification verdict against the Developer Brief (17 Nov 2026)
+Clause-by-clause audit of `docs/DEVELOPER_BRIEF.md` §9 (Definition of Done and M1–M5) against actual artifacts:
+
+| DoD clause (brief §202) | Verdict | Evidence |
+|---|---|---|
+| Enter one real business URL | ✅ | `POST /pipeline/run` intake; `projects/lilys-club-dod-proof/input.json` |
+| Resume a failed job | ✅ | Run 1 `937cf2a6…` failed on BOM; run 2 `7de33d79…` `resume=true` done — `dod-resume-proof.json` |
+| Review source material | ✅ | `research/business-facts.json`, `asset-manifest.json`, `rights-audit.jsonl` |
+| Genuine bespoke functioning homepage | ✅ | `delivery/approved-homepage.html`, `standalone.html`; imported source facts/photos only |
+| Critique + five-view QA results | ✅ | `qa/visual-critique.json` (status `passed`), `qa/qa-report.json` (5 viewports, `passed`) |
+| Request a precise revision | ✅ | `design/revision-proof.json`: only hero hash changed; header/services/gallery/contact/footer unchanged |
+| Approve the result | ✅ | Cockpit human attestation → `delivery/release-manifest.json`; DB status `approved`; version v1 frozen |
+| Retrieve correct local + GHL files | ✅ | `delivery/approved-homepage.html`, `standalone.html`, `ghl-ready.html` (scoped root/IIFE) |
+| No invented claims / broken / duplicated images | ✅ | `claims-lint.json` 0 violations; QA 0 broken assets; 22 unique image sources, 0 duplicates |
+| Storage limits + delete only safe files after verified backup | ✅ | `dod-cleanup-proof.json`: ZIP CRC ok, backup SHA match, 58 unused files pruned, removable=0 after |
+
+**Honest limit:** this is **100% of the single-URL DoD clause list** on the proof project. It is **not** 100% of the entire brief: actual GHL published-page validation was skipped (user login pending), social media collection returned brief-compliant `review_needed` (rate limit / URL mismatch, no login bypass), LLM design/critique used deterministic fallback (OpenRouter 402), and written owner-permission names/contact details remain to be documented. M5 (five-business pilot) is 5/5 executed and approved. **Do not describe the repository as production-ready.**
 
 ### 23.5 Frontend ↔ output alignment
 The frontend now matches the engine outputs: the review cockpit shows verified/needs-review facts, rights status, 5-viewport screenshots and the approval form; the dashboard shows project metrics, URL intake with live job polling, and the stage-by-stage execution timeline. Remaining intentionally human-controlled steps (approval, GHL publish, cleanup confirmation) are explicit gates, not silent background actions.
