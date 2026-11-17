@@ -32,6 +32,39 @@ def make_sheet(
         if f.exists():
             obj = json.loads(f.read_text(encoding="utf8"))
             records.extend(r for r in obj if r.get("file"))
+    # If manifest paths were pruned after approval (cleanup), fall back to the
+    # retained optimized assets that still exist on disk (brief §C contact sheet).
+    if not any(
+        (project_path / str(rec.get("file", ""))).is_file()
+        for rec in records
+        if rec.get("file")
+    ):
+        roots = [project_path / "assets" / "optimized"]
+        # Approved + cleaned-up projects keep retained assets inside each frozen version.
+        versions_dir = project_path / "versions"
+        if versions_dir.is_dir():
+            roots.extend(
+                v / "assets" / "optimized"
+                for v in sorted(versions_dir.iterdir())
+                if v.is_dir()
+            )
+        found: list[dict[str, Any]] = []
+        for root in roots:
+            if not root.is_dir():
+                continue
+            found.extend(
+                {
+                    "file": p.relative_to(project_path).as_posix(),
+                    "source": "retained_optimized",
+                }
+                for p in sorted(root.iterdir())
+                if p.is_file()
+                and p.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp", ".avif", ".gif"}
+            )
+            if found:
+                break
+        records = found
+
     items: list[tuple[Path, dict[str, Any]]] = []
     for rec in records:
         if len(items) >= limit:

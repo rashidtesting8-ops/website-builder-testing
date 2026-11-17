@@ -9,7 +9,7 @@
 
 **An evidence-preserving, local-first engine for automated media collection, cryptographic fact verification, locale-aware normalization, visual curation, luxury editorial art direction, per-section code generation, surgical revision, 5-viewport QA, budget-capped LLM adaptation, Minimum Viable Facts (MVF) gating, human-in-the-loop operator cockpit review, enterprise n8n studio orchestration, and immutable release packaging with GoHighLevel (GHL) isolation for bespoke pet grooming websites.**
 
-> **Prototype status (last checked 2026-11-17):** Not production-ready. Local gates: `uv run ruff check .` 0, `uv run pyright` 0, `uv run pytest` **272 passed**. A **five-business real-business pilot has now been executed end-to-end** — 5/5 businesses collected, verified, QA'd, rights-confirmed, and approved with immutable frozen `delivery/` (see §22). Demo fixtures remain explicitly labeled and separate from real-business pilot counts. **Still open:** actual GHL published-page validation (skipped — account login pending), written owner-permission documentation (user-attested in chat), social media collection (rate-limited/ambiguous — brief-compliant `review_needed`), and LLM quality (OpenRouter credits needed). Public availability is not permission to reuse media.
+> **Prototype status (last checked 2026-11-17):** Not production-ready. Local gates: `uv run ruff check .` 0, `uv run pyright` 0, `uv run pytest` **277 passed**. A **five-business real-business pilot has now been executed end-to-end** — 5/5 businesses collected, verified, QA'd, rights-confirmed, and approved with immutable frozen `delivery/` (see §22). Demo fixtures remain explicitly labeled and separate from real-business pilot counts. **Still open:** actual GHL published-page validation (skipped — account login pending), written owner-permission documentation (user-attested in chat; private template ready), and n8n workflow 04 manual-trigger proof (CLI conflicts with the running server). Social collection and LLM quality were verified on the DoD-proof run (40 Facebook files + real Groq art direction); platform rate limits remain brief-compliant `review_needed`. Public availability is not permission to reuse media.
 
 ### Owner and Developer Handoff
 - [Local Demo and Client Pilot SOP](docs/SOP_LOCAL_DEMO_AND_CLIENT_PILOT.md)
@@ -1114,7 +1114,7 @@ The operator dashboard (`http://127.0.0.1:8888/`) now shows a **"Live build time
 ### 23.4 Fresh build after approval lock
 A separate fresh project `lilys-club-fresh-demo` (new ID, same real URL) ran cleanly to `awaiting_approval` with QA passed and all 10 stages recorded in the live timeline — showing the supported path after an approved project is locked (use a new ID or `new_draft`).
 
-### 23.6 Expert verification verdict against the Developer Brief (17 Nov 2026)
+### 23.7 Expert verification verdict against the Developer Brief (17 Nov 2026)
 Clause-by-clause audit of `docs/DEVELOPER_BRIEF.md` §9 (Definition of Done and M1–M5) against actual artifacts:
 
 | DoD clause (brief §202) | Verdict | Evidence |
@@ -1132,5 +1132,19 @@ Clause-by-clause audit of `docs/DEVELOPER_BRIEF.md` §9 (Definition of Done and 
 
 **Honest limit:** this is **100% of the single-URL DoD clause list** on the proof project. It is **not** 100% of the entire brief: actual GHL published-page validation was skipped (user login pending), social media collection returned brief-compliant `review_needed` (rate limit / URL mismatch, no login bypass), LLM design/critique used deterministic fallback (OpenRouter 402), and written owner-permission names/contact details remain to be documented. M5 (five-business pilot) is 5/5 executed and approved. **Do not describe the repository as production-ready.**
 
-### 23.5 Frontend ↔ output alignment
+### 23.5 Remaining PDF gaps closed (17 Nov 2026, GHL excluded)
+Further clause-by-clause work after the DoD proof:
+
+| Gap | Fix / outcome |
+|---|---|
+| §C perceptual dedup | Curator now computes a 64-bit dHash and excludes near-identical images (Hamming ≤5) alongside SHA-256; test `test_curator_deduplicates_perceptually_identical_images`. |
+| §I interaction QA | QA browser inspection now checks CTA hrefs (no placeholders/dangling anchors), mobile-menu toggle presence on narrow screens (when a nav exists), ≥24px tap targets, and reduced-motion CSS; generator nav links enlarged to satisfy tap targets. Tests in `test_qa_engine.py`. |
+| §C contact sheets | `make_sheet` falls back to retained + frozen `versions/*/assets/optimized` images after cleanup (stale manifest paths excluded); verified 18 images each for `lilys-club-ghl-live` and `mod-mutt-salon`. |
+| M1/M5 social sources | Seeded social URLs into M5 inputs; collector results honest: Vanity Fur **40 Facebook files**; others `review_needed` (`source_not_found` / `extractor_broken`), no login bypass. |
+| M5 metrics | `projects/_pilot/m5-metrics.json`: build/review gate timestamps, model calls/tokens, critique status, improvements list. Note: wall-clock human review duration is not captured by the engine. |
+| n8n 04 | Still pending: workflow 04 uses a manual trigger; CLI `n8n execute` conflicts with the running server and the UI requires interactive login — recorded honestly, not claimed. |
+
+Gates after these changes: ruff 0, pyright 0, **277 passed**.
+
+### 23.6 Frontend ↔ output alignment
 The frontend now matches the engine outputs: the review cockpit shows verified/needs-review facts, rights status, 5-viewport screenshots and the approval form; the dashboard shows project metrics, URL intake with live job polling, and the stage-by-stage execution timeline. Remaining intentionally human-controlled steps (approval, GHL publish, cleanup confirmation) are explicit gates, not silent background actions.

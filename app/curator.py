@@ -25,6 +25,23 @@ MIN_HERO_WIDTH = 800
 MIN_GALLERY_COUNT = 4
 MIN_SHARPNESS_SCORE = 0.08
 SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+PERCEPTUAL_HASH_MAX_DISTANCE = 5  # 64-bit dHash; <=5 bits ~ visually identical
+
+
+def _perceptual_hash(img: Image.Image) -> int:
+    """64-bit difference hash (Pillow only, no dependency)."""
+    small = img.convert("L").resize((9, 8), Image.Resampling.LANCZOS)
+    pixels = list(small.getdata())
+    bits = 0
+    for y in range(8):
+        row = y * 9
+        for x in range(8):
+            bits = (bits << 1) | (1 if pixels[row + x] > pixels[row + x + 1] else 0)
+    return bits
+
+
+def _hamming_distance(a: int, b: int) -> int:
+    return (a ^ b).bit_count()
 
 CSS_PERCENT_RE = re.compile(r"^\d{1,3}(?:\.\d+)?%$")
 CSS_OBJECT_POSITION_RE = re.compile(r"^\d{1,3}(?:\.\d+)?%\s+\d{1,3}(?:\.\d+)?%$")
@@ -292,6 +309,7 @@ def curate_project_images(
     valid_candidates: list[tuple[CuratedImageCandidate, RoleHint]] = []
     excluded: list[ExcludedImageRecord] = []
     seen_sha256: set[str] = set()
+    seen_phashes: list[int] = []
 
     for img_path in image_files:
         rel_path = img_path.relative_to(project_root).as_posix()
@@ -309,6 +327,14 @@ def curate_project_images(
 
         if sha256 in seen_sha256:
             failure_reasons.append("duplicate_sha256: identical image content already evaluated")
+        phash = _perceptual_hash(rgb_img)
+        if any(
+            _hamming_distance(phash, prev) <= PERCEPTUAL_HASH_MAX_DISTANCE
+            for prev in seen_phashes
+        ):
+            failure_reasons.append(
+                "duplicate_perceptual: visually identical image already evaluated"
+            )
         if obs.has_embedded_text:
             failure_reasons.append(
                 "embedded_text_or_promotional_banner: baked-in text or discount graphic detected"
@@ -335,6 +361,7 @@ def curate_project_images(
             continue
 
         seen_sha256.add(sha256)
+        seen_phashes.append(phash)
         focal_x = _format_css_pct(obs.focal_x_pct)
         focal_y = _format_css_pct(obs.focal_y_pct)
         obj_pos = f"{focal_x} {focal_y}"

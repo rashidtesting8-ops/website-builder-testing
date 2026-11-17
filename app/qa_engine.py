@@ -114,12 +114,59 @@ _BROWSER_INSPECTION_JS = """() => {
         }
     }
 
+    // --- Interaction / link checks (brief §I) ---
+    const interactionDefects = [];
+    // 1) CTA links must not be placeholders and in-page anchors must exist.
+    for (const a of [...document.querySelectorAll('a.cta, a.btn, button[role="button"]')]) {
+        const href = (a.getAttribute('href') || '').trim();
+        if (a.tagName.toLowerCase() === 'a' && (!href || href === '#')) {
+            interactionDefects.push('placeholder_or_missing_cta_href');
+            continue;
+        }
+        if (href.startsWith('#') && href.length > 1 && !document.querySelector(href)) {
+            interactionDefects.push('dangling_cta_anchor:' + href.slice(0, 40));
+        }
+    }
+    // 2) On narrow screens, require a toggle only when a nav drawer is actually present.
+    if (window.innerWidth <= 768) {
+        const hasNav = document.querySelector('.ev-nav, nav.ev-nav, [class*="nav-drawer"]');
+        const toggle = document.querySelector(
+            '.ev-nav-toggle, [data-ev-nav-toggle], button[aria-controls*="nav"]'
+        );
+        if (hasNav && !toggle) interactionDefects.push('missing_mobile_menu_toggle');
+    }
+    // 3) Tap targets should be at least 24x24 CSS px.
+    for (const el of [...document.querySelectorAll('a, button, [role="button"]')]) {
+        const st = window.getComputedStyle(el);
+        if (st.display === 'none' || st.visibility === 'hidden') continue;
+        const r = el.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0 && (r.width < 24 || r.height < 24)) {
+            const label = (el.textContent || '').trim().slice(0, 20);
+            interactionDefects.push('small_tap_target:' + label);
+        }
+    }
+    // 4) Reduced-motion support must be declared in stylesheets.
+    let hasReducedMotion = false;
+    for (const sheet of document.styleSheets) {
+        try {
+            for (const rule of sheet.cssRules) {
+                if (rule.conditionText && rule.conditionText.includes('prefers-reduced-motion')) {
+                    hasReducedMotion = true;
+                }
+            }
+        } catch (_e) { /* cross-origin stylesheet: ignore */ }
+    }
+    if (document.styleSheets.length > 0 && !hasReducedMotion) {
+        interactionDefects.push('missing_reduced_motion_css');
+    }
+
     return {
         overflow,
         scrollWidth,
         innerWidth,
         brokenImages,
-        contrastFailures
+        contrastFailures,
+        interactionDefects
     };
 }"""
 
@@ -191,6 +238,7 @@ class ViewportQAResult(BaseModel):
     broken_assets: list[str] = Field(default_factory=list)
     console_errors: list[str] = Field(default_factory=list)
     contrast_failures: list[ContrastDefect] = Field(default_factory=list)
+    interaction_defects: list[str] = Field(default_factory=list)
     passed: bool
 
 
@@ -321,6 +369,9 @@ def run_qa_engine(
                         contrast_defects = [
                             ContrastDefect.model_validate(item) for item in raw_contrast
                         ]
+                        interaction_defects = [
+                            str(x) for x in (eval_res.get("interactionDefects") or [])
+                        ]
 
                         shot_file = screenshots_dir / f"{width}px.png"
                         page.screenshot(
@@ -335,6 +386,7 @@ def run_qa_engine(
                             and not combined_broken
                             and not console_errs
                             and not contrast_defects
+                            and not interaction_defects
                         )
 
                         viewport_results.append(
@@ -348,6 +400,7 @@ def run_qa_engine(
                                 broken_assets=combined_broken,
                                 console_errors=console_errs,
                                 contrast_failures=contrast_defects,
+                                interaction_defects=interaction_defects,
                                 passed=vp_passed,
                             )
                         )

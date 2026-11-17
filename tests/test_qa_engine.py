@@ -92,6 +92,7 @@ class _FakePage:
                             "required": 4.5,
                         }
                     ],
+                    "interactionDefects": ["missing_mobile_menu_toggle"],
                 }
             return {
                 "overflow": False,
@@ -99,6 +100,7 @@ class _FakePage:
                 "innerWidth": self.width,
                 "brokenImages": [],
                 "contrastFailures": [],
+                "interactionDefects": [],
             }
         return {}
 
@@ -268,6 +270,7 @@ def test_qa_engine_flags_overflow_404s_console_errors_and_contrast_defects(
     assert len(mobile_390.console_errors) >= 2  # console.error + pageerror
     assert len(mobile_390.contrast_failures) == 1
     assert mobile_390.contrast_failures[0].selector == "a.cta"
+    assert "missing_mobile_menu_toggle" in mobile_390.interaction_defects
 
     # Even when defects occur, every context and the browser must be closed in finally blocks
     for width in (1440, 1024, 768, 390, 360):

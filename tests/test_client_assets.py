@@ -12,6 +12,25 @@ from PIL import Image
 from scripts.m1_provenance_audit import audit_project
 
 
+def test_contact_sheet_falls_back_to_retained_optimized_assets(tmp_path: Path) -> None:
+    """After cleanup, stale manifest paths may be gone; the sheet must use retained images."""
+    from engine.contact_sheet import make_sheet
+
+    project = tmp_path / "retained-project"
+    (project / "research").mkdir(parents=True)
+    (project / "assets/optimized").mkdir(parents=True)
+    (project / "research/asset-manifest.json").write_text(
+        json.dumps([{"file": "assets/website/deleted.png"}]), encoding="utf-8"
+    )
+    Image.new("RGB", (300, 200), (10, 80, 40)).save(
+        project / "assets/optimized/kept.jpg", quality=90
+    )
+
+    result = make_sheet(project)
+    assert result["images_shown"] == 1
+    assert (project / "qa/contact-sheet.jpg").is_file()
+
+
 def test_client_asset_import_deduplicates_and_passes_provenance_audit(
     tmp_path: Path,
     capsys,

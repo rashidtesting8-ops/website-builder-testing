@@ -57,6 +57,31 @@ def _create_image(
     return path
 
 
+def test_curator_deduplicates_perceptually_identical_images(tmp_path: Path) -> None:
+    """PDF §C: dedupe by perceptual similarity, not only exact SHA-256 bytes."""
+    from PIL import Image
+
+    project_root = tmp_path / "projects" / "phash-dedupe"
+    opt_dir = project_root / "assets" / "optimized"
+    base = _create_image(opt_dir / "a.jpg", width=900, height=700, subject_box=(200, 150, 700, 550))
+    # Re-encode at a different quality: bytes (SHA) differ, pixels are effectively identical.
+    with Image.open(base) as im:
+        im.save(opt_dir / "b.jpg", format="JPEG", quality=40)
+    _create_image(
+        opt_dir / "c.jpg",
+        width=900,
+        height=700,
+        bg_color=(10, 200, 30),
+        subject_box=(100, 100, 800, 600),
+    )
+
+    selection = curate_project_images(project_root)
+    names = [selection.hero_image.filename] if selection.hero_image else []
+    names += [g.filename for g in selection.grooming_gallery]
+    assert "a.jpg" in names and "c.jpg" in names
+    assert not ("a.jpg" in names and "b.jpg" in names), "perceptual duplicate must be excluded"
+
+
 def test_taxonomy_keyword_matching_uses_word_boundaries() -> None:
     """Substrings such as 'van' inside 'advance' must not classify a salon as mobile."""
     facts = [
@@ -137,14 +162,20 @@ def test_curator_excludes_low_res_and_baked_in_text_hero_candidates(tmp_path: Pa
         add_banner_text=True,
     )
 
-    # 4. Four unique verified grooming gallery photos
-    for idx in range(1, 5):
+    # 4. Four genuinely distinct gallery photos (different subjects/lighting layout).
+    distinct_boxes = [
+        (120, 100, 500, 400),
+        (520, 120, 900, 450),
+        (180, 420, 560, 740),
+        (580, 400, 950, 760),
+    ]
+    for idx, box in enumerate(distinct_boxes, start=1):
         _create_image(
             opt_dir / f"groom_portfolio_{idx}.jpg",
             width=1000,
             height=800,
             bg_color=(40 + idx * 15, 90, 120),
-            subject_box=(250, 150, 750, 600),
+            subject_box=box,
         )
 
     # 5. Salon facility / van candidate

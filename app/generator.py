@@ -484,6 +484,10 @@ def _build_header_css() -> str:
   font-weight: 600;
   font-size: 0.95rem;
   letter-spacing: 0.02em;
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 2px;
 }
 """
 
