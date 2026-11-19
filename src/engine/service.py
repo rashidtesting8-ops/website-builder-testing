@@ -85,6 +85,10 @@ class PipelineRequest(BaseModel):
     business_id: str | None = None
     resume: bool = False
     new_draft: bool = False
+    instagram_url: str | None = None
+    facebook_url: str | None = None
+    i_have_permission: bool = False
+    permission_basis: str | None = None
 
 
 class ApprovePipelineRequest(BaseModel):
@@ -115,6 +119,10 @@ def _run_full_pipeline_sync(
     business_id: str | None,
     resume: bool,
     new_draft: bool = False,
+    instagram_url: str | None = None,
+    facebook_url: str | None = None,
+    i_have_permission: bool = False,
+    permission_basis: str | None = None,
 ) -> dict[str, Any]:
     from app.pipeline import run_pipeline
 
@@ -157,6 +165,10 @@ def _run_full_pipeline_sync(
         qa_runner=_container_safe_qa_runner,
         llm_adapter=llm_adapter,
         critic_llm_adapter=critic_llm_adapter,
+        instagram_url=instagram_url,
+        facebook_url=facebook_url,
+        i_have_permission=i_have_permission,
+        permission_basis=permission_basis,
     )
     return {
         "project_id": res.project_id,
@@ -200,6 +212,10 @@ def work_pipeline(job_id: str, req: PipelineRequest) -> None:
             business_id=req.business_id,
             resume=req.resume,
             new_draft=req.new_draft,
+            instagram_url=req.instagram_url,
+            facebook_url=req.facebook_url,
+            i_have_permission=req.i_have_permission,
+            permission_basis=req.permission_basis,
         )
         store({"job_id": job_id, "status": "done", "result": result})
     except Exception as exc:
@@ -249,6 +265,15 @@ def create_pipeline_job(req: PipelineRequest) -> dict[str, str]:
         slots.release()
         raise
     return payload
+
+
+@app.post("/projects/{project_id}/social/refresh")
+def refresh_project_social(project_id: str) -> dict[str, Any]:
+    """Re-run only the social collectors for an existing project."""
+    from app.pipeline import refresh_social_for_project
+
+    safe_id = slugify(project_id)
+    return refresh_social_for_project(DATA_DIR / safe_id)
 
 
 @app.post("/pipeline/{project_id}/approve")

@@ -493,6 +493,47 @@ def _collect_configured_social(
     return result
 
 
+def _seed_input_from_intake(
+    project_root: Path,
+    *,
+    url: str,
+    business_name: str,
+    instagram_url: str | None,
+    facebook_url: str | None,
+    i_have_permission: bool,
+    permission_basis: str | None,
+) -> None:
+    """Persist frontend-supplied intake fields before collection (never overwrite existing)."""
+    input_path = project_root / "input.json"
+    if input_path.is_file():
+        return
+    # Pre-seeded test fixtures / legacy projects already have collected research;
+    # creating input.json would invalidate their resume idempotency and trigger
+    # a real network crawl.
+    if (project_root / "research").exists():
+        return
+    payload: dict[str, Any] = {"url": url, "business_name": business_name}
+    for key, value in (
+        ("instagram_url", instagram_url),
+        ("facebook_url", facebook_url),
+        ("permission_basis", permission_basis),
+    ):
+        if isinstance(value, str) and value.strip():
+            payload[key] = value.strip()
+    payload["i_have_permission"] = bool(i_have_permission)
+    _atomic_write_text(input_path, json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
+
+
+def refresh_social_for_project(project_folder: str | Path) -> dict[str, Any]:
+    """Re-run only social collection for an existing project (frontend refresh button)."""
+    root = Path(project_folder).resolve()
+    if not root.is_dir():
+        raise ValueError(f"Project folder not found: {root}")
+    warnings: list[str] = []
+    report = _collect_configured_social(root, warnings)
+    return {"report": report, "warnings": warnings}
+
+
 def _is_stage_completed_and_valid(
     conn: sqlite3.Connection,
     *,
@@ -858,6 +899,10 @@ def run_pipeline(
     new_draft: bool = False,
     acknowledge_gaps: bool = False,
     stop_after: str | None = None,
+    instagram_url: str | None = None,
+    facebook_url: str | None = None,
+    i_have_permission: bool = False,
+    permission_basis: str | None = None,
 ) -> PipelineRunResult:
     """Execute the EditVista lifecycle with SQLite idempotency, resumption, and approval gate."""
     if stop_after is not None and stop_after not in PIPELINE_STAGE_NAMES:
@@ -869,6 +914,15 @@ def run_pipeline(
     project_root = projects_root / project_id
     read_demo_metadata(project_root)
     projects_root.mkdir(parents=True, exist_ok=True)
+    _seed_input_from_intake(
+        project_root,
+        url=url,
+        business_name=business_name,
+        instagram_url=instagram_url,
+        facebook_url=facebook_url,
+        i_have_permission=i_have_permission,
+        permission_basis=permission_basis,
+    )
     resolved_db_path = Path(db_path).resolve() if db_path else (projects_root / "editvista.sqlite3")
 
     warnings: list[str] = []

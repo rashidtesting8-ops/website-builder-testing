@@ -1184,3 +1184,30 @@ Test-first fix (`tests/test_fact_extractor_locale.py`, 5 new tests):
 **Verified result** (`projects/lilys-club-clean-v3`, preview `http://127.0.0.1:8888/preview/lilys-club-clean-v3/standalone.html`): source-exact hero, 5 proof stats, real story, award, chromotherapy highlight, 4 real dog photos, two correct salon contact cards, real prices; claims-lint 0, 5-view QA pass. Screenshot at `projects/lilys-club-clean-v3/qa/screenshots/1440px.png`.
 
 Gates: ruff 0, pyright 0, **289 passed**.
+
+---
+
+## 26. Paste-ready GHL code via GitHub Pages + frontend social intake (19 November 2026)
+
+Two real workflow blockers were fixed test-first:
+
+1. **GHL code was not paste-ready**: `app/approval.py` exported `ghl-ready.html` with relative `../assets/...` paths (verified in the artifact), so pasting it into GHL's *Custom HTML/JavaScript* element produced broken images. Now, when public hosting is configured, the approval stage publishes only rights-confirmed, referenced assets and rewrites every asset reference to stable HTTPS URLs. `assert_public_asset_urls` fails the release if any relative/localhost reference remains. The cockpit `/api/projects/{id}/ghl-export` endpoint serves the approved public snippet verbatim when available.
+2. **Frontend could not start social collection**: `IntakeRequest`/`PipelineRequest` had no social/permission fields; social URLs lived only in on-disk `input.json`. Frontend intake now forwards `instagram_url`, `facebook_url`, `i_have_permission`, `permission_basis`; `run_pipeline` seeds a new project's `input.json` from them (never overwrites an existing one). Added `POST /api/projects/{id}/social/refresh` → worker `POST /projects/{id}/social/refresh` to force a fresh social-only collection without a full rebuild.
+
+### GitHub Pages (free) setup — one-time, no secrets in the repo
+
+1. Create (or reuse) a GitHub repo for public assets, e.g. `rashidtesting8-ops/website-builder-testing`. Create a branch `gh-pages` and enable **Settings → Pages → Source: gh-pages branch**.
+2. Generate a GitHub Personal Access Token with **Contents: read/write** (or classic `repo` scope). Add these to the **local** `.env` (gitignored) and to the collector container environment only:
+   ```text
+   GHL_ASSET_HOST=github_pages
+   GITHUB_PAGES_REPO=<owner>/<repo>
+   GITHUB_TOKEN=<token>                 # never commit or paste this into chat
+   GITHUB_PAGES_BRANCH=gh-pages          # optional, default gh-pages
+   GITHUB_PAGES_BASE_URL=                # optional; auto-derived from repo
+   ```
+   Auto-derived URL: `https://<owner>.github.io/<repo>/` (or `https://<repo>/` for `<owner>.github.io` repos). Assets are written to `<project-id>/assets/optimized/<file>`; e.g. `https://<owner>.github.io/<repo>/lilys-club-clean-v3/assets/optimized/hero.jpg`.
+3. Rebuild/restart the worker so it reads the new env. Approve a release: `approve_release` publishes assets, rewrites the GHL snippet, and writes `release-candidate/ghl-asset-urls.json` as evidence. Then fetch `GET /api/projects/<id>/ghl-export` — `ghl_html` is the exact code to paste into GHL.
+
+**Rights gate:** publishing is fail-closed — if any referenced asset lacks `rights_confirmed_for_preview: true`, the release is blocked. Private research/permission evidence is never uploaded; only referenced, approved assets are. Without `GHL_ASSET_HOST=github_pages`, behaviour is unchanged (local preview still works, no external hosting required — brief §1.6).
+
+Gates: ruff 0, pyright 0, **297 passed**.

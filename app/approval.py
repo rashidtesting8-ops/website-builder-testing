@@ -27,6 +27,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from app.asset_hosting import assert_public_asset_urls, maybe_publish_ghl_assets
 from app.cleanup import make_archive
 from app.db import ProjectRecord, connect_db, get_project, init_db, upsert_project
 from app.ghl_exporter import export_ghl_snippet, export_ghl_snippet_from_html
@@ -316,7 +317,14 @@ def export_approved_deliverables(
     approved_html_path = delivery_dir / "approved-homepage.html"
     shutil.copy2(standalone_path, approved_html_path)
 
-    export_ghl_snippet(project_root, business_id=project_root.name)
+    # When public asset hosting is configured, publish only rights-confirmed
+    # referenced assets and rewrite the GHL snippet to stable HTTPS URLs.
+    ghl_asset_map = maybe_publish_ghl_assets(project_root)
+    export_ghl_snippet(
+        project_root, business_id=project_root.name, asset_url_map=ghl_asset_map or None
+    )
+    if ghl_asset_map:
+        assert_public_asset_urls((delivery_dir / "ghl-ready.html").read_text(encoding="utf-8"))
     ghl_ready_path = delivery_dir / "ghl-ready.html"
 
     # Ensure delivery/retained-assets.json exists and is marked approved=True

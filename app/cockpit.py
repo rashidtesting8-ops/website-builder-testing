@@ -31,6 +31,7 @@ from app.approval import (
     generate_review_summary,
     stage_release_candidate,
 )
+from app.asset_hosting import is_public_asset_snippet
 from app.db import connect_db, init_db, list_projects
 from app.generator import revise_section
 from app.ghl_exporter import (
@@ -166,6 +167,10 @@ class IntakeRequest(BaseModel):
     business_name: str | None = None
     business_id: str | None = None
     resume: bool = False
+    instagram_url: str | None = None
+    facebook_url: str | None = None
+    i_have_permission: bool = False
+    permission_basis: str | None = None
 
 
 _JOB_ID_RE = re.compile(r"[0-9a-f]{32}")
@@ -556,6 +561,14 @@ def create_cockpit_app(
             "business_id": req.business_id,
             "resume": req.resume,
         }
+        if req.instagram_url:
+            payload["instagram_url"] = req.instagram_url
+        if req.facebook_url:
+            payload["facebook_url"] = req.facebook_url
+        if req.i_have_permission:
+            payload["i_have_permission"] = True
+        if req.permission_basis:
+            payload["permission_basis"] = req.permission_basis
         try:
             resp = requests.post(
                 f"{resolved_worker_url}/pipeline/run",
@@ -568,6 +581,22 @@ def create_cockpit_app(
                 f"Worker unreachable at {resolved_worker_url}: {type(exc).__name__}",
             ) from exc
         if resp.status_code != 202:
+            raise HTTPException(resp.status_code, _worker_detail(resp))
+        return _worker_json(resp)
+
+    @app.post("/api/projects/{project_id}/social/refresh")
+    def social_refresh_endpoint(project_id: str) -> dict[str, Any]:
+        """Force a fresh Instagram/Facebook collection for an existing project."""
+        try:
+            resp = requests.post(
+                f"{resolved_worker_url}/projects/{project_id}/social/refresh", timeout=120.0
+            )
+        except requests.RequestException as exc:
+            raise HTTPException(
+                502,
+                f"Worker unreachable at {resolved_worker_url}: {type(exc).__name__}",
+            ) from exc
+        if resp.status_code != 200:
             raise HTTPException(resp.status_code, _worker_detail(resp))
         return _worker_json(resp)
 
@@ -722,13 +751,26 @@ def create_cockpit_app(
 
         base_origin = str(request.base_url).rstrip("/")
         effective_cdn = (cdn_base_url or f"{base_origin}/assets/{project_id}").strip().rstrip("/")
-        raw_html = source_html_path.read_text(encoding="utf-8")
-        normalized_html = raw_html.replace('src="../assets/', 'src="assets/')
-        ghl_html = export_ghl_snippet_from_html(
-            normalized_html,
-            business_id=project_id,
-            cdn_base_url=effective_cdn,
+
+        # An approved snippet already rewritten to public HTTPS URLs (e.g. GitHub
+        # Pages hosting) is the exact code the operator will paste into GHL.
+        approved_snippet_path = root / "delivery" / "ghl-ready.html"
+        approved_public = (
+            approved_snippet_path.is_file()
+            and is_public_asset_snippet(approved_snippet_path.read_text(encoding="utf-8"))
         )
+        if approved_public:
+            ghl_html = approved_snippet_path.read_text(encoding="utf-8")
+            source_stage = "approved_delivery_public"
+            effective_cdn = "public_https_assets"
+        else:
+            raw_html = source_html_path.read_text(encoding="utf-8")
+            normalized_html = raw_html.replace('src="../assets/', 'src="assets/')
+            ghl_html = export_ghl_snippet_from_html(
+                normalized_html,
+                business_id=project_id,
+                cdn_base_url=effective_cdn,
+            )
         root_id = f"ghl-ev-engine-root-{project_id}"
 
         host_page_html = (
