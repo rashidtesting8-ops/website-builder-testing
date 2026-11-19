@@ -587,6 +587,7 @@ def create_cockpit_app(
     @app.post("/api/projects/{project_id}/social/refresh")
     def social_refresh_endpoint(project_id: str) -> dict[str, Any]:
         """Force a fresh Instagram/Facebook collection for an existing project."""
+        _resolve_project_root(project_id, resolved_projects_dir)
         try:
             resp = requests.post(
                 f"{resolved_worker_url}/projects/{project_id}/social/refresh", timeout=120.0

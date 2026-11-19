@@ -9,7 +9,19 @@
 
 **An evidence-preserving, local-first engine for automated media collection, cryptographic fact verification, locale-aware normalization, visual curation, luxury editorial art direction, per-section code generation, surgical revision, 5-viewport QA, budget-capped LLM adaptation, Minimum Viable Facts (MVF) gating, human-in-the-loop operator cockpit review, enterprise n8n studio orchestration, and immutable release packaging with GoHighLevel (GHL) isolation for bespoke pet grooming websites.**
 
-> **Prototype status (last checked 2026-11-17):** Not production-ready. Local gates: `uv run ruff check .` 0, `uv run pyright` 0, `uv run pytest` **277 passed**. A **five-business real-business pilot has now been executed end-to-end** — 5/5 businesses collected, verified, QA'd, rights-confirmed, and approved with immutable frozen `delivery/` (see §22). Demo fixtures remain explicitly labeled and separate from real-business pilot counts. **Still open:** actual GHL published-page validation (skipped — account login pending) and team-supplied approved examples corpus (never provided; own releases are not misrepresented as team-supplied). Owner consent confirmed (PII intentionally withheld by owner, respected); n8n workflow 04 executed successfully in an isolated container. Social collection and LLM quality were verified on the DoD-proof run (40 Facebook files + real Groq art direction); platform rate limits remain brief-compliant `review_needed`. Public availability is not permission to reuse media.
+> **Prototype status (last checked 2026-11-19):** Not production-ready. Local gates: `uv run ruff check .` 0, `uv run pyright` 0, `uv run pytest` **298 passed across 43 test modules**. A **five-business real-business pilot has now been executed end-to-end** — 5/5 businesses collected, verified, QA'd, rights-confirmed, and approved with immutable frozen `delivery/` (see §22). Demo fixtures remain explicitly labeled and separate from real-business pilot counts. **Latest (§24–§26):** visual "AI slop" defects fixed deterministically with human asset overrides; rich source-backed facts (proof stats, awards, owner story, two salons, real prices) now drive a genuinely bespoke homepage; frontend intake carries FB/Instagram URLs + owner permission with a social re-scrape endpoint; and GHL export can publish rights-confirmed assets to free GitHub Pages so the final code is paste-ready HTTPS (no relative/localhost images). **Still open:** actual GHL published-page validation (operator pastes/publishes manually — skipped), team-supplied approved examples corpus (never provided; our own releases are not misrepresented as team-supplied), vision-based curation/critic (free vision models unreliable — deterministic + human gate), and re-approval of the five M5 deliveries under the 19 Nov quality fixes. Owner consent confirmed (PII intentionally withheld by owner, respected); n8n workflow 04 executed successfully in an isolated container. Social collection verified on the DoD-proof run (40 Facebook files; Instagram rate-limit honestly `review_needed`, no bypass). Public availability is not permission to reuse media.
+
+### Current completion estimate (developer brief, GHL publish excluded)
+| Milestone | Est. | Basis |
+|---|---|---|
+| M1 Collect & provenance | ~90% | 5/5 collected; social honest, contact sheets + byte-verify fixed |
+| M2 Visual & content intelligence | ~80% | Rich extraction fixed; vision curation still deterministic + human |
+| M3 Design, critique & QA | ~85% | Bespoke rich sections, 5-view QA; visual critic heuristic |
+| M4 Review & export | ~90% | Frozen approvals + paste-ready GHL code via GitHub Pages |
+| M5 Five-business pilot | ~90% | 5/5 approved; deliveries predate 19 Nov quality fixes |
+| **Overall (GHL publish excluded)** | **~88%** | Remaining: vision critic, team corpus, M5 re-approval |
+
+See §18 for the historical 17 Nov scoring and §24–§26 for the evidence behind this update.
 
 ### Owner and Developer Handoff
 - [Local Demo and Client Pilot SOP](docs/SOP_LOCAL_DEMO_AND_CLIENT_PILOT.md)
@@ -43,6 +55,10 @@
 20. [License & Acknowledgments](#20-license--acknowledgments)
 21. [DoD Proof Run — Phase 0 Execution (Tracker)](#21-dod-proof-run--phase-0-execution-tracker)
 22. [M5 — Five-Business Pilot](#22-m5--real-business-five-business-pilot-started-16-november-2026)
+23. [Single-URL DoD Proof & Frontend Execution Visibility](#23-single-url-dod-proof--frontend-execution-visibility-17-november-2026)
+24. [Visual-quality ("AI slop") fixes](#24-visual-quality-ai-slop-fixes-19-november-2026)
+25. [Rich source-backed content → bespoke homepage](#25-rich-source-backed-content--genuinely-bespoke-homepage-19-november-2026)
+26. [Paste-ready GHL code via GitHub Pages + frontend social intake](#26-paste-ready-ghl-code-via-github-pages--frontend-social-intake-19-november-2026)
 
 ---
 
@@ -778,14 +794,15 @@ The Operator Cockpit runs on `127.0.0.1:8787` (or `:8888`) and provides side-by-
 
 - `GET /` — Serves the interactive Operator Cockpit dashboard listing all projects and review statuses, plus the URL-paste intake form for starting a pipeline run.
 - `GET /api/health` — Liveness probe returning `{"status": "ok"}`.
-- `POST /api/intake` — Thin client for the dashboard intake form: forwards `{url, business_name?, business_id?, resume}` to the worker's `POST /pipeline/run` (`WORKER_BASE_URL`, default `http://127.0.0.1:8787`; Docker sets `http://collector:8787`) and returns the worker's `{job_id, status}` (`202 Accepted`; `429` when the worker's single build slot is busy; `502` when the worker is unreachable).
+- `POST /api/intake` — Thin client for the dashboard intake form: forwards `{url, business_name?, business_id?, resume, instagram_url?, facebook_url?, i_have_permission?, permission_basis?}` to the worker's `POST /pipeline/run` (`WORKER_BASE_URL`, default `http://127.0.0.1:8787`; Docker sets `http://collector:8787`) and returns the worker's `{job_id, status}` (`202 Accepted`; `429` when the worker's single build slot is busy; `502` when the worker is unreachable). A new project's `input.json` is seeded from these fields (existing operator-edited input is never overwritten).
+- `POST /api/projects/{project_id}/social/refresh` — Forces a fresh Instagram/Facebook-only collection for an existing project (worker: `POST /projects/{project_id}/social/refresh`) without rebuilding the whole site. Results remain brief-compliant: platform rate limits/errors are recorded as `review_needed`; no login bypass, CAPTCHA evasion or credential collection.
 - `GET /api/jobs/{job_id}` — Proxies worker job telemetry for the dashboard's live status poller; malformed (non-32-hex) job ids are rejected with `404` before any worker call.
 - `GET /review/{project_id}` — Serves the side-by-side Operator Review Cockpit UI (`app/templates/review_cockpit.html`) with a sandboxed preview iframe (`sandbox="allow-scripts"`).
 - `GET /api/projects/{project_id}/summary` — Returns full project review summary JSON (`verified_claims_count`, `flagged_claims_count`, `curated_assets`, `screenshots`, `mvf_status`).
 - `POST /api/projects/{project_id}/confirm-rights` — Updates `rights_confirmed_for_preview` for a specified asset in `research/asset-manifest.json`.
 - `POST /api/projects/{project_id}/revise-section` — Validates and applies surgical HTML revision to `website/sections/<section_name>.html`, rebuilds `website/index.html`, and re-stages `release-candidate/`.
 - `POST /api/projects/{project_id}/approve` — Validates QA freshness and asset rights, freezes read-only deliverables into `delivery/` and `versions/<version>/`, writes `release-manifest.json`, and generates archive zip.
-- `GET /api/projects/{project_id}/ghl-export` — Compiles scoped GoHighLevel snippet with absolute CDN URL rewriting and simulation verification.
+- `GET /api/projects/{project_id}/ghl-export` — Returns the scoped GoHighLevel snippet with simulation verification. When an approved snippet with public HTTPS asset URLs exists (GitHub Pages hosting), it is served verbatim (`source_stage: "approved_delivery_public"`) — this is the exact code to paste into GHL's *Custom HTML/JavaScript* element; otherwise a local-CDN compile is returned for internal simulation (see §26).
 - `GET /ghl-preview/{project_id}` — Renders live GoHighLevel Funnel Host Simulator page embedding the scoped `#ghl-ev-engine-root-{project_id}` container within a hostile host stylesheet.
 - `GET /preview/{project_id}/{subpath:path}` — Safely serves candidate or website HTML/CSS inside the sandboxed preview frame with path-traversal protection.
 - `GET /screenshots/{project_id}/{filename}` — Serves 5-viewport PNG screenshots from `qa/screenshots/`.
@@ -822,7 +839,7 @@ make test        # uv run pytest
 
 ### Current Validation Snapshot
 
-Last locally verified on 2026-11-14: **264 passed across 40 test modules**. The commands
+Last locally verified on 2026-11-19: **298 passed across 43 test modules**. The commands
 `uv run ruff check .`, `uv run pyright`, and `uv run pytest` completed successfully in the
 local working tree; Pyright reported 0 errors, warnings, or informations. These are
 automated local results, not evidence of a real-client pilot, client approval, or published
@@ -1057,9 +1074,11 @@ The owner subsequently self-attested in chat to owning the business and granting
 | M3 Design, Critique & QA | ~70% | 5/5 QA pass (5 views), critique heuristic (LLM not used), precise-revision loop demonstrated on single-business run. |
 | M4 Review & Export | ~85% | 5/5 approved with frozen immutable delivery + GHL snippet staged; no live GHL publish/gate (skipped per user). |
 | M5 Five-business pilot | ~90% | 5/5 run end-to-end, all approved, QA/claims/MVF pass, reference library built; GHL live + written owner permission pending. |
-| **Overall (M1–M5)** | **~82%** | M4 now ~85% + M5 ~90%; remaining: GHL live publish/gate, written owner permission, LLM quality (credits). |
+| **Overall (M1–M5)** | **~82%** | Historical 17 Nov scoring; superseded by the 19 Nov estimate at the top of this README. |
 
-*Tested engine: `uv run ruff check .` 0, `uv run pyright` 0, `uv run pytest` **272 passed**. Secrets and rights-bearing evidence remain local/private (Git-ignored).*
+*Historical tested engine (17 Nov): `uv run ruff check .` 0, `uv run pyright` 0, `uv run pytest` **272 passed**. Current: **298 passed** (see top status and §26). Secrets and rights-bearing evidence remain local/private (Git-ignored).*
+
+**19 Nov update to these scores (GHL publish still excluded):** M1 ~90% (contact sheets, byte-verified staging, honest social), M2 ~80% (rich source-backed extraction fixed; vision curation still deterministic + human), M3 ~85% (bespoke rich sections + 5-view QA; critic heuristic), M4 ~90% (frozen approval + paste-ready GitHub-Pages GHL code), M5 ~90% (5/5 approved, but deliveries predate the 19 Nov fixes). Overall **~88%**. Remaining: vision-based critic/curation, team-supplied corpus, M5 re-approval, operator-performed GHL publish.
 
 ### Honest gaps (M5)
 - **LLM (resolved on the DoD-proof run):** the original OpenRouter key returned HTTP 402 (insufficient credits) and the configured Groq model `llama-3.3-70b-versatile` was unavailable. Fixed by using a valid Groq model (`qwen/qwen3.8-27b`, 200 OK) in the container env, capping the adapter default `max_tokens` at 800 (Groq free-tier OTPM limit is 1000), and introducing hybrid LLM wiring: `llm_adapter` drives art direction, `critic_llm_adapter` is only provided for vision-capable providers (otherwise the critic stays heuristic, per the brief's escalate-on-failure rule). Verified on `lilys-club-dod-proof`: `creative-brief.json.llm_used=true`, bespoke headline *"The Art of Feline & Canine Elegance"*, usage ledger `lilys-club-dod-proof | art_direction | qwen/qwen3.8-27b | 1214 tokens`, 0 warnings, QA passed. **Earlier M5 runs (five businesses) still used heuristic fallback; they predate this fix.**
@@ -1210,4 +1229,4 @@ Two real workflow blockers were fixed test-first:
 
 **Rights gate:** publishing is fail-closed — if any referenced asset lacks `rights_confirmed_for_preview: true`, the release is blocked. Private research/permission evidence is never uploaded; only referenced, approved assets are. Without `GHL_ASSET_HOST=github_pages`, behaviour is unchanged (local preview still works, no external hosting required — brief §1.6).
 
-Gates: ruff 0, pyright 0, **297 passed**.
+Gates: ruff 0, pyright 0, **298 passed**.

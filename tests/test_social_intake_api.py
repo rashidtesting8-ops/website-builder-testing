@@ -91,3 +91,40 @@ def test_social_refresh_recollects_without_full_pipeline(
     result = refresh_social_for_project(project)
     assert captured["root"] == project
     assert result["report"]["platforms"]["instagram"]["status"] == "review_needed"
+
+
+def test_social_refresh_routes_reject_invalid_and_missing_projects(
+    tmp_path: Path,
+) -> None:
+    import pytest
+    from app.cockpit import create_cockpit_app
+    from fastapi import HTTPException
+    from fastapi.routing import APIRoute
+
+    from engine.service import refresh_project_social
+
+    with pytest.raises(HTTPException) as worker_missing:
+        refresh_project_social("no-such-project-xyz")
+    assert worker_missing.value.status_code == 404
+
+    with pytest.raises(HTTPException) as worker_bad:
+        refresh_project_social("../escape")
+    assert worker_bad.value.status_code == 400
+
+    cockpit_app = create_cockpit_app(
+        projects_dir=tmp_path / "projects",
+        worker_base_url="http://127.0.0.1:9",
+    )
+    endpoint = next(
+        route.endpoint
+        for route in cockpit_app.routes
+        if isinstance(route, APIRoute) and route.path == "/api/projects/{project_id}/social/refresh"
+    )
+    with pytest.raises(HTTPException) as cockpit_bad:
+        endpoint("../escape")
+    assert cockpit_bad.value.status_code == 400
+
+    with pytest.raises(HTTPException) as cockpit_missing:
+        endpoint("missing-proj")
+    assert cockpit_missing.value.status_code == 404
+

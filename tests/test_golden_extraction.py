@@ -10,6 +10,7 @@ import importlib.util
 import io
 import json
 import re
+import shutil
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -318,7 +319,9 @@ def test_hard_rule_verified_precision_scoring_logic() -> None:
     assert verified_precision == 0.0, "Wrong verified fact must drop verified precision to 0.0"
 
 
-def test_baseline_extraction_on_golden_corpus(capsys: pytest.CaptureFixture[str]) -> None:
+def test_baseline_extraction_on_golden_corpus(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     """Run current fact extractor against all golden fixtures and score baseline precision/recall.
 
     Reports baseline precision, recall, and verified-fact precision for each business category.
@@ -336,7 +339,9 @@ def test_baseline_extraction_on_golden_corpus(capsys: pytest.CaptureFixture[str]
         expected_file = slug_dir / "expected.json"
         expected_facts = json.loads(expected_file.read_text(encoding="utf-8"))
 
-        report = extract_business_facts(slug_dir)
+        work_dir = tmp_path / slug_dir.name
+        shutil.copytree(slug_dir, work_dir)
+        report = extract_business_facts(work_dir)
         scores = score_category_facts(expected_facts, report.facts)
 
         for cat, sc in scores.items():

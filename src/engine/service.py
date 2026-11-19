@@ -272,8 +272,13 @@ def refresh_project_social(project_id: str) -> dict[str, Any]:
     """Re-run only the social collectors for an existing project."""
     from app.pipeline import refresh_social_for_project
 
+    if not project_id or ".." in project_id or "/" in project_id or "\\" in project_id:
+        raise HTTPException(400, "Invalid project identifier")
     safe_id = slugify(project_id)
-    return refresh_social_for_project(DATA_DIR / safe_id)
+    try:
+        return refresh_social_for_project(DATA_DIR / safe_id)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
 
 
 @app.post("/pipeline/{project_id}/approve")
