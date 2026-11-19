@@ -13,7 +13,7 @@ import hashlib
 import os
 import re
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
@@ -25,6 +25,7 @@ MIN_HERO_WIDTH = 800
 MIN_GALLERY_COUNT = 4
 MIN_SHARPNESS_SCORE = 0.08
 SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+ULTRAWIDE_BANNER_ASPECT = 2.5  # >= this ratio is a promo strip, not a photo
 PERCEPTUAL_HASH_MAX_DISTANCE = 5  # 64-bit dHash; <=5 bits ~ visually identical
 
 
@@ -193,7 +194,12 @@ def _compute_sharpness(img: Image.Image) -> float:
 
 
 def _detect_embedded_banner_text(image_path: Path, img: Image.Image) -> bool:
-    """Detect baked-in promotional text or banners via filename and top strip stroke density."""
+    """Detect baked-in promotional text/banners via filename, shape, and stroke density.
+
+    PDF §C: hero sources with baked-in text/discount graphics must be excluded. Real
+    promo banners are often ultra-wide with faint text on a flat canvas, which the
+    old top-band high-contrast rule missed (e.g. a 3.68:1 "Grooming" banner).
+    """
     lower_name = image_path.stem.lower()
     if any(tok in lower_name for tok in PROMO_FILENAME_TOKENS):
         return True
@@ -202,13 +208,27 @@ def _detect_embedded_banner_text(image_path: Path, img: Image.Image) -> bool:
     if w < 64 or h < 64:
         return False
 
+    # Ultra-wide strips are banners/logos, not photographic hero or gallery content.
+    if w / h >= ULTRAWIDE_BANNER_ASPECT:
+        return True
+
     band_h = max(16, h // 6)
     top_band = img.crop((0, 0, w, band_h)).convert("L")
     edges = top_band.filter(ImageFilter.FIND_EDGES)
     edge_mean = float(ImageStat.Stat(edges).mean[0])
     top_stddev = float(ImageStat.Stat(top_band).stddev[0])
-    # High-contrast alternating text strokes inside a top banner produce extreme edge density
-    return edge_mean > 85.0 and top_stddev > 75.0
+    if edge_mean > 85.0 and top_stddev > 75.0:
+        return True
+
+    # Flat canvas with sparse text strokes in the middle third: low dense texture
+    # but a narrow band of high local variance surrounded by near-flat rows.
+    mid = img.crop((0, h // 3, w, h // 3 + band_h)).convert("L")
+    mid_edges = mid.filter(ImageFilter.FIND_EDGES)
+    mid_em = float(ImageStat.Stat(mid_edges).mean[0])
+    mid_sd = float(ImageStat.Stat(mid).stddev[0])
+    if mid_sd > 60.0 and mid_em < 15.0:
+        return True
+    return False
 
 
 def _calculate_focal_point(img: Image.Image) -> tuple[float, float]:
@@ -281,11 +301,18 @@ def curate_project_images(
     project_folder: str | Path,
     *,
     lvm_adapter: LVMAdapter | None = None,
+    hero_filename: str | None = None,
+    exclude_filenames: Sequence[str] | None = None,
 ) -> ImageSelectionReport:
-    """Scan optimized assets and contact sheet, evaluate candidates, and save selection JSON."""
+    """Scan optimized assets and contact sheet, evaluate candidates, and save selection JSON.
+
+    ``hero_filename`` / ``exclude_filenames`` let the human operator correct automated
+    selection before design (brief §D: human can correct sources/assets before generation).
+    """
     project_root = Path(project_folder).resolve()
     project_id = project_root.name
     adapter = lvm_adapter or default_lvm_heuristic_adapter
+    excluded_input = set(exclude_filenames or [])
 
     optimized_dir = project_root / "assets" / "optimized"
     contact_sheet_file = project_root / "qa" / "contact-sheet.jpg"
@@ -308,6 +335,7 @@ def curate_project_images(
 
     valid_candidates: list[tuple[CuratedImageCandidate, RoleHint]] = []
     excluded: list[ExcludedImageRecord] = []
+    warnings: list[str] = []
     seen_sha256: set[str] = set()
     seen_phashes: list[int] = []
 
@@ -325,12 +353,17 @@ def curate_project_images(
         low_res_for_hero = width < MIN_HERO_WIDTH
         failure_reasons: list[str] = []
 
+        if img_path.name in excluded_input:
+            failure_reasons.append("operator_excluded")
         if sha256 in seen_sha256:
             failure_reasons.append("duplicate_sha256: identical image content already evaluated")
         phash = _perceptual_hash(rgb_img)
+        # Record every seen image (including excluded ones) so a resized/re-encoded
+        # variant of a rejected promo/review image cannot slip back into the gallery.
+        seen_phashes.append(phash)
         if any(
             _hamming_distance(phash, prev) <= PERCEPTUAL_HASH_MAX_DISTANCE
-            for prev in seen_phashes
+            for prev in seen_phashes[:-1]
         ):
             failure_reasons.append(
                 "duplicate_perceptual: visually identical image already evaluated"
@@ -361,7 +394,6 @@ def curate_project_images(
             continue
 
         seen_sha256.add(sha256)
-        seen_phashes.append(phash)
         focal_x = _format_css_pct(obs.focal_x_pct)
         focal_y = _format_css_pct(obs.focal_y_pct)
         obj_pos = f"{focal_x} {focal_y}"
@@ -394,7 +426,6 @@ def curate_project_images(
 
     # Strict deduplication across sections: each filename / sha256 can only be assigned once
     assigned_filenames: set[str] = set()
-    warnings: list[str] = []
 
     # 1. Select salon_facility_or_van first if explicitly hinted
     facility_candidate: CuratedImageCandidate | None = None
@@ -425,11 +456,23 @@ def curate_project_images(
         ),
         reverse=True,
     )
-    if hero_pool:
-        hero_candidate = hero_pool[0]
-        assigned_filenames.add(hero_candidate.filename)
-    else:
-        warnings.append("No eligible hero_image candidate >= 800px without embedded text found.")
+    if hero_filename:
+        forced = next((c for c, _hint in valid_candidates if c.filename == hero_filename), None)
+        if forced is not None:
+            hero_candidate = forced
+            assigned_filenames.add(forced.filename)
+        else:
+            warnings.append(
+                f"Operator hero override '{hero_filename}' not among eligible candidates."
+            )
+    if hero_candidate is None:
+        if hero_pool:
+            hero_candidate = hero_pool[0]
+            assigned_filenames.add(hero_candidate.filename)
+        else:
+            warnings.append(
+                "No eligible hero_image candidate >= 800px without embedded text found."
+            )
 
     # 3. Select grooming_gallery (minimum 4 unique verified photos, never reusing hero or facility)
     gallery_pool = sorted(

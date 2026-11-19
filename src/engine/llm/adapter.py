@@ -405,7 +405,9 @@ class OpenRouterProvider(OpenAIProvider):
             raise RuntimeError(f"OpenRouter API error ({resp.status_code}): {resp.text}")
         data = resp.json()
         choice = data.get("choices", [{}])[0]
-        text = choice.get("message", {}).get("content", "")
+        message = choice.get("message") or {}
+        # Reasoning models return content=null with the answer in `reasoning`.
+        text = message.get("content") or message.get("reasoning") or ""
         usage = data.get("usage", {})
         p_tokens = int(usage.get("prompt_tokens", 0))
         c_tokens = int(usage.get("completion_tokens", 0))

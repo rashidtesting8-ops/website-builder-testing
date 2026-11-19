@@ -581,7 +581,12 @@ def _stage_downloaded_assets_for_curator(
             continue
 
         dest_path = optimized_dir / src_path.name
-        if not dest_path.is_file():
+        # Verify the optimized copy matches the source bytes. A stale/corrupt file
+        # from an earlier run must never be silently reused (photo-swap bug).
+        dest_sha = (
+            hashlib.sha256(dest_path.read_bytes()).hexdigest() if dest_path.is_file() else ""
+        )
+        if dest_sha != sha256:
             shutil.copy2(src_path, dest_path)
 
         # Preserve the manifest's rights decision in SQLite.
@@ -1204,7 +1209,21 @@ def run_pipeline(
                 idempotency_key=curate_idemp,
                 status="running",
             )
-            curate_res = curate_project_images(project_root)
+            # Operator overrides let a human correct automated hero/exclusions
+            # before design (brief §D: correct sources/assets before generation).
+            _input_path = project_root / "input.json"
+            _operator_overrides: dict[str, Any] = {}
+            if _input_path.is_file():
+                try:
+                    _input_data = json.loads(_input_path.read_text(encoding="utf-8"))
+                    if isinstance(_input_data, dict):
+                        _operator_overrides = {
+                            "hero_filename": _input_data.get("hero_filename"),
+                            "exclude_filenames": _input_data.get("exclude_filenames"),
+                        }
+                except (OSError, json.JSONDecodeError):
+                    _operator_overrides = {}
+            curate_res = curate_project_images(project_root, **_operator_overrides)
             warnings.extend(curate_res.warnings)
             try:
                 make_sheet(project_root)

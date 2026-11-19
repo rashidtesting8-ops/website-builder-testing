@@ -1149,3 +1149,21 @@ Gates after these changes: ruff 0, pyright 0, **277 passed**.
 
 ### 23.6 Frontend ↔ output alignment
 The frontend now matches the engine outputs: the review cockpit shows verified/needs-review facts, rights status, 5-viewport screenshots and the approval form; the dashboard shows project metrics, URL intake with live job polling, and the stage-by-stage execution timeline. Remaining intentionally human-controlled steps (approval, GHL publish, cleanup confirmation) are explicit gates, not silent background actions.
+
+---
+
+## 24. Visual-quality ("AI slop") fixes (19 November 2026)
+
+A real preview review found automated pass reports hiding obvious aesthetic defects (promo-banner hero, landmark photo, baked-in review text). Root causes and test-first fixes:
+
+| Defect | Root cause | Fix |
+|---|---|---|
+| 3.68:1 promo banner selected as hero | Text detector only checked high-contrast top strip; faint centered text escaped | `ULTRAWIDE_BANNER_ASPECT=2.5` banners excluded; multi-band faint-text detection in `app/curator.py` |
+| Eiffel Tower photo as hero | Automated heuristic cannot judge semantic relevance; free vision models returned unusable JSON / hit call cap | Operator overrides: `input.json` now accepts `hero_filename` and `exclude_filenames` (brief §D human correction before design), wired through `run_pipeline` into the curator |
+| Baked-in review-text image reappeared as a resized variant | Excluded image's perceptual hash was never recorded, so a resized copy passed dedupe | Curator records pHash for every image including excluded ones; variants of rejected images cannot re-enter |
+| Stale optimized copy with wrong bytes | Staging copied only when file missing, never verified content | `_stage_downloaded_assets_for_curator` verifies SHA-256 and re-copies on mismatch |
+| "Photo reuse rights not confirmed" warning on owner-approved preview | Per-asset flags were false despite owner consent | `confirm-rights --all --basis owner_permission` then regenerate; warning cleared (no code hack) |
+
+**Verified result** (`projects/lilys-club-clean-v3`, preview `http://127.0.0.1:8888/preview/lilys-club-clean-v3/standalone.html`): hero is a genuine, clean dog photo; gallery is 4 real dog photos; no promo/landmark/review-text images; no rights warning; claims-lint 0; 5-view QA passed. LLM vision was attempted and **reverted** as unreliable within the call cap/budget — deterministic fixes plus human correction are the honest path.
+
+Gates: ruff 0, pyright 0, **282 passed**.

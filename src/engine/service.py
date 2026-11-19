@@ -145,6 +145,7 @@ def _run_full_pipeline_sync(
                 critic_llm_adapter = llm_adapter
         except Exception:
             llm_adapter = None
+
     res = run_pipeline(
         url=url,
         business_name=resolved_name,

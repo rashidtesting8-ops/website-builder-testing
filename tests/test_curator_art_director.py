@@ -57,6 +57,71 @@ def _create_image(
     return path
 
 
+def test_curator_detects_low_contrast_text_on_flat_banner(tmp_path: Path) -> None:
+    """PDF §C: low-contrast baked-in text must be detected, not just a loud top strip."""
+    from app.curator import _detect_embedded_banner_text
+
+    # Flat cream canvas (1920x522) with faint white-ish text strokes in the middle band.
+    banner = Image.new("RGB", (1920, 522), (238, 232, 222))
+    draw = ImageDraw.Draw(banner)
+    for i in range(9):
+        draw.rectangle((140 + i * 180, 200, 140 + i * 180 + 6, 330), fill=(252, 250, 248))
+    assert _detect_embedded_banner_text(tmp_path / "copia-de-layout.png", banner) is True
+
+
+def test_curator_excluded_image_rejects_its_resized_variant(tmp_path: Path) -> None:
+    """A resized variant of an operator-excluded promo must not re-enter the gallery."""
+    from PIL import Image
+
+    project_root = tmp_path / "projects" / "variant-leak"
+    opt = project_root / "assets" / "optimized"
+    base = _create_image(
+        opt / "review_promo.png", width=1000, height=800, subject_box=(200, 100, 800, 700)
+    )
+    with Image.open(base) as im:
+        im.resize((900, 720), Image.Resampling.LANCZOS).save(opt / "review_promo_small.png")
+    _create_image(opt / "clean_dog.jpg", width=1000, height=800, subject_box=(250, 150, 750, 600))
+
+    selection = curate_project_images(
+        project_root, exclude_filenames=["review_promo.png"]
+    )
+    names = [g.filename for g in selection.grooming_gallery]
+    assert "review_promo.png" not in names
+    assert "review_promo_small.png" not in names
+
+
+def test_curator_honors_operator_hero_and_exclusion_overrides(tmp_path: Path) -> None:
+    """Operator can correct automated selection before design (brief §D)."""
+    project_root = tmp_path / "projects" / "overrides"
+    opt = project_root / "assets" / "optimized"
+    _create_image(opt / "auto_hero.jpg", width=1200, height=900, subject_box=(100, 100, 500, 500))
+    _create_image(opt / "better_hero.jpg", width=1200, height=900, subject_box=(300, 150, 900, 700))
+
+    selection = curate_project_images(
+        project_root,
+        hero_filename="better_hero.jpg",
+        exclude_filenames=["auto_hero.jpg"],
+    )
+    assert selection.hero_image and selection.hero_image.filename == "better_hero.jpg"
+    excluded = {e.filename for e in selection.excluded_images}
+    assert "auto_hero.jpg" in excluded
+    assert "auto_hero.jpg" not in [g.filename for g in selection.grooming_gallery]
+
+
+def test_curator_rejects_ultrawide_banner_as_hero(tmp_path: Path) -> None:
+    """A 3.6:1 promo banner is not a valid 4:3 hero photo even if text detection misses it."""
+    project_root = tmp_path / "projects" / "wide-hero"
+    opt = project_root / "assets" / "optimized"
+    _create_image(
+        opt / "wide-banner.jpg", width=1800, height=500, subject_box=(200, 100, 1600, 400)
+    )
+    _create_image(opt / "real-dog.jpg", width=1200, height=900, subject_box=(300, 150, 900, 700))
+
+    selection = curate_project_images(project_root)
+    assert selection.hero_image is not None
+    assert "wide-banner" not in selection.hero_image.filename
+
+
 def test_curator_deduplicates_perceptually_identical_images(tmp_path: Path) -> None:
     """PDF §C: dedupe by perceptual similarity, not only exact SHA-256 bytes."""
     from PIL import Image

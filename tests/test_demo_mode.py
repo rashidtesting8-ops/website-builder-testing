@@ -273,6 +273,47 @@ def test_pipeline_keeps_third_party_asset_rights_unconfirmed(tmp_path: Path) -> 
     assert records[0].rights_confirmed_for_preview is False
 
 
+def test_staged_optimized_copy_is_overwritten_when_bytes_differ(tmp_path: Path) -> None:
+    """A stale optimized file with the same name must be replaced by the collected source."""
+    import hashlib
+
+    project_root = tmp_path / "projects" / "photo-swap"
+    (project_root / "research").mkdir(parents=True)
+    src = project_root / "assets" / "website" / "dog.jpg"
+    src.parent.mkdir(parents=True)
+    src.write_bytes(b"REAL-DOG-PHOTO")
+    opt = project_root / "assets" / "optimized" / "dog.jpg"
+    opt.parent.mkdir(parents=True)
+    opt.write_bytes(b"STALE-EIFFEL-PHOTO")  # same filename, wrong bytes
+    (project_root / "research/asset-manifest.json").write_text(
+        json.dumps([{
+            "file": "assets/website/dog.jpg",
+            "sha256": hashlib.sha256(src.read_bytes()).hexdigest(),
+            "url": "https://source.example/dog.jpg",
+            "status": "downloaded",
+            "rights_confirmed_for_preview": True,
+        }]),
+        encoding="utf-8",
+    )
+    conn = connect_db(tmp_path / "projects" / "editvista.sqlite3")
+    init_db(conn)
+    try:
+        upsert_project(
+            conn,
+            ProjectRecord(
+                project_id=project_root.name,
+                business_name="Photo Swap",
+                primary_url="https://source.example/",
+                status="running",
+            ),
+        )
+        _stage_downloaded_assets_for_curator(conn, project_root, project_root.name)
+    finally:
+        conn.close()
+
+    assert opt.read_bytes() == src.read_bytes()
+
+
 def test_third_party_demo_refuses_approval_and_all_export_paths(tmp_path: Path) -> None:
     project_root = tmp_path / "third-party"
     _write_input(project_root, kind="third_party_internal_demo")
