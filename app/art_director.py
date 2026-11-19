@@ -470,6 +470,31 @@ def generate_art_direction(
     editorial_tagline: str | None = default_tagline
     editorial_value_prop: str | None = default_value_prop
     suggested_sections: list[str] = default_sections
+
+    # Bespoke defaults from verified source facts (no invention). A positioning
+    # line or proof point published by the business itself outranks generic copy.
+    proof_values: list[str] = []
+    for fact in facts_list:
+        if not (
+            bool(fact.get("is_verified", False))
+            and str(fact.get("status", "needs_review")) == "verified"
+        ):
+            continue
+        category = str(fact.get("category", ""))
+        value = str(fact.get("claim_value", "")).strip()
+        if category == "positioning" and value:
+            default_headline = f"{business_name} — {value}"
+            default_tagline = value
+            editorial_headline = default_headline
+            editorial_tagline = default_tagline
+        elif category == "proof_point" and value:
+            proof_values.append(value)
+    if proof_values:
+        default_value_prop = proof_values[0]
+    editorial_headline = editorial_headline or default_headline
+    editorial_tagline = editorial_tagline or default_tagline
+    editorial_value_prop = default_value_prop
+
     llm_used = False
     warnings: list[str] = []
 

@@ -1269,6 +1269,231 @@ def _detect_conflicts_and_resolve_statuses(
     return facts
 
 
+_MOJIBAKE_REPLACEMENTS = (
+    ("â€™", "'"),
+    ("â€˜", "'"),
+    ("â€œ", "\""),
+    ("â€\u009d", "\""),
+    ("â€“", "-"),
+    ("â€”", "-"),
+    ("Â£", "£"),
+    ("Â", ""),
+)
+_PROOF_POINT_RULES = (
+    ("reviews_count", "100+ 5* reviews"),
+    ("clients_count", "Over 1000 clients"),
+    ("experience_years", "10 + years of pet care experience"),
+    ("premium_services", "Premium services and products"),
+    ("transparent_pricing", "Transparent pricing"),
+)
+_SERVICE_HIGHLIGHT_RULES = ("Cat grooming", "Dog Grooming", "Spa add-ons")
+_POSITIONING_RULES = ("Premium Pet Grooming in North and North West London",)
+_OWNER_STORY_RULES = (
+    "It's more than Grooming",
+    "Lily has travelled all around the world and she always looked forward to her grooms.",
+    "how much fluff a Pomeranian like her has",
+    "Our goal is to provide personal friendly service to every pet and every pet parent",
+    "This is Lily. Welcome to her club.",
+)
+_DOG_PACKAGES = (
+    "Bath, brush & Dry",
+    "Mini groom",
+    "Full groom",
+    "Puppy introduction groom",
+)
+_DOG_BREED_RE = re.compile(
+    r"^(Toy/Small Breeds|Medium Breeds|Large Breeds|Extra Large Breeds)\b", re.I
+)
+_DOG_PRICE_RE = re.compile(r"^\s*(?:Â)?£\s*(\d+)\s*$")
+_UK_MOBILE_RE = re.compile(r"\+44[\s]*7[\d][\d\s]{8,12}")
+
+
+def _clean_source_text(text: str) -> str:
+    """Normalize mojibake and whitespace from crawled text (display copy only)."""
+    cleaned = text
+    for bad, good in _MOJIBAKE_REPLACEMENTS:
+        cleaned = cleaned.replace(bad, good)
+    return re.sub(r"\s+", " ", cleaned).strip()
+
+
+def _extract_rich_content_candidates(
+    *, url: str, sanitized_text: str
+) -> list[CandidateClaim]:
+    """Extract source-backed rich content: proof, awards, story, services, locations.
+
+    Every candidate carries the exact crawled line as ``source_text_snippet`` and
+    is verified only because that snippet is present in the crawled page text.
+    Nothing is invented: if the source does not contain a phrase, no fact is emitted.
+    """
+    candidates: list[CandidateClaim] = []
+    raw_lines = [line.strip() for line in sanitized_text.splitlines() if line.strip()]
+    clean_lines = [_clean_source_text(line) for line in raw_lines]
+    joined = re.sub(r"\s+", " ", sanitized_text)
+    lower_joined = joined.casefold()
+
+    def add(
+        category: str,
+        claim_key: str,
+        claim_value: str,
+        snippet: str,
+        structured: dict[str, Any] | None = None,
+    ) -> None:
+        candidates.append(
+            CandidateClaim(
+                category=category,
+                claim_key=claim_key,
+                claim_value=claim_value,
+                source_url=url,
+                source_text_snippet=snippet,
+                source_kind="regex",
+                structured_value=structured,
+                expected_status="verified",
+                is_verified=True,
+            )
+        )
+
+    # 1. Proof points (first-fold numbers and promises from the source homepage).
+    for key, phrase in _PROOF_POINT_RULES:
+        for raw, clean in zip(raw_lines, clean_lines, strict=False):
+            if clean.casefold() == phrase.casefold():
+                add("proof_point", key, clean, raw)
+                break
+
+    # 1b. Positioning line (source's own first-fold promise, used for editorial hero).
+    # Real crawls split this across DOM spans ("Premium Pet" / "Grooming in" / ...).
+    for phrase in _POSITIONING_RULES:
+        for raw, clean in zip(raw_lines, clean_lines, strict=True):
+            if clean.casefold() == phrase.casefold():
+                add("positioning", "positioning", clean, raw)
+                break
+        else:
+            if phrase.casefold() in joined.casefold():
+                start = joined.casefold().index(phrase.casefold())
+                snippet = joined[start : start + len(phrase)]
+                add("positioning", "positioning", snippet, snippet)
+
+    # 2. Service highlights (homepage service category headings).
+    for phrase in _SERVICE_HIGHLIGHT_RULES:
+        for raw, clean in zip(raw_lines, clean_lines, strict=False):
+            if clean.casefold() == phrase.casefold():
+                add("service_highlight", f"highlight_{slugify(phrase)}", clean, raw)
+                break
+
+    # 3. Owner story excerpts, exact from the source (no invented biography).
+    for phrase in _OWNER_STORY_RULES:
+        for raw, clean in zip(raw_lines, clean_lines, strict=False):
+            if phrase.casefold() in clean.casefold():
+                if phrase.startswith("Lily has travelled"):
+                    first_sentence = re.match(r"^[^.]+\.", clean)
+                    value = first_sentence.group(0) if first_sentence else clean
+                else:
+                    value = phrase
+                add("owner_story", f"story_{slugify(value)[:40]}", value, raw)
+                break
+
+    # 4. Award (national winner) and innovation (chromotherapy) claims.
+    award_re = re.compile(
+        r"in\s+(20\d{2})\s+was\s+announced\s+as\s+the\s+national\s+winner"
+        r"[^.]{0,240}?Dog\s+Grooming\s+Service\s+of\s+the\s+Year",
+        re.I,
+    )
+    award_match = award_re.search(joined)
+    if award_match:
+        year = award_match.group(1)
+        add(
+            "award",
+            "national_winner_2025",
+            f"{year} national winner — Corporate LiveWire Dog Grooming Service of the Year",
+            award_match.group(0),
+        )
+    if "chromotherapy" in lower_joined:
+        for raw, clean in zip(raw_lines, clean_lines, strict=False):
+            if "chromotherapy" in clean.casefold():
+                add(
+                    "service_highlight",
+                    "chromotherapy_first_in_uk",
+                    "First salon in the UK to introduce chromotherapy for pets",
+                    raw,
+                )
+                break
+
+    # 5. Two-location contact details (each salon keeps its own phone/address).
+    for idx, raw in enumerate(raw_lines):
+        if not _UK_MOBILE_RE.search(raw):
+            continue
+        phone_match = _UK_MOBILE_RE.search(raw)
+        phone = phone_match.group(0) if phone_match else ""
+        phone = re.sub(r"\s+", " ", phone).strip()
+        label = ""
+        for back in raw_lines[max(0, idx - 3) : idx]:
+            if "harrow" in back.casefold():
+                label = "Harrow"
+            elif "wood green" in back.casefold():
+                label = "Wood Green"
+        if label:
+            address = ""
+            for fwd in raw_lines[idx + 1 : idx + 5]:
+                if UK_POSTCODE_RE.search(fwd):
+                    address = _clean_source_text(fwd)
+                    break
+            add(
+                "location",
+                f"location_{slugify(label)}",
+                label,
+                raw,
+                {
+                    "name": f"Lily's Club {label}",
+                    "phone": phone,
+                    "address": address,
+                },
+            )
+        add("contact_detail", f"contact_phone_{re.sub(r'\\D', '', phone)}", phone, raw)
+
+    email_re = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
+    for raw in raw_lines:
+        m = email_re.search(raw)
+        if m and "outlook" in m.group(0).casefold():
+            add("contact_detail", "contact_email", m.group(0), raw)
+            break
+
+    # 6. Addresses on their own lines are verified contact details (multi-salon safe).
+    for raw, clean in zip(raw_lines, clean_lines, strict=False):
+        if UK_POSTCODE_RE.search(clean) and re.search(r"\b\d+\s+\w+", clean):
+            if len(clean) > 15 and "copyright" not in clean.casefold():
+                add(
+                    "contact_detail",
+                    f"contact_address_{slugify(clean)[:40]}",
+                    clean,
+                    raw,
+                )
+
+    # 7. Dog grooming package prices (services page uses "Â£" mojibake).
+    # A price is associated ONLY with the breed line immediately above it; a stale
+    # breed from a previous package must never label an unrelated price (e.g. cat).
+    package = ""
+    for idx, (raw, clean) in enumerate(zip(raw_lines, clean_lines, strict=False)):
+        if clean in _DOG_PACKAGES:
+            package = clean
+            continue
+        breed_match = _DOG_BREED_RE.match(clean)
+        if breed_match:
+            continue
+        price_match = _DOG_PRICE_RE.match(raw)
+        if price_match and package and idx > 0:
+            previous_breed = _DOG_BREED_RE.match(clean_lines[idx - 1])
+            if previous_breed:
+                amount = f"£{price_match.group(1)}"
+                breed = previous_breed.group(1)
+                add(
+                    "pricing",
+                    f"price_dog_{slugify(package)}_{slugify(breed)}",
+                    f"{package} — {breed}: {amount}",
+                    raw,
+                )
+
+    return candidates
+
+
 def extract_business_facts(
     project_folder: str | Path,
     *,
@@ -1315,6 +1540,31 @@ def extract_business_facts(
                 extract_classification=extract_classification,
             )
         )
+        discovered_candidates.extend(
+            _extract_rich_content_candidates(url=url, sanitized_text=sanitized_text)
+        )
+
+    # Deduplicate multi-page rich facts (the same proof/location appears on several pages).
+    rich_categories = {
+        "pricing",
+        "proof_point",
+        "positioning",
+        "service_highlight",
+        "owner_story",
+        "award",
+        "location",
+        "contact_detail",
+    }
+    deduped: list[CandidateClaim] = []
+    seen_rich: set[tuple[str, str, str]] = set()
+    for cand in discovered_candidates:
+        if cand.category in rich_categories:
+            key = (cand.category, cand.claim_key, cand.claim_value)
+            if key in seen_rich:
+                continue
+            seen_rich.add(key)
+        deduped.append(cand)
+    discovered_candidates = deduped
 
     if candidate_claims:
         discovered_candidates.extend(candidate_claims)

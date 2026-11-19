@@ -378,3 +378,206 @@ def test_cross_priority_conflict_keeps_json_ld_name_verified(tmp_path: Path) -> 
     for f in title_names:
         assert f.status == "needs_review" and not f.is_verified
         assert json_ld_ids & set(f.conflicts_with)
+
+
+# --- Rich, source-backed content extraction (bespoke homepage) ---------------------------
+
+LILY_HOME_TEXT = """Lily's Club Dog Grooming
+Premium Pet Grooming in North and North West London
+100+ 5* reviews
+Over 1000 clients
+10 + years of pet care experience
+Premium services and products
+Transparent pricing
+Cat grooming
+Dog Grooming
+Spa add-ons
+Testimonials
+It's more than Grooming
+This is Lily. Welcome to her club.
+Lily has travelled all around the world and she always looked forward to her grooms.
+how much fluff a Pomeranian like her has
+Our goal is to provide personal friendly service to every pet and every pet parent
+Since opening, Lily's Club has grown from strength to strength and in 2025 was announced as the
+national winner of the Corporate LiveWire Innovation & Excellence award for
+Dog Grooming Service of the Year.
+including being the first salon in the UK to introduce chromotherapy for pets.
+In March 2026, Lily's Club opened it's second salon in Wood Green, expanding on the outstanding
+experiences of thousands of loyal customers at our Harrow salon.
+Contact Us - Harrow
++44 7521 298312
+lilysclubuk@outlook.com
+87 Kenton Road, Harrow, London, HA3 0AH
+Contact Us - Wood Green
++44 7895 015546
+75 Myddleton Road, Wood Green, London, N22 8LZ"""
+
+LILY_SERVICES_TEXT = """Grooming
+Bath, brush & Dry
+Toy/Small Breeds up to 8kg
+Â£32
+Medium Breeds up to 15kg
+Â£44
+Mini groom
+Toy/Small Breeds up to 8kg
+Â£45
+Full groom
+Toy/Small Breeds up to 8kg
+Â£60
+Medium Breeds up to 15kg
+Â£72"""
+
+
+def _seed_rich_project(tmp_path: Path, name: str = "lily-rich") -> Path:
+    proj = tmp_path / name
+    research = proj / "research"
+    research.mkdir(parents=True)
+    (research / "pages.json").write_text(
+        json.dumps(
+            [
+                {
+                    "url": "https://www.lilys-club.co.uk/",
+                    "title": "Lily's Club Dog Grooming",
+                    "sha256": "no-snapshot",
+                    "text": LILY_HOME_TEXT,
+                },
+                {
+                    "url": "https://www.lilys-club.co.uk/services2",
+                    "title": "Services2",
+                    "sha256": "no-snapshot-2",
+                    "text": LILY_SERVICES_TEXT,
+                },
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    return proj
+
+
+def test_rich_extraction_proof_points_are_verified_and_sourced(tmp_path: Path) -> None:
+    """Rich proof stats from the source page must be extracted with full provenance."""
+    proj = _seed_rich_project(tmp_path)
+    report = extract_business_facts(proj)
+    proofs = [f for f in report.facts if f.category == "proof_point"]
+    values = {f.claim_value for f in proofs}
+
+    assert "100+ 5* reviews" in values
+    assert "Over 1000 clients" in values
+    assert "Premium services and products" in values
+    assert "Transparent pricing" in values
+    for fact in proofs:
+        assert fact.source_url == "https://www.lilys-club.co.uk/"
+        assert fact.source_text_snippet.strip()
+        assert fact.is_verified is True
+        assert fact.status == "verified"
+        assert fact.last_checked_at is not None
+        assert fact.claim_value in fact.source_text_snippet
+
+
+def test_rich_extraction_award_story_and_innovation(tmp_path: Path) -> None:
+    """Award, owner story and chromotherapy facts must come verbatim from the source."""
+    proj = _seed_rich_project(tmp_path)
+    report = extract_business_facts(proj)
+    by_cat: dict[str, list[str]] = {}
+    for f in report.facts:
+        by_cat.setdefault(f.category, []).append(f.claim_value)
+
+    assert any("national winner" in v.lower() for v in by_cat.get("award", []))
+    assert any("chromotherapy" in v.lower() for v in by_cat.get("service_highlight", []))
+    story = " ".join(by_cat.get("owner_story", []))
+    assert "Lily" in story
+    assert "Pomeranian" in story
+    assert any("Spa add-ons" == v for v in by_cat.get("service_highlight", []))
+
+
+def test_rich_extraction_two_locations_and_contact_details(tmp_path: Path) -> None:
+    """Two real salons with their own phone/address must be extracted and verified."""
+    proj = _seed_rich_project(tmp_path)
+    report = extract_business_facts(proj)
+    locations = [f for f in report.facts if f.category == "location"]
+
+    assert {f.claim_value for f in locations} == {"Harrow", "Wood Green"}
+    by_name: dict[str, dict[str, object]] = {}
+    for f in locations:
+        if isinstance(f.structured_value, dict):
+            by_name[f.claim_value] = f.structured_value
+    assert by_name["Harrow"]["phone"] == "+44 7521 298312"
+    assert by_name["Harrow"]["address"] == "87 Kenton Road, Harrow, London, HA3 0AH"
+    assert by_name["Wood Green"]["phone"] == "+44 7895 015546"
+    assert by_name["Wood Green"]["address"] == "75 Myddleton Road, Wood Green, London, N22 8LZ"
+
+    contact_vals = {
+        f.claim_value for f in report.facts if f.category == "contact_detail"
+    }
+    assert "+44 7521 298312" in contact_vals
+    assert "+44 7895 015546" in contact_vals
+    assert "lilysclubuk@outlook.com" in contact_vals
+
+
+def test_rich_extraction_dog_grooming_prices(tmp_path: Path) -> None:
+    """Dog grooming package prices (with Â£ mojibake) must be extracted as real prices."""
+    proj = _seed_rich_project(tmp_path)
+    report = extract_business_facts(proj)
+    prices = " ".join(
+        f.claim_value for f in report.facts if f.category == "pricing"
+    )
+    assert "Full groom" in prices
+    assert "£60" in prices
+    assert "£32" in prices
+
+
+def test_generated_homepage_renders_rich_verified_content(tmp_path: Path) -> None:
+    """Generator must render extracted proof/story/award/location facts, not generic copy."""
+    from app.art_director import generate_art_direction
+    from app.generator import generate_website
+    from PIL import Image
+
+    proj = _seed_rich_project(tmp_path, "lily-generate")
+    # Persist extracted rich facts into the project artifact consumed by the generator.
+    report = extract_business_facts(proj)
+    (proj / "research/business-facts.json").write_text(
+        json.dumps(
+            {
+                "project_id": proj.name,
+                "facts": [f.model_dump(mode="json") for f in report.facts],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    art = proj / "assets/optimized"
+    art.mkdir(parents=True, exist_ok=True)
+    for n in ("hero.jpg", "g1.jpg", "g2.jpg", "g3.jpg", "g4.jpg"):
+        Image.new("RGB", (640, 480), (90, 110, 140)).save(art / n, "JPEG")
+    (proj / "design").mkdir(parents=True, exist_ok=True)
+    (proj / "design/image-selection.json").write_text(
+        json.dumps(
+            {
+                "hero_image": {
+                    "filename": "hero.jpg",
+                    "relative_path": "assets/optimized/hero.jpg",
+                },
+                "grooming_gallery": [
+                    {
+                        "filename": f"g{i}.jpg",
+                        "relative_path": f"assets/optimized/g{i}.jpg",
+                    }
+                    for i in range(1, 5)
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    generate_art_direction(proj)
+    generate_website(proj)
+
+    html = (proj / "website/index.html").read_text(encoding="utf-8")
+    assert "100+ 5* reviews" in html
+    assert "Over 1000 clients" in html
+    assert "national winner" in html.lower()
+    assert "Pomeranian" in html
+    assert "87 Kenton Road" in html
+    assert "75 Myddleton Road" in html
+    assert "£60" in html

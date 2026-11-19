@@ -991,8 +991,8 @@ def run_pipeline(
                 collect_summary = collect(
                     url,
                     staging_collect_dir,
-                    max_pages=10,
-                    max_media=40,
+                    max_pages=25,
+                    max_media=80,
                     allow_private=allow_private,
                 )
                 crawled_folder = Path(str(collect_summary["project_folder"]))

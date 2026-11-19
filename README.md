@@ -1167,3 +1167,20 @@ A real preview review found automated pass reports hiding obvious aesthetic defe
 **Verified result** (`projects/lilys-club-clean-v3`, preview `http://127.0.0.1:8888/preview/lilys-club-clean-v3/standalone.html`): hero is a genuine, clean dog photo; gallery is 4 real dog photos; no promo/landmark/review-text images; no rights warning; claims-lint 0; 5-view QA passed. LLM vision was attempted and **reverted** as unreliable within the call cap/budget — deterministic fixes plus human correction are the honest path.
 
 Gates: ruff 0, pyright 0, **282 passed**.
+
+---
+
+## 25. Rich source-backed content → genuinely bespoke homepage (19 November 2026)
+
+Second preview review found the visual fixes were not enough: the page still looked generic because the fact extractor ignored almost all of the source site's rich content. Crawled text already contained `100+ 5* reviews`, `Over 1000 clients`, `10 + years of pet care experience`, the 2025 Corporate LiveWire national-winner award, Lily's Pomeranian origin story, chromotherapy innovation, two salon addresses/phones and real dog-grooming prices — none of it reached the generator.
+
+Test-first fix (`tests/test_fact_extractor_locale.py`, 5 new tests):
+
+- `app/fact_extractor.py`: new extractors for `proof_point`, `positioning`, `service_highlight`, `owner_story`, `award`, `location`, `contact_detail` and dog package `pricing`. Every fact carries the exact crawled `source_text_snippet`, `source_url`, `verified` and `last_checked_at`; mojibake (`Â£`, `â€™`) is normalized for display only. A price is paired only with the breed line directly above it, so cat prices are never mislabelled as dog packages.
+- `app/art_director.py`: verified positioning + proof facts override generic hero defaults ("Lily's Club Dog Grooming — Premium Pet Grooming in North and North West London"; `100+ 5* reviews`).
+- `app/generator.py`: renders new source-backed sections — proof strip, story ("It's more than Grooming"), recognition (award), two-salon "Visit Us" cards and service highlights — with prices deduplicated to one row per package. New sections are inserted at their canonical editorial position without disturbing brief-controlled ordering.
+- `config/ui_microcopy_allowlist.json`: new section labels registered (claims-lint stays 0).
+
+**Verified result** (`projects/lilys-club-clean-v3`, preview `http://127.0.0.1:8888/preview/lilys-club-clean-v3/standalone.html`): source-exact hero, 5 proof stats, real story, award, chromotherapy highlight, 4 real dog photos, two correct salon contact cards, real prices; claims-lint 0, 5-view QA pass. Screenshot at `projects/lilys-club-clean-v3/qa/screenshots/1440px.png`.
+
+Gates: ruff 0, pyright 0, **289 passed**.

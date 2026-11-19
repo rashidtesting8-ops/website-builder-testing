@@ -145,7 +145,17 @@ def rebuild_index_from_sections(
 
     esc_title = html.escape(title)
 
-    canonical_main_order = ["hero", "services", "gallery", "before-after", "contact"]
+    canonical_main_order = [
+        "hero",
+        "proof",
+        "services",
+        "story",
+        "recognition",
+        "gallery",
+        "before-after",
+        "locations",
+        "contact",
+    ]
     alias_to_section = {
         "hero": "hero",
         "hero_editorial_showcase": "hero",
@@ -178,9 +188,17 @@ def rebuild_index_from_sections(
         except Exception:
             pass
 
+    # Keep the brief's explicit order for sections it names. Insert only NEW
+    # sections at their canonical editorial position relative to what exists.
     for name in canonical_main_order:
-        if name in sections_map and name not in preferred_order:
-            preferred_order.append(name)
+        if name not in sections_map or name in preferred_order:
+            continue
+        predecessors = set(canonical_main_order[: canonical_main_order.index(name)])
+        insert_at = 0
+        for pos, existing in enumerate(preferred_order):
+            if existing in predecessors:
+                insert_at = pos + 1
+        preferred_order.insert(insert_at, name)
 
     other_sections = sorted(
         [
@@ -410,6 +428,69 @@ img {{
   max-width: 1240px;
   margin: 0 auto;
   padding: 2rem 1.25rem 4rem;
+}}
+.ev-proof-strip {{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}}
+.ev-proof-tile {{
+  background: var(--ev-surface);
+  border: 1px solid var(--ev-border);
+  border-radius: var(--ev-radius-md);
+  padding: 1.4rem 1.1rem;
+  text-align: center;
+  box-shadow: var(--ev-shadow-soft);
+}}
+.ev-proof-value {{
+  font-family: var(--ev-font-display);
+  font-size: 1.12rem;
+  font-weight: 700;
+  color: var(--ev-primary);
+  line-height: 1.3;
+}}
+.ev-service-highlights {{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-bottom: 1.4rem;
+}}
+.ev-highlight-chip {{
+  display: inline-block;
+  border: 1px solid var(--ev-primary);
+  color: var(--ev-primary);
+  background: var(--ev-surface);
+  border-radius: 999px;
+  padding: 0.45rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+}}
+.ev-story, .ev-recognition, .ev-locations {{
+  margin-top: 1.5rem;
+}}
+.ev-story-body {{
+  font-size: 1.06rem;
+  color: var(--ev-muted);
+  margin-top: 1rem;
+  max-width: 68ch;
+}}
+.ev-recognition-text {{
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ev-text);
+}}
+.ev-location-card {{
+  border-top: 3px solid var(--ev-primary);
+}}
+.ev-location-line {{
+  margin-top: 0.4rem;
+  color: var(--ev-muted);
+}}
+@media (max-width: 640px) {{
+  .ev-proof-strip {{
+    grid-template-columns: 1fr;
+  }}
 }}
 @media (prefers-reduced-motion: reduce) {{
   *, *::before, *::after {{
@@ -889,8 +970,15 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
     policy: str | None = None
     verified_prices: list[tuple[str, str]] = []
     seen_verified_prices: set[tuple[str, str]] = set()
+    seen_price_groups: set[str] = set()
     verified_services: list[str] = []
     has_unverified_pricing = False
+    # Rich, source-backed content that makes the page genuinely bespoke.
+    proof_points: list[str] = []
+    service_highlights: list[str] = []
+    owner_story: list[str] = []
+    award_facts: list[str] = []
+    location_cards: list[dict[str, str]] = []
 
     for fact in facts_list:
         category = str(fact.get("category", ""))
@@ -913,6 +1001,14 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
                     price_pair[0].casefold(),
                     price_pair[1].casefold(),
                 )
+                # One row per package: a 45-line breed-by-breed price dump is
+                # unusable on a homepage. Keep the first (smallest-size) price.
+                package_group = re.split(
+                    r"\s+[—–-]\s+|\s*:\s*", price_pair[0], maxsplit=1
+                )[0].strip().casefold()
+                if package_group in seen_price_groups:
+                    continue
+                seen_price_groups.add(package_group)
                 if normalized_price_pair not in seen_verified_prices:
                     verified_prices.append(price_pair)
                     seen_verified_prices.add(normalized_price_pair)
@@ -936,6 +1032,26 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
             and claim_val not in verified_services
         ):
             verified_services.append(claim_val)
+        elif category == "proof_point" and claim_val not in proof_points:
+            proof_points.append(claim_val)
+        elif category == "service_highlight" and claim_val not in service_highlights:
+            service_highlights.append(claim_val)
+        elif category == "owner_story" and claim_val not in owner_story:
+            owner_story.append(claim_val)
+        elif category == "award" and claim_val not in award_facts:
+            award_facts.append(claim_val)
+        elif category == "location":
+            structured = fact.get("structured_value") or {}
+            if isinstance(structured, dict) and claim_val not in {
+                c["name"] for c in location_cards
+            }:
+                location_cards.append(
+                    {
+                        "name": claim_val,
+                        "phone": str(structured.get("phone", "")),
+                        "address": str(structured.get("address", "")),
+                    }
+                )
 
     priced_service_names = {label.casefold() for label, _ in verified_prices}
     verified_services = [
@@ -1156,6 +1272,15 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
             '</div>\n'
         )
 
+    # Source-backed service highlights (homepage service categories).
+    service_highlights_html = ""
+    if service_highlights:
+        chips = "".join(
+            f'<span class="ev-highlight-chip">{html.escape(value)}</span>'
+            for value in service_highlights
+        )
+        service_highlights_html = f'<div class="ev-service-highlights">{chips}</div>'
+
     # Build Services & Pricing section (Luxury Editorial Spa Menu)
     if verified_prices:
         menu_rows = "".join(
@@ -1171,6 +1296,7 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
             for svc in verified_services
         )
         pricing_section_html = (
+            f"{service_highlights_html}"
             f"{archetype_showcase_html}"
             f'<div class="ev-menu-list">{menu_rows}</div>'
             f"{f'<div class=\"ev-grid\">{svc_rows}</div>' if svc_rows else ''}"
@@ -1185,6 +1311,7 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
             for svc in verified_services
         )
         pricing_section_html = (
+            f"{service_highlights_html}"
             f"{archetype_showcase_html}"
             f"{f'<div class=\"ev-menu-list\">{svc_cards}</div>' if svc_cards else ''}"
             '<div class="ev-card" style="margin-top: 1rem;">'
@@ -1193,6 +1320,83 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
             f'<p style="margin-top: 0.85rem;"><a class="cta btn" href="{html.escape(cta_href)}">'
             "Inquire for Pricing / Request Custom Quote</a></p>"
             "</div>"
+        )
+
+    # --- Source-backed bespoke sections (only rendered when verified facts exist) ---
+    proof_html = ""
+    if proof_points:
+        tiles = "".join(
+            f'<div class="ev-proof-tile"><span class="ev-proof-value">'
+            f"{html.escape(value)}</span></div>"
+            for value in proof_points
+        )
+        proof_html = (
+            '<section id="proof" class="ev-section" data-section="proof">\n'
+            '  <div class="ev-section-header">\n'
+            '    <span class="ev-eyebrow">Why pet parents choose us</span>\n'
+            '  </div>\n'
+            f'  <div class="ev-proof-strip">{tiles}</div>\n'
+            "</section>"
+        )
+
+    story_html = ""
+    if owner_story:
+        lead = owner_story[0]
+        body = "".join(
+            f'<p class="ev-story-body">{html.escape(line)}</p>' for line in owner_story[1:]
+        )
+        story_html = (
+            '<section id="story" class="ev-section" data-section="story">\n'
+            '  <div class="ev-section-header">\n'
+            '    <span class="ev-eyebrow">Our Story</span>\n'
+            f'    <h2 class="ev-section-title">{html.escape(lead)}</h2>\n'
+            '  </div>\n'
+            f'  <div class="ev-story">{body}</div>\n'
+            "</section>"
+        )
+
+    recognition_html = ""
+    if award_facts:
+        cards = "".join(
+            f'<div class="ev-card ev-recognition-card">'
+            f'<p class="ev-recognition-text">{html.escape(value)}</p></div>'
+            for value in award_facts
+        )
+        recognition_html = (
+            '<section id="recognition" class="ev-section" data-section="recognition">\n'
+            '  <div class="ev-section-header">\n'
+            '    <span class="ev-eyebrow">Recognition</span>\n'
+            '  </div>\n'
+            f'  <div class="ev-grid">{cards}</div>\n'
+            "</section>"
+        )
+
+    locations_html = ""
+    if location_cards:
+        cards = ""
+        for card in location_cards:
+            phone_line = (
+                f'<p class="ev-location-line">{html.escape(card["phone"])}</p>'
+                if card["phone"]
+                else ""
+            )
+            address_line = (
+                f'<p class="ev-location-line">{html.escape(card["address"])}</p>'
+                if card["address"]
+                else ""
+            )
+            cards += (
+                '<div class="ev-card ev-location-card">'
+                f'<h3 class="ev-card-title">{html.escape(card["name"])}</h3>'
+                f"{phone_line}{address_line}</div>"
+            )
+        locations_html = (
+            '<section id="locations" class="ev-section" data-section="locations">\n'
+            '  <div class="ev-section-header">\n'
+            '    <span class="ev-eyebrow">Visit Us</span>\n'
+            '  </div>\n'
+            f'  <div class="ev-grid ev-locations">{cards}</div>\n'
+            "</section>"
         )
 
     # Build Gallery section (Editorial Bento Portfolio)
@@ -1354,6 +1558,14 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
         "hero": hero_html,
         "services": services_html,
     }
+    if proof_html:
+        sections_map["proof"] = proof_html
+    if story_html:
+        sections_map["story"] = story_html
+    if recognition_html:
+        sections_map["recognition"] = recognition_html
+    if locations_html:
+        sections_map["locations"] = locations_html
     if gallery_html:
         sections_map["gallery"] = gallery_html
     if ba_html:

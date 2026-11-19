@@ -64,7 +64,11 @@
     "Telephone",
     "Phone",
     "Address",
-    "Location"
+    "Location",
+    "Why pet parents choose us",
+    "Our Story",
+    "Recognition",
+    "Visit Us"
   ],
   "patterns": [
     "^Call\\s+.+$",
