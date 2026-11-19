@@ -421,6 +421,36 @@ def test_cockpit_preview_serving_and_path_traversal_defense(tmp_path: Path) -> N
         assert bad_resp.status_code in (400, 403, 404)
 
 
+def test_cockpit_preview_denies_private_research_and_config_paths(tmp_path: Path) -> None:
+    """P0 security: /preview must serve only approved draft artifacts, never private evidence."""
+    projects_dir = tmp_path / "projects"
+    projects_dir.mkdir()
+    project_root = _scaffold_cockpit_project(projects_dir, "private-demo", rights_confirmed=True)
+    (project_root / "research/business-facts.json").write_text(
+        '{"facts": [{"claim_value": "SECRET RESEARCH DATA"}]}', encoding="utf-8"
+    )
+    (project_root / "qa/visual-critique.json").write_text(
+        '{"secret": "CRITIQUE"}', encoding="utf-8"
+    )
+
+    with _ephemeral_cockpit_server(projects_dir) as base_url:
+        for subpath in (
+            "research/business-facts.json",
+            "qa/visual-critique.json",
+            "../editvista.sqlite3",
+            ".env",
+        ):
+            resp = requests.get(f"{base_url}/preview/private-demo/{subpath}", timeout=3.0)
+            assert resp.status_code in (400, 403, 404), (
+                f"Private path '{subpath}' leaked via preview (status {resp.status_code})"
+            )
+            assert "SECRET RESEARCH DATA" not in resp.text
+            assert "CRITIQUE" not in resp.text
+
+        good = requests.get(f"{base_url}/preview/private-demo/standalone.html", timeout=3.0)
+        assert good.status_code == 200
+
+
 def test_cockpit_confirm_asset_rights_and_approve_release_gate(tmp_path: Path) -> None:
     projects_dir = tmp_path / "projects"
     projects_dir.mkdir(parents=True)

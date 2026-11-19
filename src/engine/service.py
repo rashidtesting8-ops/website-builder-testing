@@ -16,12 +16,14 @@ from pathlib import Path
 from threading import BoundedSemaphore, Lock
 from typing import Any
 
+from app.api_auth import install_auth as _install_worker_auth
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from engine.collector import collect, safe_url, slugify
 
 app = FastAPI(title="Pet Grooming Asset Collector & Pipeline Worker", docs_url="/docs")
+_install_worker_auth(app)
 executor = ThreadPoolExecutor(max_workers=2)
 slots = BoundedSemaphore(4)
 lock = Lock()

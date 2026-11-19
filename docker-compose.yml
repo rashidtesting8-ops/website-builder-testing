@@ -10,6 +10,7 @@ services:
       - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
       - N8N_SECURE_COOKIE=false
       - N8N_RUNNERS_ENABLED=false
+      - EDITVISTA_API_TOKEN=${EDITVISTA_API_TOKEN:-}
     volumes:
       - n8n_data:/home/node/.n8n
     depends_on:
@@ -37,6 +38,9 @@ services:
       - PROJECTS_DIR=/data/projects
       - COCKPIT_BASE_URL=http://127.0.0.1:8888
       - WORKER_DB_PATH=/var/lib/editvista/jobs.sqlite
+      - EDITVISTA_API_TOKEN=${EDITVISTA_API_TOKEN:-}
+      - EDITVISTA_AUTH_MODE=${EDITVISTA_AUTH_MODE:-auto}
+      - EDITVISTA_COOKIE_SECURE=${EDITVISTA_COOKIE_SECURE:-0}
     volumes:
       - ./projects:/data/projects
       - worker_state:/var/lib/editvista
@@ -71,6 +75,9 @@ services:
     environment:
       - PROJECTS_DIR=/data/projects
       - WORKER_BASE_URL=http://collector:8787
+      - EDITVISTA_API_TOKEN=${EDITVISTA_API_TOKEN:-}
+      - EDITVISTA_AUTH_MODE=${EDITVISTA_AUTH_MODE:-auto}
+      - EDITVISTA_COOKIE_SECURE=${EDITVISTA_COOKIE_SECURE:-0}
     volumes:
       - ./projects:/data/projects
     mem_limit: 512m

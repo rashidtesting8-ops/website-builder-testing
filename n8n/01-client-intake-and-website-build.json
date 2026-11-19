@@ -105,7 +105,16 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ url: $json.url, business_name: $json.business_name || null, business_id: $json.business_id || null, full_pipeline: $json.full_pipeline, resume: $json.resume, max_pages: 25, max_media: 80 }) }}",
-        "options": {}
+        "options": {
+          "headers": {
+            "parameters": [
+              {
+                "name": "X-API-Key",
+                "value": "={{$env.EDITVISTA_API_TOKEN}}"
+              }
+            ]
+          }
+        }
       },
       "id": "895246fa-184e-49dd-bf18-09464659e08e",
       "name": "Launch 9-Stage Luxury Website Engine",

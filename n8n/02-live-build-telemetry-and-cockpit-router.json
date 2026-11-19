@@ -45,7 +45,16 @@
       "parameters": {
         "method": "GET",
         "url": "={{ 'http://collector:8787/jobs/' + $json.tracking_id }}",
-        "options": {}
+        "options": {
+          "headers": {
+            "parameters": [
+              {
+                "name": "X-API-Key",
+                "value": "={{$env.EDITVISTA_API_TOKEN}}"
+              }
+            ]
+          }
+        }
       },
       "id": "9426df8b-1bb9-4590-8b5e-5f89491d7783",
       "name": "Query Engine Build Telemetry",

@@ -60,7 +60,16 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ url: $json.url, business_name: $json.business_name, business_id: $json.business_id, resume: $json.resume }) }}",
-        "options": {}
+        "options": {
+          "headers": {
+            "parameters": [
+              {
+                "name": "X-API-Key",
+                "value": "={{$env.EDITVISTA_API_TOKEN}}"
+              }
+            ]
+          }
+        }
       },
       "id": "103d8fc8-3e71-40a9-9cf0-081a7d140403",
       "name": "Dispatch 9-Stage Website Engine",
@@ -90,7 +99,16 @@
       "parameters": {
         "method": "GET",
         "url": "={{ 'http://collector:8787/jobs/' + $('Dispatch 9-Stage Website Engine').item.json.job_id }}",
-        "options": {}
+        "options": {
+          "headers": {
+            "parameters": [
+              {
+                "name": "X-API-Key",
+                "value": "={{$env.EDITVISTA_API_TOKEN}}"
+              }
+            ]
+          }
+        }
       },
       "id": "105d8fc8-3e71-40a9-9cf0-081a7d140405",
       "name": "Query Engine Build Telemetry",
@@ -271,4 +289,3 @@
   },
   "active": false
 }
-

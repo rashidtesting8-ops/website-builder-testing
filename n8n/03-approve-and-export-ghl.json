@@ -99,7 +99,16 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ version: $json.version, operator: $json.operator, notes: $json.notes }) }}",
-        "options": {}
+        "options": {
+          "headers": {
+            "parameters": [
+              {
+                "name": "X-API-Key",
+                "value": "={{$env.EDITVISTA_API_TOKEN}}"
+              }
+            ]
+          }
+        }
       },
       "id": "c33246fa-184e-49dd-bf18-09464659e003",
       "name": "Freeze Immutable Release & Compile GHL",

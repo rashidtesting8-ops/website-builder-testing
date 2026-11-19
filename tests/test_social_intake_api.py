@@ -121,10 +121,10 @@ def test_social_refresh_routes_reject_invalid_and_missing_projects(
         if isinstance(route, APIRoute) and route.path == "/api/projects/{project_id}/social/refresh"
     )
     with pytest.raises(HTTPException) as cockpit_bad:
-        endpoint("../escape")
+        endpoint("../escape", None)
     assert cockpit_bad.value.status_code == 400
 
     with pytest.raises(HTTPException) as cockpit_missing:
-        endpoint("missing-proj")
+        endpoint("missing-proj", None)
     assert cockpit_missing.value.status_code == 404
 

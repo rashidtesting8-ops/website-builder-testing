@@ -24,6 +24,14 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.api_auth import (
+    COOKIE_NAME,
+    install_auth,
+    is_auth_enabled,
+    login_page_response,
+    set_login_cookie,
+    verify_token,
+)
 from app.approval import (
     HumanReviewAttestation,
     ReleaseApprovalGateError,
@@ -127,12 +135,60 @@ def _resolve_project_root(project_id: str, projects_dir: Path) -> Path:
     return project_root
 
 
+# P0 security: the preview endpoint must never expose research/, rights evidence,
+# SQLite state or config files. Only approved draft/website/delivery artifacts and
+# retained media are previewable.
+_PREVIEW_ALLOWED_DIRS = ("release-candidate", "website", "delivery", "assets")
+_PREVIEW_ALLOWED_SUFFIXES = frozenset(
+    {
+        ".html", ".css", ".js", ".json", ".png", ".jpg", ".jpeg",
+        ".webp", ".gif", ".svg", ".ico", ".woff", ".woff2", ".mp4",
+    }
+)
+
+
+def _resolve_preview_file(project_root: Path, subpath: str) -> Path:
+    """Resolve a preview path inside an explicit allowlist; deny everything else."""
+    cleaned = subpath.lstrip("/\\").replace("\\", "/")
+    parts = [p for p in cleaned.split("/") if p]
+    if not parts or ".." in parts or "." in parts:
+        raise HTTPException(status_code=404, detail="Preview file not found")
+    filename = parts[-1]
+    if Path(filename).suffix.lower() not in _PREVIEW_ALLOWED_SUFFIXES:
+        raise HTTPException(status_code=404, detail="Preview file not found")
+
+    candidates: list[Path] = []
+    if parts[0] in _PREVIEW_ALLOWED_DIRS:
+        candidates.append(project_root / cleaned)
+    else:
+        # Bare filenames (e.g. standalone.html, css/styles.css) are resolved
+        # against the allowed draft folders only — never against project root.
+        candidates.extend(project_root / base / cleaned for base in _PREVIEW_ALLOWED_DIRS[:3])
+
+    root_resolved = project_root.resolve()
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        if not resolved.is_relative_to(root_resolved) or not resolved.is_file():
+            continue
+        if not any(
+            resolved.is_relative_to((project_root / base).resolve())
+            for base in _PREVIEW_ALLOWED_DIRS
+        ):
+            continue
+        return resolved
+    raise HTTPException(status_code=404, detail="Preview file not found")
+
+
 def _resolve_safe_file(base_dir: Path, rel_path: str) -> Path:
     cleaned = rel_path.lstrip("/\\")
     target = (base_dir / cleaned).resolve()
     if not target.is_relative_to(base_dir.resolve()) or not target.is_file():
         raise HTTPException(status_code=404, detail="File not found or access denied")
     return target
+
+
+class LoginRequest(BaseModel):
+    token: str = Field(min_length=1)
 
 
 class ConfirmRightsRequest(BaseModel):
@@ -478,6 +534,31 @@ def create_cockpit_app(
     ).rstrip("/")
 
     app = FastAPI(title="EditVista Operator Cockpit", docs_url="/api/docs")
+    install_auth(app)
+
+    def _worker_headers(request: Request) -> dict[str, str]:
+        """Propagate the caller's credential to the internal worker API."""
+        headers: dict[str, str] = {}
+        auth_header = request.headers.get("authorization")
+        if auth_header:
+            headers["Authorization"] = auth_header
+        api_key = request.headers.get("x-api-key")
+        if api_key:
+            headers["X-API-Key"] = api_key
+        elif request.cookies.get(COOKIE_NAME):
+            headers["X-API-Key"] = str(request.cookies[COOKIE_NAME])
+        return headers
+
+    @app.post("/api/login")
+    def login_endpoint(req: LoginRequest, response: Response) -> dict[str, str]:
+        if is_auth_enabled() and not verify_token(req.token):
+            raise HTTPException(status_code=401, detail="Unauthorized")
+        set_login_cookie(response)
+        return {"status": "ok"}
+
+    @app.get("/login", response_class=HTMLResponse)
+    def login_page() -> HTMLResponse:
+        return login_page_response()
 
     @app.get("/api/health")
     def health_check() -> dict[str, str]:
@@ -553,7 +634,7 @@ def create_cockpit_app(
         return _stage_timeline(db_path, project_id)
 
     @app.post("/api/intake", status_code=202)
-    def intake_endpoint(req: IntakeRequest) -> dict[str, Any]:
+    def intake_endpoint(req: IntakeRequest, request: Request) -> dict[str, Any]:
         """Start a full pipeline run on the worker (the single heavy-build slot lives there)."""
         payload: dict[str, Any] = {
             "url": req.url,
@@ -573,6 +654,7 @@ def create_cockpit_app(
             resp = requests.post(
                 f"{resolved_worker_url}/pipeline/run",
                 json=payload,
+                headers=_worker_headers(request),
                 timeout=15.0,
             )
         except requests.RequestException as exc:
@@ -585,12 +667,14 @@ def create_cockpit_app(
         return _worker_json(resp)
 
     @app.post("/api/projects/{project_id}/social/refresh")
-    def social_refresh_endpoint(project_id: str) -> dict[str, Any]:
+    def social_refresh_endpoint(project_id: str, request: Request) -> dict[str, Any]:
         """Force a fresh Instagram/Facebook collection for an existing project."""
         _resolve_project_root(project_id, resolved_projects_dir)
         try:
             resp = requests.post(
-                f"{resolved_worker_url}/projects/{project_id}/social/refresh", timeout=120.0
+                f"{resolved_worker_url}/projects/{project_id}/social/refresh",
+                headers=_worker_headers(request),
+                timeout=120.0,
             )
         except requests.RequestException as exc:
             raise HTTPException(
@@ -602,11 +686,15 @@ def create_cockpit_app(
         return _worker_json(resp)
 
     @app.get("/api/jobs/{job_id}")
-    def job_status_endpoint(job_id: str) -> dict[str, Any]:
+    def job_status_endpoint(job_id: str, request: Request) -> dict[str, Any]:
         if _JOB_ID_RE.fullmatch(job_id) is None:
             raise HTTPException(404, "Unknown job")
         try:
-            resp = requests.get(f"{resolved_worker_url}/jobs/{job_id}", timeout=10.0)
+            resp = requests.get(
+                f"{resolved_worker_url}/jobs/{job_id}",
+                headers=_worker_headers(request),
+                timeout=10.0,
+            )
         except requests.RequestException as exc:
             raise HTTPException(
                 502,
@@ -847,17 +935,7 @@ def create_cockpit_app(
     @app.get("/preview/{project_id}/{subpath:path}")
     def serve_preview(project_id: str, subpath: str) -> Response:
         root = _resolve_project_root(project_id, resolved_projects_dir)
-        target: Path | None = None
-        for base in (root / "release-candidate", root / "website", root):
-            try:
-                candidate = _resolve_safe_file(base, subpath)
-                target = candidate
-                break
-            except HTTPException:
-                continue
-
-        if not target or not target.is_file():
-            raise HTTPException(status_code=404, detail="Preview file not found")
+        target = _resolve_preview_file(root, subpath)
 
         mime, _ = mimetypes.guess_type(target.name)
         content_type = mime or "application/octet-stream"
