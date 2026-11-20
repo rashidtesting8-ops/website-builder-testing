@@ -45,11 +45,45 @@ class AssetHostingConfig:
         return "***"
 
 
+_TOKEN_PLACEHOLDERS = frozenset(
+    {"your_token_here", "your-token-here", "your_github_token", "changeme", "xxx"}
+)
+
+
+def _load_local_env() -> None:
+    """Load the local gitignored .env without overriding explicit shell env."""
+    path = Path.cwd() / ".env"
+    if not path.is_file():
+        return
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, value = stripped.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("\"'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+def _real_token() -> str:
+    """Return the configured token, treating common placeholders as unset."""
+    raw = (os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or "").strip()
+    if not raw or raw.casefold() in _TOKEN_PLACEHOLDERS:
+        return ""
+    return raw
+
+
 def load_asset_hosting_config() -> AssetHostingConfig | None:
     """Return config only when ``GHL_ASSET_HOST=github_pages`` is explicitly set."""
+    _load_local_env()
     if os.environ.get("GHL_ASSET_HOST", "").strip().lower() != "github_pages":
         return None
-    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or ""
+    token = _real_token()
     if not token:
         raise ValueError("GHL_ASSET_HOST=github_pages requires GITHUB_TOKEN in the environment")
     repo = os.environ.get("GITHUB_PAGES_REPO", "").strip()
@@ -156,10 +190,27 @@ def _ensure_branch(config: AssetHostingConfig) -> None:
         raise RuntimeError(f"GitHub Pages branch creation failed ({create.status_code})")
 
 
+def enable_github_pages(config: AssetHostingConfig) -> bool:
+    """Enable Pages on the configured branch (201/409/422 = enabled/already set)."""
+    resp = requests.put(
+        f"{_API_BASE}/repos/{config.repo}/pages",
+        json={"build_type": "legacy", "source": {"branch": config.branch, "path": "/"}},
+        headers=_headers(config),
+        timeout=_REQUEST_TIMEOUT,
+    )
+    if resp.status_code in (200, 201, 204, 409, 422):
+        return True
+    raise RuntimeError(
+        f"Could not enable GitHub Pages ({resp.status_code}). "
+        "Enable it manually in repo Settings > Pages > Source: gh-pages > Save."
+    )
+
+
 def preflight_hosting() -> dict[str, object]:
     """Return setup status WITHOUT ever including the token in the result."""
+    _load_local_env()
     mode = os.environ.get("GHL_ASSET_HOST", "").strip().lower()
-    token_set = bool(os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN"))
+    token_set = bool(_real_token())
     repo = os.environ.get("GITHUB_PAGES_REPO", "").strip()
     missing: list[str] = []
     if mode != "github_pages":
@@ -192,6 +243,7 @@ def publish_assets_to_github_pages(
     rights = _rights_by_filename(project_root)
     mapping: dict[str, str] = {}
     _ensure_branch(config)
+    enable_github_pages(config)
 
     for asset_path in sorted(set(asset_paths)):
         local = project_root / asset_path

@@ -9,7 +9,7 @@
 
 **An evidence-preserving, local-first engine for automated media collection, cryptographic fact verification, locale-aware normalization, visual curation, luxury editorial art direction, per-section code generation, surgical revision, 5-viewport QA, budget-capped LLM adaptation, Minimum Viable Facts (MVF) gating, human-in-the-loop operator cockpit review, enterprise n8n studio orchestration, and immutable release packaging with GoHighLevel (GHL) isolation for bespoke pet grooming websites.**
 
-> **Prototype status (last checked 2026-11-20):** Not production-ready. Local gates: `uv run ruff check .` 0, `uv run pyright` 0, `uv run pytest` **327 passed across 50 test modules**. A **five-business real-business pilot has now been executed end-to-end** — 5/5 businesses collected, verified, QA'd, rights-confirmed, and approved with immutable frozen `delivery/` (see §22). Demo fixtures remain explicitly labeled and separate from real-business pilot counts. **Latest (§24–§26):** visual "AI slop" defects fixed deterministically with human asset overrides; rich source-backed facts (proof stats, awards, owner story, two salons, real prices) now drive a genuinely bespoke homepage; frontend intake carries FB/Instagram URLs + owner permission with a social re-scrape endpoint; and GHL export can publish rights-confirmed assets to free GitHub Pages so the final code is paste-ready HTTPS (no relative/localhost images). **Still open:** actual GHL published-page validation (operator pastes/publishes manually — skipped), team-supplied approved examples corpus (never provided; our own releases are not misrepresented as team-supplied), vision-based curation/critic (free vision models unreliable — deterministic + human gate), and Fidos re-approval (site unreachable). Four M5 deliveries were re-approved as fresh versions under the 19–20 Nov quality fixes (§31). Owner consent confirmed (PII intentionally withheld by owner, respected); n8n workflow 04 executed successfully in an isolated container. Social collection verified on the DoD-proof run (40 Facebook files; Instagram rate-limit honestly `review_needed`, no bypass). Public availability is not permission to reuse media.
+> **Prototype status (last checked 2026-11-20):** Not production-ready. Local gates: `uv run ruff check .` 0, `uv run pyright` 0, `uv run pytest` **332 passed across 50 test modules**. A **five-business real-business pilot has now been executed end-to-end** — 5/5 businesses collected, verified, QA'd, rights-confirmed, and approved with immutable frozen `delivery/` (see §22). Demo fixtures remain explicitly labeled and separate from real-business pilot counts. **Latest (§24–§26):** visual "AI slop" defects fixed deterministically with human asset overrides; rich source-backed facts (proof stats, awards, owner story, two salons, real prices) now drive a genuinely bespoke homepage; frontend intake carries FB/Instagram URLs + owner permission with a social re-scrape endpoint; and GHL export can publish rights-confirmed assets to free GitHub Pages so the final code is paste-ready HTTPS (no relative/localhost images). **Still open:** actual GHL published-page validation (operator pastes/publishes manually — skipped), team-supplied approved examples corpus (never provided; our own releases are not misrepresented as team-supplied), vision-based curation/critic (free vision models unreliable — deterministic + human gate), and Fidos re-approval (site unreachable). Four M5 deliveries were re-approved as fresh versions under the 19–20 Nov quality fixes (§31). Owner consent confirmed (PII intentionally withheld by owner, respected); n8n workflow 04 executed successfully in an isolated container. Social collection verified on the DoD-proof run (40 Facebook files; Instagram rate-limit honestly `review_needed`, no bypass). Public availability is not permission to reuse media.
 
 ### Current completion estimate (developer brief, GHL publish excluded)
 | Milestone | Est. | Basis |
@@ -65,6 +65,8 @@ See §18 for the historical 17 Nov scoring and §24–§26 for the evidence behi
 30. [Backups and verified restore drill](#30-backups-and-verified-restore-drill-20-november-2026)
 31. [M5 quality re-approval: fresh v2 releases](#31-m5-quality-re-approval-fresh-v2-releases-20-november-2026)
 32. [SQLite schema versioning and migrations](#32-sqlite-schema-versioning-and-migrations-20-november-2026)
+33. [One-command GitHub Pages readiness](#33-one-command-github-pages-readiness-20-november-2026)
+34. [Verified end-to-end GHL publish readiness](#34-verified-end-to-end-ghl-publish-readiness-20-november-2026)
 
 ---
 
@@ -845,7 +847,7 @@ make test        # uv run pytest
 
 ### Current Validation Snapshot
 
-Last locally verified on 2026-11-20: **327 passed across 50 test modules**. The commands
+Last locally verified on 2026-11-20: **332 passed across 50 test modules**. The commands
 `uv run ruff check .`, `uv run pyright`, and `uv run pytest` completed successfully in the
 local working tree; Pyright reported 0 errors, warnings, or informations. These are
 automated local results, not evidence of a real-client pilot, client approval, or published
@@ -1354,4 +1356,24 @@ To remove the last setup blocker without ever asking for a secret in chat:
 
 **Current local state:** `preflight` → `configured: false`, missing `GHL_ASSET_HOST`, `GITHUB_TOKEN`, `GITHUB_PAGES_REPO`. Because no token was supplied, **no live publish was attempted** and GHL render-QA honestly still reports `../assets/` defects. Once the operator sets those three env vars (locally, gitignored), re-approving a release publishes the rights-confirmed assets, rewrites the GHL snippet to stable HTTPS URLs, and GHL QA should flip green.
 
-Gates: ruff 0, pyright 0, **327 passed across 50 modules**.
+Gates: ruff 0, pyright 0, **332 passed across 50 modules** (final proof in §34).
+
+---
+
+## 34. Verified end-to-end GHL publish readiness (20 November 2026)
+
+With the operator's GitHub token configured locally, the full chain was executed on `lilys-club-clean-v3`:
+
+1. `preflight` → `configured: true`, repo `rashidtesting8-ops/website-builder-testing`, branch `gh-pages`, base URL `https://rashidtesting8-ops.github.io/website-builder-testing/`.
+2. Real gaps found and fixed test-first:
+   - `approve_release()` was **not** calling the hosting/publish hook (only `export_approved_deliverables()` did) — fixed; the real gate now publishes and rewrites before freezing (regression test added).
+   - GitHub Pages enable API returned `204 No Content` — accepted as success.
+   - `gh-pages` branch is auto-created from the default branch.
+   - Preflight now reads the local `.env` (without printing the token) and rejects placeholder tokens such as `YOUR_TOKEN_HERE`.
+   - `tests/conftest.py` disables hosting globally so a developer's real `.env` cannot make unit tests hit GitHub.
+3. **Observed transition:** before approval GHL QA `passed: false` with `../assets/` + localhost defects; after approval (version **v3**, `release_verified: true`) GHL QA `passed: true`, `static_defects: []`, `broken_assets: []`.
+4. Live URLs verified: Pages root `200`, hero asset `200` (327,608 bytes). Evidence: `projects/_pilot/ghl-pages-publish-proof.json`.
+
+The delivered `delivery/ghl-ready.html` is now genuinely paste-ready: scoped CSS, IIFE JS, and stable public HTTPS asset URLs. **No live GHL publish was attempted** — operator pastes/publishes manually.
+
+Gates: ruff 0, pyright 0, **332 passed across 50 modules**.

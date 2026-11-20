@@ -585,6 +585,20 @@ def approve_release(
             "Human review is stale: the release candidate changed after it was reviewed"
         )
 
+    # 3d. When public asset hosting is configured, publish the referenced
+    # rights-confirmed assets and rewrite the GHL snippet to stable HTTPS URLs
+    # BEFORE freezing the release. Without hosting, local behaviour is unchanged.
+    ghl_asset_map = maybe_publish_ghl_assets(project_root)
+    if ghl_asset_map:
+        public_ghl = export_ghl_snippet_from_html(
+            candidate_html.read_text(encoding="utf-8"),
+            business_id=project_root.name,
+            demo_kind=demo.kind if demo is not None and demo.is_fixture else None,
+            asset_url_map=ghl_asset_map,
+        )
+        assert_public_asset_urls(public_ghl)
+        _atomic_write_text(rc_dir / "ghl-ready.html", public_ghl)
+
     # 4. Copy candidate into delivery/ and versions/vN/
     human_review = {
         **attestation.model_dump(mode="json"),

@@ -36,9 +36,13 @@ def _project(tmp_path: Path) -> Path:
     return p
 
 
-def test_config_requires_all_github_pages_env(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_config_requires_all_github_pages_env(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     from app.asset_hosting import load_asset_hosting_config
 
+    # Isolate from a real local .env so this test only exercises env vars.
+    monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("GHL_ASSET_HOST", raising=False)
     assert load_asset_hosting_config() is None
 
@@ -102,6 +106,85 @@ def test_publisher_creates_gh_pages_branch_when_missing(
     assert ref_call["json"] == {"ref": "refs/heads/gh-pages", "sha": "base-sha"}
 
 
+def test_preflight_treats_placeholder_token_as_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.asset_hosting import preflight_hosting
+
+    monkeypatch.setenv("GHL_ASSET_HOST", "github_pages")
+    monkeypatch.setenv("GITHUB_PAGES_REPO", "owner/site-assets")
+    monkeypatch.setenv("GITHUB_TOKEN", "YOUR_TOKEN_HERE")
+    info = preflight_hosting()
+    assert info["configured"] is False
+    assert "GITHUB_TOKEN" in str(info["missing"])
+    assert "YOUR_TOKEN_HERE" not in json.dumps(info)
+
+
+def test_publisher_enables_github_pages_before_upload(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from app.asset_hosting import enable_github_pages
+
+    calls: list[tuple[str, object]] = []
+
+    class FakeResponse:
+        def __init__(self, status: int) -> None:
+            self.status_code = status
+            self.text = ""
+
+        def json(self) -> dict[str, object]:
+            return {}
+
+    def fake_put(url: str, **kwargs: object) -> FakeResponse:
+        calls.append((url, kwargs.get("json")))
+        return FakeResponse(201)
+
+    monkeypatch.setattr("app.asset_hosting.requests.put", fake_put)
+    cfg = AssetHostingConfig(token="t", repo="o/r", base_url="https://o.github.io/r/")
+    assert enable_github_pages(cfg) is True
+    pages_url, payload = calls[0]
+    assert pages_url.endswith("/repos/o/r/pages")
+    assert payload == {
+        "build_type": "legacy",
+        "source": {"branch": "gh-pages", "path": "/"},
+    }
+
+
+def test_enable_pages_accepts_204_no_content(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.asset_hosting import enable_github_pages
+
+    class FakeResponse:
+        status_code = 204
+        text = ""
+
+    monkeypatch.setattr(
+        "app.asset_hosting.requests.put", lambda *_a, **_k: FakeResponse()
+    )
+    cfg = AssetHostingConfig(token="t", repo="o/r", base_url="https://o.github.io/r/")
+    assert enable_github_pages(cfg) is True
+
+
+def test_preflight_reads_local_dotenv_without_printing_token(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from app.asset_hosting import preflight_hosting
+
+    for key in ("GHL_ASSET_HOST", "GITHUB_PAGES_REPO", "GITHUB_TOKEN", "GH_TOKEN"):
+        monkeypatch.delenv(key, raising=False)
+    (tmp_path / ".env").write_text(
+        "GHL_ASSET_HOST=github_pages\n"
+        "GITHUB_PAGES_REPO=owner/site-assets\n"
+        "GITHUB_TOKEN=dotenv-secret-value\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    info = preflight_hosting()
+    assert info["configured"] is True
+    assert "dotenv-secret-value" not in json.dumps(info)
+
+
 def test_preflight_reports_config_without_secrets(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -154,7 +237,9 @@ def test_publisher_maps_relative_paths_to_public_https_urls(
         == "https://owner.github.io/site-assets/pages-proj/assets/optimized/dog.jpg"
     )
     assert any(c["method"] == "PUT" for c in calls)
-    put_call = next(c for c in calls if c["method"] == "PUT")
+    put_call = next(
+        c for c in calls if c["method"] == "PUT" and "content" in (c["kwargs"].get("json") or {})
+    )
     assert put_call["kwargs"]["json"]["branch"] == "gh-pages"
     assert base64.b64decode(put_call["kwargs"]["json"]["content"]) == b"REAL-DOG-BYTES"
     assert put_call["kwargs"]["headers"]["Authorization"] == "Bearer test-token"
@@ -176,7 +261,13 @@ def test_publisher_refuses_unconfirmed_rights(
             return {}
 
     monkeypatch.setattr("app.asset_hosting.requests.get", lambda *_a, **_k: _Exists())
-    monkeypatch.setattr("app.asset_hosting.requests.put", lambda *_a, **_k: None)
+    class _Created:
+        status_code = 201
+
+        def json(self) -> dict[str, object]:
+            return {}
+
+    monkeypatch.setattr("app.asset_hosting.requests.put", lambda *_a, **_k: _Created())
     cfg = AssetHostingConfig(token="t", repo="o/r", base_url="https://o.github.io/r/")
     with pytest.raises(ValueError, match="rights_confirmed_for_preview"):
         publish_assets_to_github_pages(p, ["assets/optimized/dog.jpg"], cfg)
@@ -219,3 +310,32 @@ def test_approval_exports_ghl_code_with_public_urls(
     assert "https://o.github.io/r/p/assets/dog.jpg" in ghl
     assert "../assets/" not in ghl
     assert "127.0.0.1" not in ghl
+
+
+def test_approve_release_rewrites_ghl_with_public_urls(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The real approval gate used by the cockpit must publish/rewrite too."""
+    from app.approval import approve_release
+
+    from test_approval_archival import _human_review_attestation, _scaffold_reviewable_project
+
+    projects_dir, project_root = _scaffold_reviewable_project(tmp_path, "hosted-salon")
+    monkeypatch.setattr(
+        "app.approval.maybe_publish_ghl_assets",
+        lambda _root: {
+            "../assets/optimized/hero_dog.jpg": "https://cdn.example.com/hero_dog.jpg",
+            "assets/optimized/hero_dog.jpg": "https://cdn.example.com/hero_dog.jpg",
+        },
+    )
+    approve_release(
+        "hosted-salon",
+        version="v1",
+        operator_name="Owner",
+        notes="Public asset hosting configured.",
+        projects_dir=projects_dir,
+        review_attestation=_human_review_attestation(project_root),
+    )
+    ghl = (project_root / "delivery/ghl-ready.html").read_text(encoding="utf-8")
+    assert "https://cdn.example.com/hero_dog.jpg" in ghl
+    assert "../assets/" not in ghl
