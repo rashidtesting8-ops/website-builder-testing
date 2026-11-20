@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import os
+import re
 import tempfile
 import threading
 from collections.abc import Callable, Iterator
@@ -16,6 +17,9 @@ from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from app.asset_hosting import assert_public_asset_urls
+from app.ghl_exporter import validate_ghl_embed_simulation
 
 BREAKPOINTS: tuple[tuple[str, int], ...] = (
     ("Desktop", 1440),
@@ -255,6 +259,48 @@ class QADefectReport(BaseModel):
     viewports: list[ViewportQAResult]
 
 
+class GHLQADefectReport(BaseModel):
+    """QA report for the GHL custom-code snippet rendered inside a hostile host page."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    project_id: str
+    target_url: str
+    checked_at: datetime = Field(default_factory=_utc_now)
+    passed: bool
+    candidate_sha256: str = Field(default="")
+    static_defects: list[str] = Field(default_factory=list)
+    simulation: dict[str, Any] = Field(default_factory=dict)
+    viewports: list[ViewportQAResult] = Field(default_factory=list)
+
+
+def _build_ghl_host_html(snippet: str) -> str:
+    """Wrap the pasted GHL code inside a hostile host page for realistic QA."""
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GHL paste simulation</title>
+  <style>
+    /* Hostile GoHighLevel builder reset: unscoped styles must not bleed in. */
+    body {{ margin: 0; background: #0f172a; color: #f8fafc; font-family: Arial, sans-serif; }}
+    h1, h2, h3, p {{ font-family: Arial, sans-serif; text-transform: none; }}
+    .ghl-host-bar {{
+      background: #14532d; color: #86efac; padding: 10px 16px;
+      font: 600 13px/1.4 Arial, sans-serif;
+    }}
+    img {{ border: 3px solid #ef4444; }}
+  </style>
+</head>
+<body>
+  <div class="ghl-host-bar">GHL host simulator — pasted Custom HTML/JavaScript</div>
+  {snippet}
+</body>
+</html>
+"""
+
+
 class _SilentHTTPHandler(SimpleHTTPRequestHandler):
     def end_headers(self) -> None:
         self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
@@ -423,6 +469,148 @@ def run_qa_engine(
     return report
 
 
+def run_ghl_render_qa(
+    project_folder: str | Path,
+    *,
+    viewport_height: int = 900,
+    playwright_factory: Callable[[], Any] | None = None,
+) -> GHLQADefectReport:
+    """Render the GHL snippet inside a hostile host page at all 5 breakpoints.
+
+    This proves the code an operator pastes into GHL is actually renderable:
+    no relative/localhost asset references, valid CSS scoping/JS isolation, no
+    broken images, overflow or console errors.
+    """
+    project_root = Path(project_folder).resolve()
+    candidate = project_root / "delivery" / "ghl-ready.html"
+    if not candidate.is_file():
+        candidate = project_root / "release-candidate" / "ghl-ready.html"
+    if not candidate.is_file():
+        raise ValueError(f"GHL snippet not found in {project_root}")
+
+    snippet = candidate.read_text(encoding="utf-8")
+    sha = hashlib.sha256(snippet.encode("utf-8")).hexdigest()
+    static_defects: list[str] = []
+    try:
+        assert_public_asset_urls(snippet)
+    except ValueError as exc:
+        static_defects.append(str(exc))
+
+    root_match = re.search(r'id=["\'](ghl-ev-engine-root-[^"\']+)["\']', snippet)
+    simulation: dict[str, Any] = {}
+    if root_match:
+        simulation = validate_ghl_embed_simulation(snippet, root_match.group(1))
+        if not bool(simulation.get("is_valid", False)):
+            static_defects.append("GHL embed simulation failed scoping/isolation checks")
+    else:
+        static_defects.append("GHL root container id is missing")
+
+    qa_dir = project_root / "qa"
+    screenshots_dir = qa_dir / "screenshots"
+    screenshots_dir.mkdir(parents=True, exist_ok=True)
+    host_file = qa_dir / "ghl-host.html"
+    _atomic_write_text(host_file, _build_ghl_host_html(snippet))
+
+    active_factory = playwright_factory or _default_playwright_factory
+    viewports: list[ViewportQAResult] = []
+    with _serve_project_directory(project_root) as port:
+        target_url = f"http://localhost:{port}/qa/ghl-host.html"
+        with active_factory() as pw:
+            browser = pw.chromium.launch(headless=True)
+            try:
+                for label, width in BREAKPOINTS:
+                    context = browser.new_context(
+                        viewport={"width": width, "height": viewport_height},
+                        device_scale_factor=1,
+                    )
+                    page: Any = None
+                    try:
+                        page = context.new_page()
+                        network_404s: list[str] = []
+                        console_errs: list[str] = []
+
+                        def _on_response(
+                            resp: Any, bucket: list[str] = network_404s
+                        ) -> None:
+                            if getattr(resp, "status", 200) >= 400:
+                                bucket.append(f"{resp.status}:{resp.url}")
+
+                        def _on_console(
+                            msg: Any, bucket: list[str] = console_errs
+                        ) -> None:
+                            if getattr(msg, "type", "") == "error":
+                                bucket.append(str(getattr(msg, "text", ""))[:240])
+
+                        def _on_pageerror(err: Any, bucket: list[str] = console_errs) -> None:
+                            bucket.append(str(err)[:240])
+
+                        page.on("response", _on_response)
+                        page.on("console", _on_console)
+                        page.on("pageerror", _on_pageerror)
+                        page.goto(target_url, wait_until="load", timeout=20000)
+                        page.wait_for_timeout(200)
+                        page.evaluate(_LOAD_IMAGES_JS)
+                        result = page.evaluate(_BROWSER_INSPECTION_JS) or {}
+
+                        broken = list(
+                            dict.fromkeys(
+                                [
+                                    *network_404s,
+                                    *[str(x) for x in result.get("brokenImages", [])],
+                                ]
+                            )
+                        )
+                        contrast = [
+                            ContrastDefect.model_validate(item)
+                            for item in result.get("contrastFailures", [])
+                        ]
+                        interactions = [str(x) for x in result.get("interactionDefects", [])]
+                        overflow = bool(result.get("overflow", False))
+                        shot = screenshots_dir / f"ghl-{width}px.png"
+                        page.screenshot(
+                            path=str(shot), full_page=True, animations="disabled"
+                        )
+                        viewports.append(
+                            ViewportQAResult(
+                                label=label,
+                                width=width,
+                                screenshot_path=shot.relative_to(project_root).as_posix(),
+                                horizontal_overflow=overflow,
+                                scroll_width=int(result.get("scrollWidth", width)),
+                                inner_width=int(result.get("innerWidth", width)),
+                                broken_assets=broken,
+                                console_errors=console_errs,
+                                contrast_failures=contrast,
+                                interaction_defects=interactions,
+                                passed=not (
+                                    overflow
+                                    or broken
+                                    or console_errs
+                                    or contrast
+                                    or interactions
+                                ),
+                            )
+                        )
+                    finally:
+                        if page is not None:
+                            page.close()
+                        context.close()
+            finally:
+                browser.close()
+
+    report = GHLQADefectReport(
+        project_id=project_root.name,
+        target_url=target_url,
+        passed=not static_defects and all(v.passed for v in viewports),
+        candidate_sha256=sha,
+        static_defects=static_defects,
+        simulation=simulation,
+        viewports=viewports,
+    )
+    _atomic_write_text(qa_dir / "ghl-qa-report.json", report.model_dump_json(indent=2))
+    return report
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run 5-viewport Playwright QA inspection against a local project."
@@ -433,9 +621,17 @@ def main() -> None:
         default="website/index.html",
         help="Relative path to HTML file inside project",
     )
+    parser.add_argument(
+        "--ghl-render",
+        action="store_true",
+        help="Also render the GHL snippet in a hostile host page across 5 viewports",
+    )
     args = parser.parse_args()
     report = run_qa_engine(args.project, html_rel_path=args.html)
     print(report.model_dump_json(indent=2))
+    if args.ghl_render:
+        ghl_report = run_ghl_render_qa(args.project)
+        print(ghl_report.model_dump_json(indent=2))
 
 
 if __name__ == "__main__":

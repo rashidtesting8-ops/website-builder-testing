@@ -220,16 +220,27 @@ def maybe_publish_ghl_assets(project_root: str | Path) -> dict[str, str]:
     return mapping
 
 
+_LOCAL_BAD_TOKENS = (
+    "../assets/", 'src="assets/', "127.0.0.1", "http://localhost", "https://localhost"
+)
+
+
+def local_asset_tokens(snippet: str) -> list[str]:
+    """Return the local/relative asset tokens present in a snippet."""
+    lowered = snippet.lower()
+    return [token for token in _LOCAL_BAD_TOKENS if token in lowered]
+
+
 def is_public_asset_snippet(snippet: str) -> bool:
     """True when a GHL snippet contains no local/relative asset references."""
-    lowered = snippet.lower()
-    return not any(
-        bad in lowered
-        for bad in ("../assets/", 'src="assets/', "127.0.0.1", "http://localhost", "https://localhost")
-    )
+    return not local_asset_tokens(snippet)
 
 
 def assert_public_asset_urls(snippet: str) -> None:
     """Fail if a paste-ready GHL snippet still contains local/relative asset refs."""
-    if not is_public_asset_snippet(snippet):
-        raise ValueError("GHL snippet is not paste-ready: contains local/relative asset URLs")
+    bad = local_asset_tokens(snippet)
+    if bad:
+        raise ValueError(
+            "GHL snippet is not paste-ready: contains local/relative asset URLs: "
+            + ", ".join(bad)
+        )
