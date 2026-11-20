@@ -120,10 +120,20 @@ def _load_manifest_index(project_root: Path) -> dict[str, dict[str, Any]]:
                 val = row.get(key)
                 if isinstance(val, str):
                     norm = _normalize_asset_ref(val)
-                    if norm:
-                        index[norm] = row
-                        fname = Path(norm).name
-                        index[f"assets/optimized/{fname}"] = row
+                    if not norm:
+                        continue
+                    aliases = (norm, f"assets/optimized/{Path(norm).name}")
+                    for alias in aliases:
+                        existing = index.get(alias)
+                        # A stale unconfirmed social row must never downgrade a
+                        # confirmed asset-manifest row for the same bytes/path.
+                        if (
+                            existing is not None
+                            and existing.get("rights_confirmed_for_preview") is True
+                            and row.get("rights_confirmed_for_preview") is not True
+                        ):
+                            continue
+                        index[alias] = row
     return index
 
 

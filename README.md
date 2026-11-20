@@ -9,7 +9,7 @@
 
 **An evidence-preserving, local-first engine for automated media collection, cryptographic fact verification, locale-aware normalization, visual curation, luxury editorial art direction, per-section code generation, surgical revision, 5-viewport QA, budget-capped LLM adaptation, Minimum Viable Facts (MVF) gating, human-in-the-loop operator cockpit review, enterprise n8n studio orchestration, and immutable release packaging with GoHighLevel (GHL) isolation for bespoke pet grooming websites.**
 
-> **Prototype status (last checked 2026-11-19):** Not production-ready. Local gates: `uv run ruff check .` 0, `uv run pyright` 0, `uv run pytest` **316 passed across 48 test modules**. A **five-business real-business pilot has now been executed end-to-end** — 5/5 businesses collected, verified, QA'd, rights-confirmed, and approved with immutable frozen `delivery/` (see §22). Demo fixtures remain explicitly labeled and separate from real-business pilot counts. **Latest (§24–§26):** visual "AI slop" defects fixed deterministically with human asset overrides; rich source-backed facts (proof stats, awards, owner story, two salons, real prices) now drive a genuinely bespoke homepage; frontend intake carries FB/Instagram URLs + owner permission with a social re-scrape endpoint; and GHL export can publish rights-confirmed assets to free GitHub Pages so the final code is paste-ready HTTPS (no relative/localhost images). **Still open:** actual GHL published-page validation (operator pastes/publishes manually — skipped), team-supplied approved examples corpus (never provided; our own releases are not misrepresented as team-supplied), vision-based curation/critic (free vision models unreliable — deterministic + human gate), and re-approval of the five M5 deliveries under the 19 Nov quality fixes. Owner consent confirmed (PII intentionally withheld by owner, respected); n8n workflow 04 executed successfully in an isolated container. Social collection verified on the DoD-proof run (40 Facebook files; Instagram rate-limit honestly `review_needed`, no bypass). Public availability is not permission to reuse media.
+> **Prototype status (last checked 2026-11-19):** Not production-ready. Local gates: `uv run ruff check .` 0, `uv run pyright` 0, `uv run pytest` **321 passed across 49 test modules**. A **five-business real-business pilot has now been executed end-to-end** — 5/5 businesses collected, verified, QA'd, rights-confirmed, and approved with immutable frozen `delivery/` (see §22). Demo fixtures remain explicitly labeled and separate from real-business pilot counts. **Latest (§24–§26):** visual "AI slop" defects fixed deterministically with human asset overrides; rich source-backed facts (proof stats, awards, owner story, two salons, real prices) now drive a genuinely bespoke homepage; frontend intake carries FB/Instagram URLs + owner permission with a social re-scrape endpoint; and GHL export can publish rights-confirmed assets to free GitHub Pages so the final code is paste-ready HTTPS (no relative/localhost images). **Still open:** actual GHL published-page validation (operator pastes/publishes manually — skipped), team-supplied approved examples corpus (never provided; our own releases are not misrepresented as team-supplied), vision-based curation/critic (free vision models unreliable — deterministic + human gate), and re-approval of the five M5 deliveries under the 19 Nov quality fixes. Owner consent confirmed (PII intentionally withheld by owner, respected); n8n workflow 04 executed successfully in an isolated container. Social collection verified on the DoD-proof run (40 Facebook files; Instagram rate-limit honestly `review_needed`, no bypass). Public availability is not permission to reuse media.
 
 ### Current completion estimate (developer brief, GHL publish excluded)
 | Milestone | Est. | Basis |
@@ -63,6 +63,7 @@ See §18 for the historical 17 Nov scoring and §24–§26 for the evidence behi
 28. [Abuse limits, TLS proxy and reproducible build](#28-abuse-limits-tls-proxy-and-reproducible-build-20-november-2026)
 29. [GHL paste-simulation render QA](#29-ghl-paste-simulation-render-qa-20-november-2026)
 30. [Backups and verified restore drill](#30-backups-and-verified-restore-drill-20-november-2026)
+31. [M5 quality re-approval: fresh v2 releases](#31-m5-quality-re-approval-fresh-v2-releases-20-november-2026)
 
 ---
 
@@ -843,7 +844,7 @@ make test        # uv run pytest
 
 ### Current Validation Snapshot
 
-Last locally verified on 2026-11-19: **316 passed across 48 test modules**. The commands
+Last locally verified on 2026-11-19: **321 passed across 49 test modules**. The commands
 `uv run ruff check .`, `uv run pyright`, and `uv run pytest` completed successfully in the
 local working tree; Pyright reported 0 errors, warnings, or informations. These are
 automated local results, not evidence of a real-client pilot, client approval, or published
@@ -1080,7 +1081,7 @@ The owner subsequently self-attested in chat to owning the business and granting
 | M5 Five-business pilot | ~90% | 5/5 run end-to-end, all approved, QA/claims/MVF pass, reference library built; GHL live + written owner permission pending. |
 | **Overall (M1–M5)** | **~82%** | Historical 17 Nov scoring; superseded by the 19 Nov estimate at the top of this README. |
 
-*Historical tested engine (17 Nov): `uv run ruff check .` 0, `uv run pyright` 0, `uv run pytest` **272 passed**. Current: **316 passed** (see top status and §26). Secrets and rights-bearing evidence remain local/private (Git-ignored).*
+*Historical tested engine (17 Nov): `uv run ruff check .` 0, `uv run pyright` 0, `uv run pytest` **272 passed**. Current: **321 passed** (see top status and §26). Secrets and rights-bearing evidence remain local/private (Git-ignored).*
 
 **19 Nov update to these scores (GHL publish still excluded):** M1 ~90% (contact sheets, byte-verified staging, honest social), M2 ~80% (rich source-backed extraction fixed; vision curation still deterministic + human), M3 ~85% (bespoke rich sections + 5-view QA; critic heuristic), M4 ~90% (frozen approval + paste-ready GitHub-Pages GHL code), M5 ~90% (5/5 approved, but deliveries predate the 19 Nov fixes). Overall **~88%**. Remaining: vision-based critic/curation, team-supplied corpus, M5 re-approval, operator-performed GHL publish.
 
@@ -1233,7 +1234,7 @@ Two real workflow blockers were fixed test-first:
 
 **Rights gate:** publishing is fail-closed — if any referenced asset lacks `rights_confirmed_for_preview: true`, the release is blocked. Private research/permission evidence is never uploaded; only referenced, approved assets are. Without `GHL_ASSET_HOST=github_pages`, behaviour is unchanged (local preview still works, no external hosting required — brief §1.6).
 
-Gates: ruff 0, pyright 0, **316 passed**.
+Gates: ruff 0, pyright 0, **321 passed**.
 
 ---
 
@@ -1250,7 +1251,7 @@ EDITVISTA_API_TOKEN=<shared-secret>
 EDITVISTA_AUTH_MODE=required        # auto (default) = require when token set
 EDITVISTA_COOKIE_SECURE=1           # only behind HTTPS
 ```
-Jab tak token set nahi hota, local development/preview bilkul pehle jaisa chalata hai (no breaking change). Regression suite: **316 passed**.
+Jab tak token set nahi hota, local development/preview bilkul pehle jaisa chalata hai (no breaking change). Regression suite: **321 passed**.
 
 **Still open for production (next phases):** TLS/reverse proxy, rate limiting, reproducible locked Docker build, CI smoke tests, vision-based curator/critic, GHL render QA, backups/restore drill, M5 re-approval. See §28 — rate limiting, TLS proxy, locked build and CI smoke were completed on 20 Nov; see the completion estimate at the top of this README.
 
@@ -1264,7 +1265,7 @@ Next production phase, again test-first (`tests/test_rate_limit_and_proxy.py`, `
 2. **TLS reverse proxy (opt-in)** — `deploy/Caddyfile` terminates HTTPS for `{$EDITVISTA_DOMAIN}` (free Let's Encrypt), adds security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, HSTS), and proxies to `cockpit:8888`. Compose service `proxy` is behind `profiles: [proxy]`, so local `docker compose up -d` is unchanged; only `docker compose --profile proxy up -d` exposes 80/443. Env: `EDITVISTA_DOMAIN`. Set `EDITVISTA_COOKIE_SECURE=1` when using HTTPS.
 3. **Reproducible build** — `requirements.lock.txt` generated from `uv.lock` with `uv export --frozen --all-extras --no-dev --no-emit-project --no-hashes`. Dockerfile installs **only** this pinned file (previous `requirements*.txt` ranges removed). CI now verifies the lock is in sync (`uv export … | diff`), validates `docker compose config -q`, builds the image, and smoke-tests `/health` from the built container.
 
-**Verified:** ruff 0, pyright 0, **316 passed across 46 modules**; local stack rebuilt from the pinned image with all three containers healthy and preview 200.
+**Verified:** ruff 0, pyright 0, **321 passed across 46 modules**; local stack rebuilt from the pinned image with all three containers healthy and preview 200.
 
 **Remaining after this phase:** vision-based curator/critic, backups/restore drill, DB migrations, M5 re-approval, and operator-performed GHL publish. GHL render-QA was implemented next — see §29.
 
@@ -1281,7 +1282,7 @@ CLI: `uv run python -m app.qa_engine --project <id> --ghl-render` (runs standalo
 
 **Verified on `lilys-club-clean-v3`:** 5/5 rendered viewports passed with no broken images/overflow/console errors; overall report correctly **FAILED** until GitHub Pages hosting is configured — static defects recorded `../assets/` and `asset_urls_absolute: false`. This is the intended honest gate: once `GHL_ASSET_HOST=github_pages` is configured and the release re-approved, the same command must flip to `passed: true`.
 
-Gates: ruff 0, pyright 0, **316 passed across 47 modules** (48 now — see §30).
+Gates: ruff 0, pyright 0, **321 passed across 47 modules** (48 now — see §30).
 
 ---
 
@@ -1300,4 +1301,29 @@ TDD: `tests/test_backup_restore.py` (3 tests: manifest/DB snapshot, corruption d
 
 **Remaining:** vision-based curator/critic, DB migrations, M5 re-approval, operator GHL publish.
 
-Gates: ruff 0, pyright 0, **316 passed across 48 modules**.
+Gates: ruff 0, pyright 0, **321 passed across 49 modules**.
+
+---
+
+## 31. M5 quality re-approval: fresh v2 releases (20 November 2026)
+
+The five 16 Nov M5 releases predated the 19–20 Nov quality fixes. They were refreshed without touching any frozen v1 artifact:
+
+- `next_release_version()` picks the next sequential version (`v1→v2`; Lily's existing v1–v3 → v4). `approve_release` refuses to overwrite an existing version directory.
+- `_reset_draft_directories()` only clears `assets/`, `research/`, `design/`, `website/`, `release-candidate/`, `qa/` — `delivery/`, `versions/`, `_archives/` are preserved (regression test verifies hashes).
+- New operator override `gallery_filenames` in `input.json` pins the exact curated gallery; a contact-sheet review removed promo flyers, logos, people, landmarks and repeated photos. Test in `test_curator_art_director.py`.
+- Rights-check bug fixed: an unconfirmed stale social-manifest row no longer overwrites a confirmed asset row for the same path/SHA (`src/engine/exporter.py`). Regression in `test_m5_reapproval.py`.
+
+**Execution result** (`projects/_pilot/m5-reapproval-v2-report.json`):
+
+| Business | Result | Version | v1 preserved | QA / claims |
+|---|---|---|---|---|
+| Pup Central | ✅ approved | v2 | yes | pass / pass |
+| Mod Mutt Salon | ✅ approved | v2 | yes | pass / pass |
+| Vanity Fur Dog Grooming | ✅ approved | v2 | yes | pass / pass |
+| Lily's Club (gh-live) | ✅ approved | v4 | yes | pass / pass |
+| Fidos of Fitzrovia | ⛔ not approved | — | yes (v1 untouched) | source site unreachable (HTTP 000 on both URLs, 0 pages crawled) |
+
+GHL render-QA for the new candidates still reports `../assets/` local-URL defects because `GHL_ASSET_HOST=github_pages` is not configured — honest, by design (§29/§26). No live GHL publish was attempted.
+
+Gates: ruff 0, pyright 0, **321 passed across 49 modules**.

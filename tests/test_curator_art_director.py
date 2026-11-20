@@ -69,6 +69,39 @@ def test_curator_detects_low_contrast_text_on_flat_banner(tmp_path: Path) -> Non
     assert _detect_embedded_banner_text(tmp_path / "copia-de-layout.png", banner) is True
 
 
+def test_curator_honors_operator_gallery_whitelist(tmp_path: Path) -> None:
+    """Operator can pin the exact gallery images shown, avoiding promo/people photos."""
+    project_root = tmp_path / "projects" / "gallery-whitelist"
+    opt = project_root / "assets" / "optimized"
+    boxes = (
+        (200, 150, 900, 700),
+        (320, 120, 780, 620),
+        (150, 220, 700, 760),
+        (420, 180, 980, 740),
+        (260, 260, 850, 780),
+        (360, 140, 740, 560),
+    )
+    for idx, name in enumerate(
+        ("hero.jpg", "dog1.jpg", "dog2.jpg", "dog3.jpg", "dog4.jpg", "promo.jpg")
+    ):
+        _create_image(
+            opt / name,
+            width=1200,
+            height=900,
+            subject_box=boxes[idx],
+            bg_color=(30 + idx * 35, 90 + idx * 15, 130 - idx * 12),
+            subject_color=(220 - idx * 25, 160 + idx * 12, 80 + idx * 18),
+        )
+
+    selection = curate_project_images(
+        project_root,
+        gallery_filenames=["dog1.jpg", "dog2.jpg", "dog3.jpg", "dog4.jpg"],
+    )
+    names = [g.filename for g in selection.grooming_gallery]
+    assert names == ["dog1.jpg", "dog2.jpg", "dog3.jpg", "dog4.jpg"]
+    assert "promo.jpg" not in names
+
+
 def test_curator_excluded_image_rejects_its_resized_variant(tmp_path: Path) -> None:
     """A resized variant of an operator-excluded promo must not re-enter the gallery."""
     from PIL import Image

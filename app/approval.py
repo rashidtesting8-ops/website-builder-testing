@@ -18,6 +18,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import stat
 import tempfile
@@ -394,6 +395,18 @@ def compute_release_checksum_tree(project_root: Path) -> tuple[str, dict[str, st
         tree_hasher.update(f"asset:{rel_asset}:{asset_sha}\n".encode())
 
     return tree_hasher.hexdigest(), checksum_tree, asset_signatures
+
+
+def next_release_version(project_folder: str | Path) -> str:
+    """Return the next unused sequential version (v1, v2, ... vN) for a project."""
+    versions_root = Path(project_folder).resolve() / "versions"
+    highest = 0
+    if versions_root.is_dir():
+        for child in versions_root.iterdir():
+            match = re.fullmatch(r"v(\d+)", child.name) if child.is_dir() else None
+            if match:
+                highest = max(highest, int(match.group(1)))
+    return f"v{highest + 1}"
 
 
 def approve_release(

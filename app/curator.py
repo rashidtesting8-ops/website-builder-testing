@@ -303,6 +303,7 @@ def curate_project_images(
     lvm_adapter: LVMAdapter | None = None,
     hero_filename: str | None = None,
     exclude_filenames: Sequence[str] | None = None,
+    gallery_filenames: Sequence[str] | None = None,
 ) -> ImageSelectionReport:
     """Scan optimized assets and contact sheet, evaluate candidates, and save selection JSON.
 
@@ -313,6 +314,7 @@ def curate_project_images(
     project_id = project_root.name
     adapter = lvm_adapter or default_lvm_heuristic_adapter
     excluded_input = set(exclude_filenames or [])
+    gallery_whitelist = list(gallery_filenames or [])
 
     optimized_dir = project_root / "assets" / "optimized"
     contact_sheet_file = project_root / "qa" / "contact-sheet.jpg"
@@ -485,10 +487,22 @@ def curate_project_images(
         reverse=True,
     )
     grooming_gallery: list[CuratedImageCandidate] = []
-    for cand in gallery_pool:
-        if cand.filename not in assigned_filenames:
-            grooming_gallery.append(cand)
-            assigned_filenames.add(cand.filename)
+    if gallery_whitelist:
+        by_filename = {c.filename: c for c, _ in valid_candidates}
+        for filename in gallery_whitelist:
+            cand = by_filename.get(filename)
+            if cand is not None and cand.filename not in assigned_filenames:
+                grooming_gallery.append(cand)
+                assigned_filenames.add(cand.filename)
+            else:
+                warnings.append(
+                    f"Operator gallery override '{filename}' is not an eligible candidate."
+                )
+    else:
+        for cand in gallery_pool:
+            if cand.filename not in assigned_filenames:
+                grooming_gallery.append(cand)
+                assigned_filenames.add(cand.filename)
 
     # 4. If facility was not explicitly hinted and > 4 gallery photos exist, assign last to facility
     if facility_candidate is None and len(grooming_gallery) > MIN_GALLERY_COUNT:

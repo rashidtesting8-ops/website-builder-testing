@@ -1274,6 +1274,7 @@ def run_pipeline(
                         _operator_overrides = {
                             "hero_filename": _input_data.get("hero_filename"),
                             "exclude_filenames": _input_data.get("exclude_filenames"),
+                            "gallery_filenames": _input_data.get("gallery_filenames"),
                         }
                 except (OSError, json.JSONDecodeError):
                     _operator_overrides = {}
