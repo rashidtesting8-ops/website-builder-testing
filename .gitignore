@@ -5,6 +5,7 @@ __pycache__/
 .cache/
 .env
 projects/
+backups/
 *.pyc
 .DS_Store
 dist/
