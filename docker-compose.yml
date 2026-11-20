@@ -91,6 +91,26 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+  proxy:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    profiles:
+      - proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - EDITVISTA_DOMAIN=${EDITVISTA_DOMAIN:-localhost}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      cockpit:
+        condition: service_healthy
+
 volumes:
   n8n_data:
+  caddy_data:
+  caddy_config:
   worker_state:

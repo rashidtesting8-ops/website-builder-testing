@@ -9,7 +9,7 @@ def test_docker_demo_includes_browser_qa_and_review_cockpit() -> None:
     compose = (repo_root / "docker-compose.yml").read_text(encoding="utf-8")
 
     assert "mcr.microsoft.com/playwright/python:v1.55.0-noble" in dockerfile
-    assert "requirements-browser.txt" in dockerfile
+    assert "requirements.lock.txt" in dockerfile  # pinned uv.lock export incl. browser extra
     assert "COPY config ./config" in dockerfile
     assert "n8nio/n8n:2.47.3" in compose
     assert "cockpit:" in compose

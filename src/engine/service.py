@@ -17,6 +17,7 @@ from threading import BoundedSemaphore, Lock
 from typing import Any
 
 from app.api_auth import install_auth as _install_worker_auth
+from app.rate_limit import install_rate_limit as _install_worker_rate_limit
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
@@ -24,6 +25,7 @@ from engine.collector import collect, safe_url, slugify
 
 app = FastAPI(title="Pet Grooming Asset Collector & Pipeline Worker", docs_url="/docs")
 _install_worker_auth(app)
+_install_worker_rate_limit(app)
 executor = ThreadPoolExecutor(max_workers=2)
 slots = BoundedSemaphore(4)
 lock = Lock()

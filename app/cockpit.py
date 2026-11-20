@@ -46,6 +46,7 @@ from app.ghl_exporter import (
     export_ghl_snippet_from_html,
     validate_ghl_embed_simulation,
 )
+from app.rate_limit import install_rate_limit
 
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 
@@ -535,6 +536,7 @@ def create_cockpit_app(
 
     app = FastAPI(title="EditVista Operator Cockpit", docs_url="/api/docs")
     install_auth(app)
+    install_rate_limit(app)
 
     def _worker_headers(request: Request) -> dict[str, str]:
         """Propagate the caller's credential to the internal worker API."""

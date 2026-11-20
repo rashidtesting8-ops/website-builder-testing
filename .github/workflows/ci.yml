@@ -36,3 +36,25 @@ jobs:
 
       - name: Run Pytest suite
         run: uv run pytest -v
+
+      - name: Verify pinned requirements lock is in sync with uv.lock
+        run: |
+          uv export --frozen --all-extras --no-dev --no-emit-project \
+            --no-hashes --format requirements-txt -o /tmp/requirements.lock.txt
+          diff -u requirements.lock.txt /tmp/requirements.lock.txt
+
+      - name: Validate Docker Compose configuration
+        run: docker compose config -q
+
+      - name: Build pinned Docker image
+        run: docker build -t editvista-ci .
+
+      - name: Smoke test worker health endpoint
+        run: |
+          docker run -d --name editvista-smoke -p 18787:8787 editvista-ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:18787/health; then exit 0; fi
+            sleep 1
+          done
+          docker logs editvista-smoke
+          exit 1

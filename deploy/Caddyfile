@@ -1,0 +1,16 @@
+# Opt-in TLS reverse proxy for production (docker compose --profile proxy up -d).
+# Caddy obtains a free Let's Encrypt certificate for {$EDITVISTA_DOMAIN}.
+# The cockpit/worker ports stay bound to 127.0.0.1; only 80/443 are public.
+{$EDITVISTA_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	reverse_proxy cockpit:8888
+}
