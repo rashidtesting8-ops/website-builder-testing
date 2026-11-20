@@ -37,6 +37,9 @@ jobs:
       - name: Run Pytest suite
         run: uv run pytest -v
 
+      - name: Check SQLite schema migration CLI
+        run: uv run python -m app.migrations --db projects/editvista.sqlite3
+
       - name: Verify pinned requirements lock is in sync with uv.lock
         run: |
           uv export --frozen --all-extras --no-dev --no-emit-project \

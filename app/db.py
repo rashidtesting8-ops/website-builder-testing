@@ -186,12 +186,15 @@ def immediate_transaction(
 
 
 def init_db(conn: sqlite3.Connection, schema_path: str | Path = SCHEMA_PATH) -> None:
-    """Apply relational schema migration from app/schema.sql."""
+    """Apply the idempotent baseline schema, then any pending versioned migrations."""
+    from app.migrations import _apply_migrations
+
     sql = Path(schema_path).read_text(encoding="utf-8")
     statements = [stmt.strip() for stmt in sql.split(";") if stmt.strip()]
     with immediate_transaction(conn):
         for stmt in statements:
             conn.execute(stmt)
+        _apply_migrations(conn)
 
 
 def upsert_project(conn: sqlite3.Connection, record: ProjectRecord) -> ProjectRecord:
