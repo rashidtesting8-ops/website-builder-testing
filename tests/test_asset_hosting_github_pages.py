@@ -55,6 +55,67 @@ def test_config_requires_all_github_pages_env(monkeypatch: pytest.MonkeyPatch) -
     assert cfg.base_url == "https://owner.github.io/site-assets/"
 
 
+def test_publisher_creates_gh_pages_branch_when_missing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """First-run setup must not require manual branch creation in GitHub UI."""
+    p = _project(tmp_path)
+    calls: list[dict[str, object]] = []
+
+    class FakeResponse:
+        def __init__(self, status: int, payload: dict[str, object] | None = None) -> None:
+            self.status_code = status
+            self._payload = payload or {}
+            self.text = ""
+
+        def json(self) -> dict[str, object]:
+            return self._payload
+
+    def fake_get(url: str, **kwargs: object) -> FakeResponse:
+        calls.append({"method": "GET", "url": url})
+        if url.endswith("/branches/gh-pages"):
+            return FakeResponse(404)
+        if url.endswith("/repos/owner/site-assets"):
+            return FakeResponse(200, {"default_branch": "main"})
+        if "/git/ref/heads/main" in url:
+            return FakeResponse(200, {"object": {"sha": "base-sha"}})
+        return FakeResponse(404)
+
+    def fake_post(url: str, **kwargs: object) -> FakeResponse:
+        calls.append({"method": "POST", "url": url, "json": kwargs.get("json")})
+        return FakeResponse(201, {})
+
+    def fake_put(url: str, **kwargs: object) -> FakeResponse:
+        calls.append({"method": "PUT", "url": url})
+        return FakeResponse(201, {})
+
+    monkeypatch.setattr("app.asset_hosting.requests.get", fake_get)
+    monkeypatch.setattr("app.asset_hosting.requests.post", fake_post)
+    monkeypatch.setattr("app.asset_hosting.requests.put", fake_put)
+
+    cfg = AssetHostingConfig(
+        token="test-token", repo="owner/site-assets", base_url="https://owner.github.io/site-assets/"
+    )
+    mapping = publish_assets_to_github_pages(p, ["assets/optimized/dog.jpg"], cfg)
+    assert mapping["assets/optimized/dog.jpg"].startswith("https://owner.github.io/site-assets/")
+    ref_call = next(c for c in calls if c["method"] == "POST" and "git/refs" in str(c["url"]))
+    assert ref_call["json"] == {"ref": "refs/heads/gh-pages", "sha": "base-sha"}
+
+
+def test_preflight_reports_config_without_secrets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.asset_hosting import preflight_hosting
+
+    monkeypatch.setenv("GHL_ASSET_HOST", "github_pages")
+    monkeypatch.setenv("GITHUB_PAGES_REPO", "owner/site-assets")
+    monkeypatch.setenv("GITHUB_TOKEN", "super-secret-should-never-appear")
+    info = preflight_hosting()
+    assert info["configured"] is True
+    assert info["repo"] == "owner/site-assets"
+    assert "super-secret-should-never-appear" not in json.dumps(info)
+
+
 def test_publisher_maps_relative_paths_to_public_https_urls(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -72,6 +133,8 @@ def test_publisher_maps_relative_paths_to_public_https_urls(
 
     def fake_get(url: str, **kwargs: Any) -> FakeResponse:
         calls.append({"method": "GET", "url": url, "kwargs": kwargs})
+        if url.endswith("/branches/gh-pages"):
+            return FakeResponse(200, {})
         return FakeResponse(404)
 
     def fake_put(url: str, **kwargs: Any) -> FakeResponse:
@@ -106,6 +169,13 @@ def test_publisher_refuses_unconfirmed_rights(
     data[0]["rights_confirmed_for_preview"] = False
     manifest.write_text(json.dumps(data), encoding="utf-8")
 
+    class _Exists:
+        status_code = 200
+
+        def json(self) -> dict[str, object]:
+            return {}
+
+    monkeypatch.setattr("app.asset_hosting.requests.get", lambda *_a, **_k: _Exists())
     monkeypatch.setattr("app.asset_hosting.requests.put", lambda *_a, **_k: None)
     cfg = AssetHostingConfig(token="t", repo="o/r", base_url="https://o.github.io/r/")
     with pytest.raises(ValueError, match="rights_confirmed_for_preview"):

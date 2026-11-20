@@ -9,7 +9,7 @@
 
 **An evidence-preserving, local-first engine for automated media collection, cryptographic fact verification, locale-aware normalization, visual curation, luxury editorial art direction, per-section code generation, surgical revision, 5-viewport QA, budget-capped LLM adaptation, Minimum Viable Facts (MVF) gating, human-in-the-loop operator cockpit review, enterprise n8n studio orchestration, and immutable release packaging with GoHighLevel (GHL) isolation for bespoke pet grooming websites.**
 
-> **Prototype status (last checked 2026-11-19):** Not production-ready. Local gates: `uv run ruff check .` 0, `uv run pyright` 0, `uv run pytest` **325 passed across 50 test modules**. A **five-business real-business pilot has now been executed end-to-end** — 5/5 businesses collected, verified, QA'd, rights-confirmed, and approved with immutable frozen `delivery/` (see §22). Demo fixtures remain explicitly labeled and separate from real-business pilot counts. **Latest (§24–§26):** visual "AI slop" defects fixed deterministically with human asset overrides; rich source-backed facts (proof stats, awards, owner story, two salons, real prices) now drive a genuinely bespoke homepage; frontend intake carries FB/Instagram URLs + owner permission with a social re-scrape endpoint; and GHL export can publish rights-confirmed assets to free GitHub Pages so the final code is paste-ready HTTPS (no relative/localhost images). **Still open:** actual GHL published-page validation (operator pastes/publishes manually — skipped), team-supplied approved examples corpus (never provided; our own releases are not misrepresented as team-supplied), vision-based curation/critic (free vision models unreliable — deterministic + human gate), and re-approval of the five M5 deliveries under the 19 Nov quality fixes. Owner consent confirmed (PII intentionally withheld by owner, respected); n8n workflow 04 executed successfully in an isolated container. Social collection verified on the DoD-proof run (40 Facebook files; Instagram rate-limit honestly `review_needed`, no bypass). Public availability is not permission to reuse media.
+> **Prototype status (last checked 2026-11-20):** Not production-ready. Local gates: `uv run ruff check .` 0, `uv run pyright` 0, `uv run pytest` **327 passed across 50 test modules**. A **five-business real-business pilot has now been executed end-to-end** — 5/5 businesses collected, verified, QA'd, rights-confirmed, and approved with immutable frozen `delivery/` (see §22). Demo fixtures remain explicitly labeled and separate from real-business pilot counts. **Latest (§24–§26):** visual "AI slop" defects fixed deterministically with human asset overrides; rich source-backed facts (proof stats, awards, owner story, two salons, real prices) now drive a genuinely bespoke homepage; frontend intake carries FB/Instagram URLs + owner permission with a social re-scrape endpoint; and GHL export can publish rights-confirmed assets to free GitHub Pages so the final code is paste-ready HTTPS (no relative/localhost images). **Still open:** actual GHL published-page validation (operator pastes/publishes manually — skipped), team-supplied approved examples corpus (never provided; our own releases are not misrepresented as team-supplied), vision-based curation/critic (free vision models unreliable — deterministic + human gate), and Fidos re-approval (site unreachable). Four M5 deliveries were re-approved as fresh versions under the 19–20 Nov quality fixes (§31). Owner consent confirmed (PII intentionally withheld by owner, respected); n8n workflow 04 executed successfully in an isolated container. Social collection verified on the DoD-proof run (40 Facebook files; Instagram rate-limit honestly `review_needed`, no bypass). Public availability is not permission to reuse media.
 
 ### Current completion estimate (developer brief, GHL publish excluded)
 | Milestone | Est. | Basis |
@@ -845,7 +845,7 @@ make test        # uv run pytest
 
 ### Current Validation Snapshot
 
-Last locally verified on 2026-11-19: **325 passed across 50 test modules**. The commands
+Last locally verified on 2026-11-20: **327 passed across 50 test modules**. The commands
 `uv run ruff check .`, `uv run pyright`, and `uv run pytest` completed successfully in the
 local working tree; Pyright reported 0 errors, warnings, or informations. These are
 automated local results, not evidence of a real-client pilot, client approval, or published
@@ -1221,7 +1221,7 @@ Two real workflow blockers were fixed test-first:
 
 ### GitHub Pages (free) setup — one-time, no secrets in the repo
 
-1. Create (or reuse) a GitHub repo for public assets, e.g. `rashidtesting8-ops/website-builder-testing`. Create a branch `gh-pages` and enable **Settings → Pages → Source: gh-pages branch**.
+1. Create (or reuse) a GitHub repo for public assets, e.g. `rashidtesting8-ops/website-builder-testing`. Enable **Settings → Pages → Source: gh-pages branch**. The `gh-pages` branch itself is now **auto-created** from the default branch on first publish (`app/asset_hosting.py:_ensure_branch`) — no manual branch step.
 2. Generate a GitHub Personal Access Token with **Contents: read/write** (or classic `repo` scope). Add these to the **local** `.env` (gitignored) and to the collector container environment only:
    ```text
    GHL_ASSET_HOST=github_pages
@@ -1231,7 +1231,7 @@ Two real workflow blockers were fixed test-first:
    GITHUB_PAGES_BASE_URL=                # optional; auto-derived from repo
    ```
    Auto-derived URL: `https://<owner>.github.io/<repo>/` (or `https://<repo>/` for `<owner>.github.io` repos). Assets are written to `<project-id>/assets/optimized/<file>`; e.g. `https://<owner>.github.io/<repo>/lilys-club-clean-v3/assets/optimized/hero.jpg`.
-3. Rebuild/restart the worker so it reads the new env. Approve a release: `approve_release` publishes assets, rewrites the GHL snippet, and writes `release-candidate/ghl-asset-urls.json` as evidence. Then fetch `GET /api/projects/<id>/ghl-export` — `ghl_html` is the exact code to paste into GHL.
+3. Verify setup without exposing the secret: `uv run python -m app.asset_hosting preflight` → reports `{configured, repo, branch, base_url, missing}` only. Rebuild/restart the worker so it reads the new env. Approve a release: `approve_release` publishes assets, rewrites the GHL snippet, and writes `release-candidate/ghl-asset-urls.json` as evidence. Then fetch `GET /api/projects/<id>/ghl-export` — `ghl_html` is the exact code to paste into GHL; `run_ghl_render_qa` should flip to `passed: true` (§29).
 
 **Rights gate:** publishing is fail-closed — if any referenced asset lacks `rights_confirmed_for_preview: true`, the release is blocked. Private research/permission evidence is never uploaded; only referenced, approved assets are. Without `GHL_ASSET_HOST=github_pages`, behaviour is unchanged (local preview still works, no external hosting required — brief §1.6).
 
@@ -1341,4 +1341,17 @@ Gates: ruff 0, pyright 0, **325 passed across 49 modules** (50 now — see §32)
 
 **Verified on the real workspace DB** (`projects/editvista.sqlite3`): version `0 → 1`, `migration_audit = [(1,)]`, **17 project rows unchanged**, tables now include `schema_meta` and `migration_audit`.
 
-Gates: ruff 0, pyright 0, **325 passed across 50 modules**.
+Gates: ruff 0, pyright 0, **325 passed across 50 modules** (327 now — see §33).
+
+---
+
+## 33. One-command GitHub Pages readiness (20 November 2026)
+
+To remove the last setup blocker without ever asking for a secret in chat:
+
+- `app/asset_hosting.py:_ensure_branch()` auto-creates the `gh-pages` branch from the repository's default branch on first publish (idempotent; tolerates a concurrent 422). No manual GitHub UI branch step.
+- `python -m app.asset_hosting preflight` reports only `{configured, host, repo, branch, base_url, missing}` — the token is never printed or persisted. TDD: `tests/test_asset_hosting_github_pages.py` (2 new tests).
+
+**Current local state:** `preflight` → `configured: false`, missing `GHL_ASSET_HOST`, `GITHUB_TOKEN`, `GITHUB_PAGES_REPO`. Because no token was supplied, **no live publish was attempted** and GHL render-QA honestly still reports `../assets/` defects. Once the operator sets those three env vars (locally, gitignored), re-approving a release publishes the rights-confirmed assets, rewrites the GHL snippet to stable HTTPS URLs, and GHL QA should flip green.
+
+Gates: ruff 0, pyright 0, **327 passed across 50 modules**.

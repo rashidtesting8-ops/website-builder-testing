@@ -118,6 +118,67 @@ def _content_api_url(config: AssetHostingConfig, repo_path: str) -> str:
     return f"{_API_BASE}/repos/{config.repo}/contents/{quote(repo_path, safe='/')}"
 
 
+def _ensure_branch(config: AssetHostingConfig) -> None:
+    """Create the target Pages branch from the default branch if it is missing."""
+    headers = _headers(config)
+    branch_url = f"{_API_BASE}/repos/{config.repo}/branches/{quote(config.branch, safe='')}"
+    check = requests.get(branch_url, headers=headers, timeout=_REQUEST_TIMEOUT)
+    if check.status_code == 200:
+        return
+    if check.status_code != 404:
+        raise RuntimeError(
+            f"GitHub Pages branch lookup failed ({check.status_code}) for {config.branch}"
+        )
+
+    repo_resp = requests.get(
+        f"{_API_BASE}/repos/{config.repo}", headers=headers, timeout=_REQUEST_TIMEOUT
+    )
+    if repo_resp.status_code != 200:
+        raise RuntimeError(f"GitHub repository lookup failed ({repo_resp.status_code})")
+    default_branch = str(repo_resp.json().get("default_branch", "main"))
+    ref_resp = requests.get(
+        f"{_API_BASE}/repos/{config.repo}/git/ref/heads/{quote(default_branch, safe='')}",
+        headers=headers,
+        timeout=_REQUEST_TIMEOUT,
+    )
+    if ref_resp.status_code != 200:
+        raise RuntimeError(f"Default branch ref lookup failed ({ref_resp.status_code})")
+    sha = str((ref_resp.json().get("object") or {}).get("sha", ""))
+    if not sha:
+        raise RuntimeError("Default branch ref returned no SHA")
+    create = requests.post(
+        f"{_API_BASE}/repos/{config.repo}/git/refs",
+        json={"ref": f"refs/heads/{config.branch}", "sha": sha},
+        headers=headers,
+        timeout=_REQUEST_TIMEOUT,
+    )
+    if create.status_code not in (201, 422):  # 422 = created concurrently
+        raise RuntimeError(f"GitHub Pages branch creation failed ({create.status_code})")
+
+
+def preflight_hosting() -> dict[str, object]:
+    """Return setup status WITHOUT ever including the token in the result."""
+    mode = os.environ.get("GHL_ASSET_HOST", "").strip().lower()
+    token_set = bool(os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN"))
+    repo = os.environ.get("GITHUB_PAGES_REPO", "").strip()
+    missing: list[str] = []
+    if mode != "github_pages":
+        missing.append("GHL_ASSET_HOST=github_pages")
+    if not token_set:
+        missing.append("GITHUB_TOKEN")
+    if not repo or "/" not in repo:
+        missing.append("GITHUB_PAGES_REPO=owner/repo")
+    cfg = load_asset_hosting_config() if not missing else None
+    return {
+        "configured": not missing,
+        "host": mode or "none",
+        "repo": repo,
+        "branch": cfg.branch if cfg else os.environ.get("GITHUB_PAGES_BRANCH", "gh-pages"),
+        "base_url": cfg.base_url if cfg else "",
+        "missing": missing,
+    }
+
+
 def publish_assets_to_github_pages(
     project_root: Path,
     asset_paths: list[str] | set[str],
@@ -130,6 +191,7 @@ def publish_assets_to_github_pages(
     project_id = project_root.name
     rights = _rights_by_filename(project_root)
     mapping: dict[str, str] = {}
+    _ensure_branch(config)
 
     for asset_path in sorted(set(asset_paths)):
         local = project_root / asset_path
@@ -244,3 +306,17 @@ def assert_public_asset_urls(snippet: str) -> None:
             "GHL snippet is not paste-ready: contains local/relative asset URLs: "
             + ", ".join(bad)
         )
+
+
+def main() -> None:
+    """CLI preflight: reports status only; never prints the token."""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="GitHub Pages asset hosting preflight")
+    parser.add_argument("command", choices=("preflight",), help="Check hosting setup")
+    parser.parse_args()
+    print(json.dumps(preflight_hosting(), indent=2))
+
+
+if __name__ == "__main__":
+    main()
