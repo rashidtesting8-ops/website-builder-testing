@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f6f2">
+  <title>EditVista — Live website status</title>
+  <link rel="stylesheet" href="/static/progress.css">
+</head>
+<body>
+  <main class="progress-shell">
+    <header class="progress-header">
+      <a class="brand" href="/" aria-label="EditVista home">
+        <span class="brand-mark" aria-hidden="true">EV</span>
+        <span>
+          EditVista
+          <span class="brand-caption">Live website status</span>
+        </span>
+      </a>
+      <span class="project-id">Project · {{PROJECT_ID}}</span>
+    </header>
+
+    <div id="progress-root" data-project-id="{{PROJECT_ID}}" aria-live="polite">
+      <section class="progress-hero">
+        <p class="hero-kicker">Loading live status</p>
+        <h1>We are checking your website now.</h1>
+        <p class="action-required">This page updates itself every few seconds.</p>
+      </section>
+    </div>
+  </main>
+
+  <script type="module" src="/static/progress.js"></script>
+</body>
+</html>

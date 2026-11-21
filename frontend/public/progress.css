@@ -1,0 +1,295 @@
+:root {
+  --ink: #172a27;
+  --muted: #6b7974;
+  --line: #e3e8e2;
+  --canvas: #f5f6f2;
+  --paper: #ffffff;
+  --forest: #244f45;
+  --forest-dark: #193b34;
+  --gold: #a56d29;
+  --red: #a8493e;
+  --green: #2e7d4f;
+  --shadow: 0 18px 44px rgba(29, 55, 46, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--ink);
+  font: 16px/1.55 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.progress-shell {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 32px 20px 60px;
+}
+
+.progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 26px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+}
+
+.brand-mark {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--forest-dark);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.brand-caption {
+  display: block;
+  margin-top: 1px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.project-id {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
+}
+
+.progress-hero {
+  padding: 26px 28px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+
+.progress-hero.error {
+  border-color: #efd5d1;
+  background: #fdf1ef;
+}
+
+.hero-kicker {
+  margin: 0 0 6px;
+  color: var(--forest);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.progress-hero h1 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(27px, 3.4vw, 38px);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.14;
+}
+
+.action-required {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.progress-bar {
+  height: 10px;
+  margin: 22px 0 8px;
+  border-radius: 999px;
+  background: #e7ece8;
+  overflow: hidden;
+}
+
+.progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--forest), #3f816e);
+  transition: width 0.35s ease;
+}
+
+.progress-meta {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.next-step {
+  margin: 0 0 20px;
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.next-step.muted {
+  color: var(--muted);
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.primary-button,
+.secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primary-button {
+  border: 1px solid var(--forest);
+  background: var(--forest);
+  color: #fff;
+}
+
+.primary-button:hover {
+  background: var(--forest-dark);
+}
+
+.secondary-button {
+  border: 1px solid #c9d7cd;
+  background: #f2f6f2;
+  color: var(--forest-dark);
+}
+
+.secondary-button:hover {
+  background: #e5efe8;
+}
+
+.current-stage {
+  margin-top: 24px;
+}
+
+.section-kicker {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.stage-card {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 14px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper);
+  box-shadow: 0 4px 18px rgba(30, 55, 47, 0.04);
+}
+
+.stage-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #eef1ee;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.stage-card[data-status="completed"] .stage-icon {
+  background: #e6f4ea;
+  color: var(--green);
+}
+
+.stage-card[data-status="running"] .stage-icon {
+  background: #f8f0e2;
+  color: var(--gold);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.stage-card[data-status="failed"] .stage-icon,
+.stage-card[data-status="interrupted"] .stage-icon {
+  background: #f8ece9;
+  color: var(--red);
+}
+
+.stage-card h3 {
+  margin: 0 0 5px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 21px;
+  font-weight: 500;
+}
+
+.stage-card p {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.stage-note {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.stage-note.error {
+  color: var(--red);
+}
+
+.stage-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--forest);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+@media (max-width: 720px) {
+  .progress-shell {
+    padding: 22px 15px 45px;
+  }
+
+  .progress-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+  }
+
+  .primary-button,
+  .secondary-button {
+    width: 100%;
+  }
+}

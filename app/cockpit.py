@@ -22,6 +22,7 @@ import requests
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api_auth import (
@@ -46,25 +47,11 @@ from app.ghl_exporter import (
     export_ghl_snippet_from_html,
     validate_ghl_embed_simulation,
 )
+from app.progress import STAGE_LABELS, STAGE_ORDER, build_progress_payload
 from app.rate_limit import install_rate_limit
 
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
-
-# Ordered, human-friendly stage labels for the live execution timeline.
-STAGE_LABELS: dict[str, str] = {
-    "collect": "Visit the website & save photos",
-    "extract": "Find and verify business facts",
-    "social": "Collect authorized social media",
-    "curate": "Pick the best genuine photos",
-    "art_director": "Decide the look and layout",
-    "generate": "Build the web page",
-    "claims_lint": "Check every claim is backed by evidence",
-    "qa": "Test on screen sizes",
-    "critique": "Review how it actually looks",
-    "revise": "Fix only the flagged sections",
-    "ghl_exporter": "Prepare the GHL snippet",
-}
-STAGE_ORDER = list(STAGE_LABELS)
+FRONTEND_PUBLIC_DIR = Path(__file__).resolve().parents[1] / "frontend" / "public"
 
 
 def _stage_timeline(db_path: Path, project_id: str) -> dict[str, Any]:
@@ -306,6 +293,7 @@ def _render_dashboard_html(projects: list[dict[str, Any]]) -> str:
             '  <div class="card-divider"></div>\n'
             '  <div class="card-footer">\n'
             f'    <span class="pid-tag">ID · {pid}</span>\n'
+            f'    <a class="open-link" href="/progress/{pid}">Live status</a>\n'
             f'    <a class="open-link" href="/review/{pid}">Open review '
             '<span aria-hidden="true">&rarr;</span></a>\n'
             "  </div>\n"
@@ -341,6 +329,12 @@ def _render_dashboard_html(projects: list[dict[str, Any]]) -> str:
     )
     rendered = rendered.replace("{{APPROVED_COUNT}}", str(status_counts["approved"]))
     return rendered
+
+
+def _render_progress_html(project_id: str) -> str:
+    template_path = TEMPLATES_DIR / "progress.html"
+    raw_template = template_path.read_text(encoding="utf-8")
+    return raw_template.replace("{{PROJECT_ID}}", html.escape(project_id))
 
 
 def _render_review_cockpit_html(
@@ -537,6 +531,11 @@ def create_cockpit_app(
     app = FastAPI(title="EditVista Operator Cockpit", docs_url="/api/docs")
     install_auth(app)
     install_rate_limit(app)
+    app.mount(
+        "/static",
+        StaticFiles(directory=str(FRONTEND_PUBLIC_DIR)),
+        name="static",
+    )
 
     def _worker_headers(request: Request) -> dict[str, str]:
         """Propagate the caller's credential to the internal worker API."""
@@ -634,6 +633,31 @@ def create_cockpit_app(
         """Per-stage execution timeline (plain-language, ordered) for the live build view."""
         _resolve_project_root(project_id, resolved_projects_dir)
         return _stage_timeline(db_path, project_id)
+
+    @app.get("/progress/{project_id}", response_class=HTMLResponse)
+    def progress_page(project_id: str) -> HTMLResponse:
+        """Non-technical live status page backed by the TypeScript progress app."""
+        _resolve_project_root(project_id, resolved_projects_dir)
+        return HTMLResponse(content=_render_progress_html(project_id))
+
+    @app.get("/api/projects/{project_id}/progress")
+    def project_progress_api(project_id: str) -> dict[str, Any]:
+        """Plain-English current status for the progress page."""
+        _resolve_project_root(project_id, resolved_projects_dir)
+
+        conn = connect_db(db_path)
+        try:
+            init_db(conn)
+            row = conn.execute(
+                "SELECT status FROM projects WHERE project_id = ?",
+                (project_id,),
+            ).fetchone()
+            project_status = str(row[0]) if row else "awaiting_approval"
+        finally:
+            conn.close()
+
+        timeline = _stage_timeline(db_path, project_id)
+        return build_progress_payload(project_id, project_status, timeline)
 
     @app.post("/api/intake", status_code=202)
     def intake_endpoint(req: IntakeRequest, request: Request) -> dict[str, Any]:

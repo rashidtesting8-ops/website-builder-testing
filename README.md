@@ -9,7 +9,7 @@
 
 **An evidence-preserving, local-first engine for automated media collection, cryptographic fact verification, locale-aware normalization, visual curation, luxury editorial art direction, per-section code generation, surgical revision, 5-viewport QA, budget-capped LLM adaptation, Minimum Viable Facts (MVF) gating, human-in-the-loop operator cockpit review, enterprise n8n studio orchestration, and immutable release packaging with GoHighLevel (GHL) isolation for bespoke pet grooming websites.**
 
-> **Prototype status (last checked 2026-11-20):** Not production-ready. Local gates: `uv run ruff check .` 0, `uv run pyright` 0, `uv run pytest` **332 passed across 50 test modules**. A **five-business real-business pilot has now been executed end-to-end** — 5/5 businesses collected, verified, QA'd, rights-confirmed, and approved with immutable frozen `delivery/` (see §22). Demo fixtures remain explicitly labeled and separate from real-business pilot counts. **Latest (§24–§26):** visual "AI slop" defects fixed deterministically with human asset overrides; rich source-backed facts (proof stats, awards, owner story, two salons, real prices) now drive a genuinely bespoke homepage; frontend intake carries FB/Instagram URLs + owner permission with a social re-scrape endpoint; and GHL export can publish rights-confirmed assets to free GitHub Pages so the final code is paste-ready HTTPS (no relative/localhost images). **Still open:** actual GHL published-page validation (operator pastes/publishes manually — skipped), team-supplied approved examples corpus (never provided; our own releases are not misrepresented as team-supplied), vision-based curation/critic (free vision models unreliable — deterministic + human gate), and Fidos re-approval (site unreachable). Four M5 deliveries were re-approved as fresh versions under the 19–20 Nov quality fixes (§31). Owner consent confirmed (PII intentionally withheld by owner, respected); n8n workflow 04 executed successfully in an isolated container. Social collection verified on the DoD-proof run (40 Facebook files; Instagram rate-limit honestly `review_needed`, no bypass). Public availability is not permission to reuse media.
+> **Prototype status (last checked 2026-11-20):** Not production-ready. Local gates: `uv run ruff check .` 0, `uv run pyright` 0, `uv run pytest` **336 passed across 50 test modules**. A **five-business real-business pilot has now been executed end-to-end** — 5/5 businesses collected, verified, QA'd, rights-confirmed, and approved with immutable frozen `delivery/` (see §22). Demo fixtures remain explicitly labeled and separate from real-business pilot counts. **Latest (§24–§26):** visual "AI slop" defects fixed deterministically with human asset overrides; rich source-backed facts (proof stats, awards, owner story, two salons, real prices) now drive a genuinely bespoke homepage; frontend intake carries FB/Instagram URLs + owner permission with a social re-scrape endpoint; and GHL export can publish rights-confirmed assets to free GitHub Pages so the final code is paste-ready HTTPS (no relative/localhost images). **Still open:** actual GHL published-page validation (operator pastes/publishes manually — skipped), team-supplied approved examples corpus (never provided; our own releases are not misrepresented as team-supplied), vision-based curation/critic (free vision models unreliable — deterministic + human gate), and Fidos re-approval (site unreachable). Four M5 deliveries were re-approved as fresh versions under the 19–20 Nov quality fixes (§31). Owner consent confirmed (PII intentionally withheld by owner, respected); n8n workflow 04 executed successfully in an isolated container. Social collection verified on the DoD-proof run (40 Facebook files; Instagram rate-limit honestly `review_needed`, no bypass). Public availability is not permission to reuse media.
 
 ### Current completion estimate (developer brief, GHL publish excluded)
 | Milestone | Est. | Basis |
@@ -67,6 +67,7 @@ See §18 for the historical 17 Nov scoring and §24–§26 for the evidence behi
 32. [SQLite schema versioning and migrations](#32-sqlite-schema-versioning-and-migrations-20-november-2026)
 33. [One-command GitHub Pages readiness](#33-one-command-github-pages-readiness-20-november-2026)
 34. [Verified end-to-end GHL publish readiness](#34-verified-end-to-end-ghl-publish-readiness-20-november-2026)
+35. [TypeScript operator progress frontend](#35-typescript-operator-progress-frontend-20-november-2026)
 
 ---
 
@@ -847,7 +848,7 @@ make test        # uv run pytest
 
 ### Current Validation Snapshot
 
-Last locally verified on 2026-11-20: **332 passed across 50 test modules**. The commands
+Last locally verified on 2026-11-20: **336 passed across 50 test modules**. The commands
 `uv run ruff check .`, `uv run pyright`, and `uv run pytest` completed successfully in the
 local working tree; Pyright reported 0 errors, warnings, or informations. These are
 automated local results, not evidence of a real-client pilot, client approval, or published
@@ -1356,7 +1357,7 @@ To remove the last setup blocker without ever asking for a secret in chat:
 
 **Current local state:** `preflight` → `configured: false`, missing `GHL_ASSET_HOST`, `GITHUB_TOKEN`, `GITHUB_PAGES_REPO`. Because no token was supplied, **no live publish was attempted** and GHL render-QA honestly still reports `../assets/` defects. Once the operator sets those three env vars (locally, gitignored), re-approving a release publishes the rights-confirmed assets, rewrites the GHL snippet to stable HTTPS URLs, and GHL QA should flip green.
 
-Gates: ruff 0, pyright 0, **332 passed across 50 modules** (final proof in §34).
+Gates: ruff 0, pyright 0, **336 passed across 50 modules** (final proof in §34).
 
 ---
 
@@ -1376,4 +1377,46 @@ With the operator's GitHub token configured locally, the full chain was executed
 
 The delivered `delivery/ghl-ready.html` is now genuinely paste-ready: scoped CSS, IIFE JS, and stable public HTTPS asset URLs. **No live GHL publish was attempted** — operator pastes/publishes manually.
 
-Gates: ruff 0, pyright 0, **332 passed across 50 modules**.
+Gates: ruff 0, pyright 0, **336 passed across 50 modules**.
+
+---
+
+## 35. TypeScript operator progress frontend (20 November 2026)
+
+A dedicated non-technical progress page was added so operators can see exactly what the system is doing right now, without reading logs or code:
+
+- **Route:** `/progress/{project_id}`
+- **API:** `GET /api/projects/{project_id}/progress`
+- **Static assets:** `/static/progress.js` and `/static/progress.css`
+- **Dashboard integration:** every project card now has a **Live status** link.
+
+The page renders:
+- a large, plain-English “What’s happening now” headline,
+- the exact **current step** and **next step**,
+- a progress bar with completed/total step counts,
+- a clear **action required** line (for example “Your website is ready for your review” or “You can copy the GHL code and paste it into GoHighLevel”),
+- one-click links to the review cockpit and the GHL code export.
+
+### Why a new dependency was added
+
+`typescript@5.6.3` is a **dev-only** dependency in `frontend/package.json`. It is needed because the operator explicitly requested a professional TypeScript frontend. No runtime Node dependency is added — the compiled bundle is committed under `frontend/public/progress.js`, so the Docker/Python runtime does not need Node. `node_modules/` is gitignored.
+
+### Build
+
+```
+cd frontend
+node node_modules/typescript/bin/tsc -p tsconfig.json
+```
+
+`frontend/tsconfig.json` targets ES2020 with strict mode and emits `frontend/public/progress.js`.
+
+### Verified
+
+- `tests/test_progress_frontend.py` (4 tests): source/compiled bundle exist, dashboard links to the progress page, `/progress/{id}` serves the TypeScript bundle and stylesheet, and `/api/projects/{id}/progress` returns a friendly payload.
+- Browser verification on `lilys-club-clean-v3`: page rendered “Your website is ready to publish.”, 10/10 steps done, 100% progress, no console errors.
+
+**Operator decisions recorded on 20 Nov 2026:**
+- Human review SOP is **active** instead of an automated vision critique: `projects/_pilot/human-review-sop.json`.
+- Team-supplied reference corpus is **waived by the owner**: `projects/_pilot/reference-corpus-waiver.json`.
+
+Gates: ruff 0, pyright 0, **336 passed across 50 modules**.
