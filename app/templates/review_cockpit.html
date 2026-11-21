@@ -194,13 +194,14 @@
         <span>{{GUARDRAIL_TEXT}}</span>
       </div>
 
-      <section class="panel" id="human-approval" aria-labelledby="human-approval-title" style="margin-bottom: 13px;">
+      <section class="panel" id="human-approval" aria-labelledby="human-approval-title" style="margin-bottom: 13px;" data-has-candidate="{{HAS_CANDIDATE}}">
         <header class="panel-header">
           <div><h2 class="panel-title" id="human-approval-title">Human review and release decision</h2><p class="panel-caption">Approval freezes this exact candidate. Review every item yourself; this checklist does not grant asset rights or replace business-owner permission.</p></div>
           <span class="badge badge-amber">Explicit sign-off required</span>
         </header>
         <div class="panel-body">
           <p class="metric-hint">Exact candidate SHA-256 · <code>{{CANDIDATE_SHA256}}</code></p>
+          {{CANDIDATE_NOTICE}}
           <form id="human-approval-form" class="revision-form">
             <label for="approval-operator">Reviewer name</label>
             <input id="approval-operator" name="operator_name" required minlength="2" autocomplete="name">
@@ -211,7 +212,7 @@
             <label class="review-check"><input type="checkbox" name="reviewed_assets" required> I reviewed the selected assets and verified the separate rights evidence for every asset used in this release.</label>
             <label class="review-check"><input type="checkbox" name="reviewed_qa" required> I reviewed the responsive screenshots, technical QA report, and visual critique.</label>
             <label class="review-check"><input type="checkbox" name="confirmed_release" required> I intend to freeze this candidate as the approved release.</label>
-            <button class="btn-approve" type="submit">Approve and freeze reviewed release <span aria-hidden="true">&rarr;</span></button>
+            <button class="btn-approve" type="submit" {{APPROVE_DISABLED}}>Approve and freeze reviewed release <span aria-hidden="true">&rarr;</span></button>
             <div id="approval-feedback" role="status" aria-live="polite"></div>
           </form>
         </div>
@@ -315,6 +316,31 @@
       document.getElementById(tabId).classList.add('active');
     }
 
+    // FastAPI sends a readable string for HTTPException details but a list of
+    // objects for 422 validation errors. String-concatenating the raw value
+    // renders "[object Object]", so flatten every supported shape to text.
+    function formatDetail(detail) {
+      if (detail == null) return 'Unknown error';
+      if (typeof detail === 'string') return detail;
+      if (Array.isArray(detail)) {
+        return detail.map(item => {
+          if (item && typeof item === 'object') {
+            const loc = Array.isArray(item.loc)
+              ? item.loc.filter(part => part !== 'body').join('.')
+              : '';
+            const msg = item.msg || item.message || 'Invalid value';
+            return loc ? loc + ': ' + msg : msg;
+          }
+          return String(item);
+        }).join('; ');
+      }
+      if (typeof detail === 'object') {
+        const msg = detail.msg || detail.message || detail.detail || JSON.stringify(detail);
+        return formatDetail(msg);
+      }
+      return String(detail);
+    }
+
     async function confirmRights(assetFile) {
       const basis = prompt(
         'Select rights basis: client_provided, owner_permission, or licensed'
@@ -338,7 +364,7 @@
         });
         if (!res.ok) {
           const err = await res.json();
-          alert('Failed to update rights: ' + (err.detail || 'Unknown error'));
+          alert('Failed to update rights: ' + formatDetail(err.detail));
         } else {
           window.location.reload();
         }
@@ -377,7 +403,7 @@
           feedback.textContent = 'Release frozen. Manifest SHA-256: ' + data.manifest_sha256;
           window.location.reload();
         } else {
-          feedback.textContent = 'Approval blocked: ' + (data.detail || 'Validation failed');
+          feedback.textContent = 'Approval blocked: ' + formatDetail(data.detail);
           submit.disabled = false;
         }
       } catch (err) {
@@ -404,7 +430,7 @@
           alert('Section ' + sec + ' revised successfully! Other section hashes unchanged.');
           window.location.reload();
         } else {
-          alert('Revision rejected: ' + (data.detail || 'Validation error'));
+          alert('Revision rejected: ' + formatDetail(data.detail));
         }
       } catch (err) {
         alert('Error: ' + err.message);
@@ -418,7 +444,7 @@
         const res = await fetch('/api/projects/{{PID}}/ghl-export' + qs);
         const data = await res.json();
         if (!res.ok) {
-          alert('GHL Export Error: ' + (data.detail || 'Failed'));
+          alert('GHL Export Error: ' + formatDetail(data.detail));
           return;
         }
         document.getElementById('ghl-code-output').value = data.ghl_html;

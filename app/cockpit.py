@@ -21,7 +21,8 @@ from typing import Any
 import requests
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request, Response
-from fastapi.responses import HTMLResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -479,7 +480,25 @@ def _render_review_cockpit_html(
     rendered = raw_template.replace("{{PID}}", pid)
     rendered = rendered.replace("{{STATUS}}", status)
     candidate_sha256 = str(summary.get("candidate_sha256", ""))
+    has_candidate = bool(candidate_sha256)
     rendered = rendered.replace("{{CANDIDATE_SHA256}}", html.escape(candidate_sha256))
+    rendered = rendered.replace("{{HAS_CANDIDATE}}", "true" if has_candidate else "false")
+    rendered = rendered.replace(
+        "{{APPROVE_DISABLED}}",
+        "" if has_candidate else "disabled",
+    )
+    rendered = rendered.replace(
+        "{{CANDIDATE_NOTICE}}",
+        ""
+        if has_candidate
+        else (
+            '<div class="notice notice-warning" id="candidate-missing-notice">'
+            "<strong>No release candidate staged.</strong> The pipeline has not produced "
+            "<code>release-candidate/standalone.html</code> yet, so there is nothing to "
+            "freeze. Run the build through to the review stage, then reload this page."
+            "</div>"
+        ),
+    )
     approval_action = (
         '<span class="badge badge-green">Release already frozen</span>'
         if status == "approved"
@@ -536,6 +555,25 @@ def create_cockpit_app(
         StaticFiles(directory=str(FRONTEND_PUBLIC_DIR)),
         name="static",
     )
+
+    @app.exception_handler(RequestValidationError)
+    async def _readable_validation_error(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        """Flatten FastAPI's structured 422 detail into one readable sentence.
+
+        The browser UI string-concatenates ``detail``; a raw list of error
+        objects would render as ``[object Object]`` and hide the real cause
+        (for example an empty release-candidate SHA on the approval form).
+        """
+        parts: list[str] = []
+        for err in exc.errors():
+            loc = [str(item) for item in err.get("loc", ()) if item != "body"]
+            field = ".".join(loc)
+            msg = str(err.get("msg") or "Invalid value")
+            parts.append(f"{field}: {msg}" if field else msg)
+        detail = "; ".join(parts) or "Invalid request payload."
+        return JSONResponse(status_code=422, content={"detail": detail})
 
     def _worker_headers(request: Request) -> dict[str, str]:
         """Propagate the caller's credential to the internal worker API."""

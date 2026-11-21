@@ -723,6 +723,64 @@ def test_cockpit_intake_form_renders_on_dashboard(tmp_path: Path) -> None:
         assert "/api/jobs/" in resp.text
 
 
+def test_approve_validation_error_is_human_readable(tmp_path: Path) -> None:
+    """A 422 validation failure must render as readable text, never '[object Object]'."""
+    projects_dir = tmp_path / "projects"
+    projects_dir.mkdir(parents=True)
+    _scaffold_cockpit_project(projects_dir, "readable-422", rights_confirmed=True)
+
+    with _ephemeral_cockpit_server(projects_dir) as base_url:
+        resp = requests.post(
+            f"{base_url}/api/projects/readable-422/approve",
+            json={
+                "operator_name": "Rashid",
+                "notes": "Check the latest output of the pet26",
+                "human_review": {
+                    "candidate_sha256": "",
+                    "reviewed_preview": True,
+                    "reviewed_facts": True,
+                    "reviewed_assets": True,
+                    "reviewed_qa": True,
+                    "confirmed_release": True,
+                },
+            },
+            timeout=3.0,
+        )
+        assert resp.status_code == 422
+        detail = resp.json()["detail"]
+        assert isinstance(detail, str), "422 detail must be a readable string"
+        assert "candidate_sha256" in detail
+
+
+def test_review_page_flags_missing_release_candidate(tmp_path: Path) -> None:
+    """With no staged candidate the page must say so and make approval impossible."""
+    import shutil
+
+    projects_dir = tmp_path / "projects"
+    projects_dir.mkdir(parents=True)
+    project_root = _scaffold_cockpit_project(
+        projects_dir, "no-candidate", rights_confirmed=True
+    )
+    shutil.rmtree(project_root / "release-candidate")
+
+    with _ephemeral_cockpit_server(projects_dir) as base_url:
+        page = requests.get(f"{base_url}/review/no-candidate", timeout=3.0)
+        assert page.status_code == 200
+        assert 'data-has-candidate="false"' in page.text
+        assert "No release candidate staged" in page.text
+
+
+def test_review_page_marks_staged_candidate_as_ready(tmp_path: Path) -> None:
+    projects_dir = tmp_path / "projects"
+    projects_dir.mkdir(parents=True)
+    _scaffold_cockpit_project(projects_dir, "has-candidate", rights_confirmed=True)
+
+    with _ephemeral_cockpit_server(projects_dir) as base_url:
+        page = requests.get(f"{base_url}/review/has-candidate", timeout=3.0)
+        assert page.status_code == 200
+        assert 'data-has-candidate="true"' in page.text
+
+
 def test_cockpit_intake_proxies_pipeline_run_and_job_status(tmp_path: Path) -> None:
     projects_dir = tmp_path / "projects"
     projects_dir.mkdir(parents=True)
