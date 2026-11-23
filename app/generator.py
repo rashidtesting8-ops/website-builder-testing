@@ -1358,21 +1358,26 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
         )
 
     # --- Source-backed bespoke sections (only rendered when verified facts exist) ---
+    # The hero value line showcases one proof (the brief's value prop). Exclude it
+    # from the strip so every proof renders exactly once -- no stat is ever shown
+    # both above the fold and again in the "Why pet parents choose us" section.
     proof_html = ""
     if proof_points:
-        tiles = "".join(
-            f'<div class="ev-proof-tile"><span class="ev-proof-value">'
-            f"{_format_proof_html(value)}</span></div>"
-            for value in proof_points
-        )
-        proof_html = (
-            '<section id="proof" class="ev-section" data-section="proof">\n'
-            '  <div class="ev-section-header">\n'
-            '    <span class="ev-eyebrow">Why pet parents choose us</span>\n'
-            '  </div>\n'
-            f'  <div class="ev-proof-strip">{tiles}</div>\n'
-            "</section>"
-        )
+        strip_proofs = [p for p in proof_points if p != raw_value_prop]
+        if strip_proofs:
+            tiles = "".join(
+                f'<div class="ev-proof-tile"><span class="ev-proof-value">'
+                f"{_format_proof_html(value)}</span></div>"
+                for value in strip_proofs
+            )
+            proof_html = (
+                '<section id="proof" class="ev-section" data-section="proof">\n'
+                '  <div class="ev-section-header">\n'
+                '    <span class="ev-eyebrow">Why pet parents choose us</span>\n'
+                '  </div>\n'
+                f'  <div class="ev-proof-strip">{tiles}</div>\n'
+                "</section>"
+            )
 
     story_html = ""
     if owner_story:

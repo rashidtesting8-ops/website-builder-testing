@@ -255,6 +255,76 @@ def test_non_rating_proof_renders_verbatim_without_stars(tmp_path: Path) -> None
     assert "ev-stars" not in val, "non-rating proof must not render stars"
 
 
+def test_single_proof_point_renders_exactly_once(tmp_path: Path) -> None:
+    """A lone proof must render exactly once -- never in both hero and strip.
+
+    Regression: the hero value line (stuffed with `proof_values[0]`) and the
+    'Why pet parents choose us' strip both rendered the same proof, so the stat
+    appeared twice on the page. The hero showcases the primary proof; the strip
+    must exclude it.
+    """
+    proj = tmp_path / "proof-single-once"
+    _seed_project(
+        proj,
+        business_name="Pup Palace Grooming Salon",
+        facts=[
+            {
+                "category": "phone",
+                "claim_key": "phone",
+                "claim_value": "(305) 555-0192",
+                "is_verified": True,
+                "status": "verified",
+            },
+            {
+                "category": "proof_point",
+                "claim_value": "100+ 5* reviews",
+                "is_verified": True,
+                "status": "verified",
+            },
+        ],
+    )
+    generate_art_direction(proj)
+    bundle = generate_website(proj)
+    html_text = bundle.index_html_path.read_text(encoding="utf-8")
+
+    assert html_text.count("100+ 5* reviews") == 1, (
+        "a single proof must render exactly once, not in both hero and strip"
+    )
+
+
+def test_multiple_proofs_split_hero_and_strip_without_overlap(tmp_path: Path) -> None:
+    """With several proofs the hero shows the primary one and the strip the rest.
+
+    Each proof must appear exactly once across the whole page -- no stat may be
+    repeated between the hero value line and the proof strip.
+    """
+    proj = tmp_path / "proof-multi-split"
+    _seed_project(
+        proj,
+        business_name="Pup Palace Grooming Salon",
+        facts=[
+            {
+                "category": "proof_point",
+                "claim_value": "100+ 5* reviews",
+                "is_verified": True,
+                "status": "verified",
+            },
+            {
+                "category": "proof_point",
+                "claim_value": "Over 1000 clients",
+                "is_verified": True,
+                "status": "verified",
+            },
+        ],
+    )
+    generate_art_direction(proj)
+    bundle = generate_website(proj)
+    html_text = bundle.index_html_path.read_text(encoding="utf-8")
+
+    assert html_text.count("100+ 5* reviews") == 1, "primary proof must appear once"
+    assert html_text.count("Over 1000 clients") == 1, "supporting proof must appear once"
+
+
 def test_archetype_layout_differentiation_across_three_taxonomies(tmp_path: Path) -> None:
     """Salon, Mobile Van, and Multi-Species Spa must generate distinct structural HTML."""
     # 1. Classic Luxury Salon
