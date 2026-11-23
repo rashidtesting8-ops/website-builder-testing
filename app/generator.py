@@ -620,6 +620,12 @@ def _build_hero_css() -> str:
   margin-bottom: 1.5rem;
   max-width: 54ch;
 }
+.ev-stars {
+  color: var(--ev-secondary);
+  font-size: 1.05em;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
 .ev-hero-actions {
   display: flex;
   flex-wrap: wrap;
@@ -917,6 +923,28 @@ roots.forEach(function(root) {{
   }}{slider_logic}
 }});
 """
+
+
+def _format_proof_html(value: str) -> str:
+    """Render a proof point with a decorative star accent for rating claims.
+
+    The source claim (e.g. ``100+ 5* reviews``) is always rendered VERBATIM so
+    the exact crawled text reaches the page (source-fidelity guarantee). When the
+    claim carries an integer star rating (``N*`` with 1 <= N <= 5), a decorative
+    ``aria-hidden`` star run is prepended for visual weight -- it is presentational
+    only, adds no claim, and never alters the source text. Non-rating proofs render
+    unchanged with no stars.
+    """
+    match = re.fullmatch(r"\d+\+?\s+(\d{1,2})\*\s+\S.*", value.strip())
+    if match:
+        rating = int(match.group(1))
+        if 1 <= rating <= 5:
+            stars = "★" * rating
+            return (
+                f'<span class="ev-stars" aria-hidden="true">{stars}</span> '
+                f"{html.escape(value)}"
+            )
+    return html.escape(value)
 
 
 def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
@@ -1231,7 +1259,6 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
 
     esc_headline = html.escape(raw_headline)
     esc_tagline = html.escape(raw_tagline)
-    esc_value_prop = html.escape(raw_value_prop) if raw_value_prop else ""
 
     # Resolve verified brand logo if present on disk
     logo_rel_raw = brand_data.get("logo_path")
@@ -1335,7 +1362,7 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
     if proof_points:
         tiles = "".join(
             f'<div class="ev-proof-tile"><span class="ev-proof-value">'
-            f"{html.escape(value)}</span></div>"
+            f"{_format_proof_html(value)}</span></div>"
             for value in proof_points
         )
         proof_html = (
@@ -1518,7 +1545,9 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
     )
 
     value_prop_html = (
-        f'    <p class="ev-hero-value">{esc_value_prop}</p>\n' if esc_value_prop else ""
+        f'    <p class="ev-hero-value">{_format_proof_html(raw_value_prop)}</p>\n'
+        if raw_value_prop
+        else ""
     )
     trust_strip_html = (
         f'    <div class="ev-trust-strip">{trust_pills}</div>\n' if trust_pills else ""

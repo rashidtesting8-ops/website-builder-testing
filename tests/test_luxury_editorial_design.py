@@ -182,6 +182,79 @@ def test_nav_menu_toggle_is_hidden_on_desktop(tmp_path: Path) -> None:
     assert drawer_visible, "desktop must force the nav drawer visible"
 
 
+def test_hero_proof_rating_renders_as_stars(tmp_path: Path) -> None:
+    """A rating proof keeps its exact source text and gains a decorative star run.
+
+    The proof '100+ 5* reviews' is a verified fact; the source string must reach
+    the page verbatim (fidelity), while a decorative aria-hidden star run is
+    prepended for visual weight. The accent adds no claim and alters no text.
+    """
+    import re
+
+    proj = tmp_path / "proof-stars"
+    _seed_project(
+        proj,
+        business_name="Pup Palace Grooming Salon",
+        facts=[
+            {
+                "category": "phone",
+                "claim_key": "phone",
+                "claim_value": "(305) 555-0192",
+                "is_verified": True,
+                "status": "verified",
+            },
+            {
+                "category": "proof_point",
+                "claim_value": "100+ 5* reviews",
+                "is_verified": True,
+                "status": "verified",
+            },
+        ],
+    )
+    generate_art_direction(proj)
+    bundle = generate_website(proj)
+    html_text = bundle.index_html_path.read_text(encoding="utf-8")
+
+    m = re.search(r'<p class="ev-hero-value">(.*?)</p>', html_text, re.DOTALL)
+    assert m, "hero value prop should render"
+    val = m.group(1)
+
+    # A decorative star run is present and marked aria-hidden (presentational).
+    assert "ev-stars" in val, "rating proof must render a star accent"
+    assert 'aria-hidden="true"' in val, "star accent must be presentational only"
+    assert "★★★★★" in val, "a 5-star claim must show five star glyphs"
+    # The exact source claim reaches the page verbatim (source fidelity).
+    assert "100+ 5* reviews" in val, "source claim must stay verbatim"
+
+
+def test_non_rating_proof_renders_verbatim_without_stars(tmp_path: Path) -> None:
+    """A non-rating proof point (e.g. 'Over 1000 clients') must never gain stars."""
+    import re
+
+    proj = tmp_path / "proof-plain"
+    _seed_project(
+        proj,
+        business_name="Pup Palace Grooming Salon",
+        facts=[
+            {
+                "category": "proof_point",
+                "claim_value": "Over 1000 clients",
+                "is_verified": True,
+                "status": "verified",
+            },
+        ],
+    )
+    generate_art_direction(proj)
+    bundle = generate_website(proj)
+    html_text = bundle.index_html_path.read_text(encoding="utf-8")
+
+    m = re.search(r'<p class="ev-hero-value">(.*?)</p>', html_text, re.DOTALL)
+    assert m, "hero value prop should render"
+    val = m.group(1)
+    assert "Over 1000 clients" in val
+    assert "ev-stars" not in val, "non-rating proof must not render stars"
+
+
 def test_archetype_layout_differentiation_across_three_taxonomies(tmp_path: Path) -> None:
     """Salon, Mobile Van, and Multi-Species Spa must generate distinct structural HTML."""
     # 1. Classic Luxury Salon
