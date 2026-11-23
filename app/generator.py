@@ -570,6 +570,14 @@ def _build_header_css() -> str:
   min-height: 28px;
   padding: 4px 2px;
 }
+@media (min-width: 641px) {
+  .ev-nav-toggle {
+    display: none;
+  }
+  .ev-nav-drawer, .ev-nav-drawer[data-collapsed="true"] {
+    display: flex;
+  }
+}
 """
 
 
@@ -1497,10 +1505,10 @@ def generate_website(project_folder: str | Path) -> GeneratedWebsiteBundle:
         f'      {logo_img_html}\n'
         f'      <a class="ev-brand-title" href="#top">{esc_name}</a>\n'
         '    </div>\n'
-        '    <button class="ev-nav-toggle" type="button" aria-expanded="true"\n'
+        '    <button class="ev-nav-toggle" type="button" aria-expanded="false"\n'
         '      aria-controls="ev-nav-drawer" data-ev-nav-toggle="true">Menu</button>\n'
         '    <ul id="ev-nav-drawer" class="ev-nav-drawer"\n'
-        '      data-ev-nav-drawer="true" data-collapsed="false">\n'
+        '      data-ev-nav-drawer="true" data-collapsed="true">\n'
         '      <li><a class="ev-nav-link" href="#services">Services</a></li>\n'
         '      <li><a class="ev-nav-link" href="#gallery">Gallery</a></li>\n'
         '      <li><a class="ev-nav-link" href="#contact">Contact</a></li>\n'

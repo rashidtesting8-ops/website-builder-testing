@@ -483,9 +483,11 @@ def generate_art_direction(
         category = str(fact.get("category", ""))
         value = str(fact.get("claim_value", "")).strip()
         if category == "positioning" and value:
-            default_headline = f"{business_name} — {value}"
+            # The verified positioning line is the sub-headline (tagline) only.
+            # Concatenating it into the H1 as well made the page render the same
+            # sentence twice (headline "... — <positioning>" + identical subtitle),
+            # so the headline keeps its shorter category-based hook instead.
             default_tagline = value
-            editorial_headline = default_headline
             editorial_tagline = default_tagline
         elif category == "proof_point" and value:
             proof_values.append(value)

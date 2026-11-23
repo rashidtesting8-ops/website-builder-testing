@@ -1205,7 +1205,7 @@ Second preview review found the visual fixes were not enough: the page still loo
 Test-first fix (`tests/test_fact_extractor_locale.py`, 5 new tests):
 
 - `app/fact_extractor.py`: new extractors for `proof_point`, `positioning`, `service_highlight`, `owner_story`, `award`, `location`, `contact_detail` and dog package `pricing`. Every fact carries the exact crawled `source_text_snippet`, `source_url`, `verified` and `last_checked_at`; mojibake (`Â£`, `â€™`) is normalized for display only. A price is paired only with the breed line directly above it, so cat prices are never mislabelled as dog packages.
-- `app/art_director.py`: verified positioning + proof facts override generic hero defaults ("Lily's Club Dog Grooming — Premium Pet Grooming in North and North West London"; `100+ 5* reviews`).
+- `app/art_director.py`: verified positioning + proof facts override generic hero defaults. The positioning line becomes the tagline (`Premium Pet Grooming in North and North West London`) and proof facts fill the value strip (`100+ 5* reviews`); the H1 keeps its shorter category-based hook so the page never repeats the same sentence twice (duplicate-headline regression fixed 23 November 2026).
 - `app/generator.py`: renders new source-backed sections — proof strip, story ("It's more than Grooming"), recognition (award), two-salon "Visit Us" cards and service highlights — with prices deduplicated to one row per package. New sections are inserted at their canonical editorial position without disturbing brief-controlled ordering.
 - `config/ui_microcopy_allowlist.json`: new section labels registered (claims-lint stays 0).
 

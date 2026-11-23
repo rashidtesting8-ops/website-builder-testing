@@ -131,6 +131,57 @@ def test_luxury_editorial_design_tokens_and_typography(tmp_path: Path) -> None:
     assert ".ev-bento-grid" in css_text
 
 
+def test_nav_menu_toggle_is_hidden_on_desktop(tmp_path: Path) -> None:
+    """The mobile 'Menu' pill must not render at desktop widths.
+
+    Regression: `.ev-nav-toggle` had no media query, so desktop showed BOTH the
+    Menu pill and the expanded link row (Services/Gallery/Contact) -- a
+    contradictory affordance. The toggle belongs to the mobile breakpoint only.
+    """
+    import re
+
+    proj = tmp_path / "nav-toggle-desktop"
+    _seed_project(
+        proj,
+        business_name="Pup Palace Grooming Salon",
+        facts=[
+            {
+                "category": "phone",
+                "claim_key": "phone",
+                "claim_value": "(305) 555-0192",
+                "is_verified": True,
+                "status": "verified",
+            },
+        ],
+    )
+    generate_art_direction(proj)
+    bundle = generate_website(proj)
+    css_text = bundle.css_path.read_text(encoding="utf-8")
+
+    # A desktop media query (min-width above the 640px mobile breakpoint) must
+    # hide `.ev-nav-toggle`, allowing one level of nested rule braces.
+    matches = re.findall(
+        r"@media\s*\(\s*min-width:\s*(\d+)px\s*\)\s*\{"
+        r"(?:[^{}]|\{[^{}]*\})*?"
+        r"\.ev-nav-toggle\s*\{[^{}]*display:\s*none",
+        css_text,
+        flags=re.DOTALL,
+    )
+    assert matches, "Menu toggle must be hidden by a desktop (min-width) media query"
+    assert any(int(px) > 640 for px in matches), "desktop query must exceed 640px"
+
+    # The same desktop query must keep the link drawer visible so hiding the
+    # toggle never leaves desktop with no navigation at all.
+    drawer_visible = re.search(
+        r"@media\s*\(\s*min-width:\s*\d+px\s*\)\s*\{"
+        r"(?:[^{}]|\{[^{}]*\})*?"
+        r"\.ev-nav-drawer(?:\[data-collapsed[^\]]*\])?\s*\{[^{}]*display:\s*flex",
+        css_text,
+        flags=re.DOTALL,
+    )
+    assert drawer_visible, "desktop must force the nav drawer visible"
+
+
 def test_archetype_layout_differentiation_across_three_taxonomies(tmp_path: Path) -> None:
     """Salon, Mobile Van, and Multi-Species Spa must generate distinct structural HTML."""
     # 1. Classic Luxury Salon

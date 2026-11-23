@@ -637,3 +637,57 @@ def test_art_director_prefers_verified_business_name_over_title_variant(
         assert brief.editorial_headline is not None
         assert brief.editorial_headline.startswith("Hachi & Co"), order_name
         assert (project_root / "design" / "creative-brief.json").is_file()
+
+
+def test_positioning_fact_is_tagline_not_duplicated_in_headline(
+    tmp_path: Path,
+) -> None:
+    """A verified positioning line must be the tagline, not repeated inside the H1.
+
+    Regression: the positioning fact used to be concatenated into BOTH the
+    headline (`f"{business_name} — {value}"`) and the tagline (`value`), so the
+    page rendered the same sentence twice (e.g. "... Premium Pet Grooming in
+    North and North West London" followed by the identical subtitle).
+    """
+    positioning = "Premium Pet Grooming in North and North West London"
+    project_root = tmp_path / "positioning-dedupe"
+    (project_root / "research").mkdir(parents=True, exist_ok=True)
+    (project_root / "design").mkdir(parents=True, exist_ok=True)
+    (project_root / "research" / "business-facts.json").write_text(
+        json.dumps(
+            {
+                "project_id": project_root.name,
+                "facts": [
+                    {
+                        "category": "business_name",
+                        "claim_value": "Lily's Club Dog Grooming",
+                        "is_verified": True,
+                        "status": "verified",
+                    },
+                    {
+                        "category": "services",
+                        "claim_value": "Dog grooming",
+                        "is_verified": True,
+                        "status": "verified",
+                    },
+                    {
+                        "category": "positioning",
+                        "claim_value": positioning,
+                        "is_verified": True,
+                        "status": "verified",
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    _brand, brief = generate_art_direction(project_root)
+
+    # The verified positioning line becomes the tagline (kept verbatim).
+    assert brief.editorial_tagline == positioning
+    # The headline must be a distinct hook and must not repeat the positioning
+    # line verbatim (that is what caused the visible duplicate copy).
+    assert brief.editorial_headline is not None
+    assert positioning not in brief.editorial_headline
+    assert brief.editorial_headline != brief.editorial_tagline
